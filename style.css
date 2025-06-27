@@ -1,5 +1,5 @@
 /* ===================================================================
-   NRD SANDBOX - TACTICAL BATTLE INTERFACE STYLES
+   NRD SANDBOX - TACTICAL CARD BATTLE INTERFACE STYLES
    =================================================================== */
 
 /* ===================================================================
@@ -25,10 +25,11 @@ body {
 .battlefield-container {
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
-    max-width: 1400px;
+    height: 100vh;
+    max-width: 1600px;
     margin: 0 auto;
     padding: 0 20px;
+    overflow: hidden;
 }
 
 /* ===================================================================
@@ -38,9 +39,10 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 0;
+    padding: 12px 0;
     border-bottom: 2px solid #333;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
+    flex-shrink: 0;
 }
 
 .nav-left, .nav-right {
@@ -56,7 +58,7 @@ body {
 }
 
 .game-title {
-    font-size: 24px;
+    font-size: 22px;
     font-weight: bold;
     color: #00d4ff;
     text-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
@@ -66,10 +68,11 @@ body {
 .config-link, .logout-link {
     color: #88c0ff;
     text-decoration: none;
-    padding: 8px 12px;
+    padding: 6px 10px;
     border-radius: 4px;
     transition: all 0.3s ease;
     border: 1px solid transparent;
+    font-size: 14px;
 }
 
 .config-link:hover, .logout-link:hover {
@@ -79,7 +82,7 @@ body {
 
 .user-info {
     color: #aaa;
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .version-badge {
@@ -89,6 +92,16 @@ body {
     border-radius: 12px;
     font-size: 12px;
     font-weight: bold;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border: 1px solid transparent;
+}
+
+.version-badge:hover {
+    background: #34ce57;
+    border-color: #28a745;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
 }
 
 /* ===================================================================
@@ -99,87 +112,219 @@ body {
     display: flex;
     flex-direction: column;
     gap: 0;
+    min-height: 0;
 }
 
 .combat-zone {
     flex: 1;
-    padding: 30px;
+    padding: 12px 20px;
     position: relative;
+    min-height: 0;
 }
 
 .enemy-zone {
-    background: linear-gradient(180deg, rgba(220, 53, 69, 0.1) 0%, transparent 100%);
-    border-radius: 12px 12px 0 0;
+    background: linear-gradient(180deg, rgba(220, 53, 69, 0.08) 0%, transparent 100%);
+    border-radius: 8px 8px 0 0;
 }
 
 .player-zone {
-    background: linear-gradient(0deg, rgba(40, 167, 69, 0.1) 0%, transparent 100%);
-    border-radius: 0 0 12px 12px;
+    background: linear-gradient(0deg, rgba(40, 167, 69, 0.08) 0%, transparent 100%);
+    border-radius: 0 0 8px 8px;
 }
 
 .zone-label {
     position: absolute;
-    top: 8px;
-    left: 30px;
-    font-size: 12px;
-    font-weight: bold;
-    color: rgba(255, 255, 255, 0.6);
-    letter-spacing: 1px;
-}
-
-.battlefield-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    height: 100%;
-    max-width: 1000px;
-    margin: 0 auto;
-}
-
-.spacer {
-    flex: 1;
-}
-
-/* ===================================================================
-   BATTLEFIELD DIVIDER
-   =================================================================== */
-.battlefield-divider {
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    margin: 10px 0;
-}
-
-.divider-line {
-    width: 100%;
-    height: 3px;
-    background: linear-gradient(90deg, transparent 0%, #444 20%, #666 50%, #444 80%, transparent 100%);
-    border-radius: 2px;
-}
-
-.divider-label {
-    position: absolute;
-    background: #1a1a2e;
-    padding: 5px 15px;
-    border: 2px solid #666;
-    border-radius: 20px;
+    top: 6px;
+    left: 20px;
     font-size: 11px;
     font-weight: bold;
-    color: #ccc;
+    color: rgba(255, 255, 255, 0.5);
     letter-spacing: 1px;
 }
 
 /* ===================================================================
-   MECH CARDS
+   NEW BATTLEFIELD LAYOUT (5-COLUMN)
+   =================================================================== */
+.battlefield-layout {
+    display: grid;
+    grid-template-columns: 120px 140px 1fr 140px 120px;
+    gap: 20px;
+    align-items: center;
+    height: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 10px 0;
+}
+
+/* ===================================================================
+   DRAW DECK AREAS
+   =================================================================== */
+.draw-deck-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.draw-pile {
+    position: relative;
+    width: 70px;
+    height: 90px;
+}
+
+.draw-card {
+    position: absolute;
+    width: 70px;
+    height: 90px;
+    background: linear-gradient(145deg, #2a2a3e 0%, #1e1e2e 100%);
+    border: 2px solid #444;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.draw-card:nth-child(1) { top: 0px; left: 0px; }
+.draw-card:nth-child(2) { top: -2px; left: 1px; }
+.draw-card:nth-child(3) { top: -4px; left: 2px; }
+.draw-card:nth-child(4) { top: -6px; left: 3px; }
+.draw-card:nth-child(5) { top: -8px; left: 4px; }
+
+.face-down {
+    background: repeating-linear-gradient(
+        45deg,
+        #2a2a3e,
+        #2a2a3e 10px,
+        #1e1e2e 10px,
+        #1e1e2e 20px
+    );
+}
+
+/* ===================================================================
+   EQUIPMENT CARDS (WEAPON & ARMOR)
+   =================================================================== */
+.equipment-area {
+    display: flex;
+    justify-content: center;
+}
+
+.equipment-card {
+    width: 120px;
+    height: 150px;
+    background: linear-gradient(145deg, #2d4a87 0%, #1e3a5f 100%);
+    border: 2px solid #444;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px;
+    color: white;
+    text-align: center;
+    position: relative;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.equipment-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+}
+
+.weapon-card {
+    background: linear-gradient(145deg, #8b2635 0%, #5f1e2a 100%);
+    border-color: #dc3545;
+}
+
+.weapon-card:hover {
+    box-shadow: 0 8px 20px rgba(220, 53, 69, 0.4);
+}
+
+.armor-card {
+    background: linear-gradient(145deg, #2d6b35 0%, #1e4a25 100%);
+    border-color: #28a745;
+}
+
+.armor-card:hover {
+    box-shadow: 0 8px 20px rgba(40, 167, 69, 0.4);
+}
+
+.card-type {
+    font-size: 10px;
+    font-weight: bold;
+    color: rgba(255, 255, 255, 0.7);
+    letter-spacing: 1px;
+    margin-bottom: 5px;
+}
+
+.card-name {
+    font-size: 13px;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    line-height: 1.2;
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.card-stats {
+    font-size: 12px;
+    font-weight: bold;
+    color: #00d4ff;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 4px 8px;
+    border-radius: 4px;
+    margin-top: 5px;
+}
+
+/* ===================================================================
+   MECH CARDS WITH COMPANIONS
    =================================================================== */
 .mech-area {
     display: flex;
     flex-direction: column;
     align-items: center;
-    flex: 2;
-    max-width: 200px;
+    position: relative;
+    min-width: 160px;
+}
+
+.companion-pog {
+    position: absolute;
+    top: -15px;
+    left: -15px;
+    width: 35px;
+    height: 35px;
+    background: radial-gradient(circle, #666 0%, #333 100%);
+    border: 3px solid #888;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 15;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.enemy-companion {
+    border-color: #dc3545;
+    background: radial-gradient(circle, #8b2635 0%, #5f1e2a 100%);
+}
+
+.player-companion {
+    border-color: #28a745;
+    background: radial-gradient(circle, #2d6b35 0%, #1e4a25 100%);
+}
+
+.pog-content {
+    text-align: center;
+}
+
+.pog-name {
+    font-size: 7px;
+    font-weight: bold;
+    color: #fff;
+    line-height: 1;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    text-align: center;
 }
 
 .mech-card {
@@ -187,8 +332,8 @@ body {
     height: 160px;
     border-radius: 12px;
     position: relative;
-    margin-bottom: 15px;
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+    margin-bottom: 10px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
     transition: all 0.3s ease;
     background: linear-gradient(145deg, #2a2a3e 0%, #1e1e2e 100%);
     border: 2px solid #444;
@@ -196,36 +341,33 @@ body {
 
 .mech-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.6);
 }
 
 /* Mech Health States */
 .mech-card.healthy {
     border-color: #28a745;
-    box-shadow: 0 8px 16px rgba(40, 167, 69, 0.3);
+    box-shadow: 0 6px 16px rgba(40, 167, 69, 0.3);
 }
 
 .mech-card.damaged {
     border-color: #ffc107;
-    box-shadow: 0 8px 16px rgba(255, 193, 7, 0.3);
+    box-shadow: 0 6px 16px rgba(255, 193, 7, 0.3);
 }
 
 .mech-card.critical {
     border-color: #dc3545;
-    box-shadow: 0 8px 16px rgba(220, 53, 69, 0.3);
+    box-shadow: 0 6px 16px rgba(220, 53, 69, 0.3);
     animation: pulse-critical 2s infinite;
 }
 
 @keyframes pulse-critical {
-    0%, 100% { box-shadow: 0 8px 16px rgba(220, 53, 69, 0.3); }
-    50% { box-shadow: 0 8px 16px rgba(220, 53, 69, 0.6); }
+    0%, 100% { box-shadow: 0 6px 16px rgba(220, 53, 69, 0.3); }
+    50% { box-shadow: 0 6px 16px rgba(220, 53, 69, 0.6); }
 }
 
-/* HP Circle - PROPERLY POSITIONED */
+/* HP Circle - Now positioned below the mech card */
 .mech-hp-circle {
-    position: absolute;
-    top: 12px;
-    left: 12px;
     width: 36px;
     height: 36px;
     background: radial-gradient(circle, #fff 0%, #e0e0e0 100%);
@@ -235,21 +377,23 @@ body {
     justify-content: center;
     border: 3px solid #333;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    z-index: 10;
+    margin: 8px auto;
+    position: relative;
+    z-index: 5;
 }
 
 .hp-value {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: bold;
     color: #333;
     text-shadow: none;
 }
 
-/* Faction Label (P/E) - PROPERLY ALIGNED */
+/* Faction Label (P/E) - Adjusted to not interfere with companion pogs */
 .mech-faction-label {
     position: absolute;
-    top: 12px;
-    right: 12px;
+    top: 8px;
+    right: 8px;
     width: 28px;
     height: 28px;
     background: rgba(0, 0, 0, 0.8);
@@ -262,7 +406,7 @@ body {
     color: #ffffff;
     border: 2px solid #666;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-    z-index: 10;
+    z-index: 5;
 }
 
 .enemy-mech .mech-faction-label {
@@ -291,107 +435,144 @@ body {
 }
 
 .mech-name {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: bold;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     color: #00d4ff;
 }
 
 .mech-stats {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
 }
 
 .stat {
-    font-size: 13px;
+    font-size: 11px;
     color: #ccc;
     background: rgba(255, 255, 255, 0.05);
-    padding: 3px 8px;
-    border-radius: 4px;
-    border-left: 3px solid #666;
+    padding: 2px 6px;
+    border-radius: 3px;
+    border-left: 2px solid #666;
 }
 
 /* ===================================================================
-   CARD DECKS
+   HAND AREAS
    =================================================================== */
-.deck-area {
+.hand-area {
     display: flex;
     flex-direction: column;
     align-items: center;
-    flex: 1;
-    max-width: 120px;
+    gap: 8px;
 }
 
-.card-stack {
+.hand-cards {
     display: flex;
     flex-direction: column;
-    gap: -10px;
-    margin-bottom: 10px;
+    gap: -5px;
 }
 
-.game-card {
+.hand-card {
     width: 80px;
-    height: 110px;
-    border-radius: 8px;
-    border: none;
+    height: 100px;
+    border-radius: 6px;
+    border: 1px solid #444;
     cursor: pointer;
-    position: relative;
     transition: all 0.2s ease;
-    margin-top: -15px;
+    margin-top: -10px;
+    position: relative;
     background: linear-gradient(145deg, #2d4a87 0%, #1e3a5f 100%);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 
-.game-card:first-child {
+.hand-card:first-child {
     margin-top: 0;
 }
 
-.game-card:hover {
-    transform: translateY(-5px) scale(1.05);
+.hand-card:hover {
+    transform: translateX(-5px) scale(1.05);
     z-index: 5;
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
-.game-card:active {
-    transform: translateY(-2px) scale(1.02);
-}
-
-.enemy-card {
-    background: linear-gradient(145deg, #8b2635 0%, #5f1e2a 100%);
-}
-
-.enemy-card:hover {
-    box-shadow: 0 8px 16px rgba(220, 53, 69, 0.4);
-}
-
-.player-card {
+.face-up {
     background: linear-gradient(145deg, #2d6b35 0%, #1e4a25 100%);
+    border-color: #28a745;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 6px;
 }
 
-.player-card:hover {
-    box-shadow: 0 8px 16px rgba(40, 167, 69, 0.4);
+.face-up:hover {
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
 }
 
-.card-face {
-    width: 100%;
-    height: 100%;
-    border-radius: 6px;
-    background: repeating-linear-gradient(
-        45deg,
-        rgba(255, 255, 255, 0.02),
-        rgba(255, 255, 255, 0.02) 10px,
-        transparent 10px,
-        transparent 20px
-    );
+.card-mini-name {
+    font-size: 10px;
+    font-weight: bold;
+    text-align: center;
+    line-height: 1.2;
 }
 
+.card-mini-cost {
+    font-size: 14px;
+    font-weight: bold;
+    color: #00d4ff;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 2px;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+}
+
+/* ===================================================================
+   DECK LABELS
+   =================================================================== */
 .deck-label {
-    font-size: 12px;
+    font-size: 11px;
     color: #aaa;
     text-transform: uppercase;
     letter-spacing: 1px;
-    margin-top: 5px;
+    text-align: center;
+}
+
+/* ===================================================================
+   BATTLEFIELD DIVIDER
+   =================================================================== */
+.battlefield-divider {
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    margin: 8px 0;
+    flex-shrink: 0;
+}
+
+.divider-line {
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent 0%, #444 20%, #666 50%, #444 80%, transparent 100%);
+    border-radius: 1px;
+}
+
+.divider-label {
+    position: absolute;
+    background: #1a1a2e;
+    padding: 4px 12px;
+    border: 1px solid #666;
+    border-radius: 15px;
+    font-size: 10px;
+    font-weight: bold;
+    color: #ccc;
+    letter-spacing: 1px;
 }
 
 /* ===================================================================
@@ -399,12 +580,14 @@ body {
    =================================================================== */
 .controls-panel {
     background: rgba(0, 0, 0, 0.3);
-    border-radius: 12px;
-    padding: 20px;
-    margin-top: 20px;
+    border-radius: 10px;
+    padding: 12px;
+    margin-top: 8px;
     display: flex;
-    gap: 30px;
+    gap: 15px;
     border: 1px solid #333;
+    flex-shrink: 0;
+    height: auto;
 }
 
 .control-group {
@@ -412,11 +595,11 @@ body {
 }
 
 .control-group h3 {
-    font-size: 16px;
-    margin-bottom: 12px;
+    font-size: 13px;
+    margin-bottom: 6px;
     color: #00d4ff;
-    border-bottom: 2px solid #333;
-    padding-bottom: 5px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 2px;
 }
 
 /* ===================================================================
@@ -424,56 +607,56 @@ body {
    =================================================================== */
 .action-buttons {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
 }
 
 .action-btn {
-    padding: 10px 16px;
+    padding: 8px 12px;
     border: none;
-    border-radius: 6px;
-    font-size: 14px;
+    border-radius: 5px;
+    font-size: 12px;
     font-weight: bold;
     cursor: pointer;
     transition: all 0.3s ease;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-    min-width: 120px;
+    min-width: 100px;
 }
 
 .attack-btn {
     background: linear-gradient(145deg, #dc3545 0%, #a71e2a 100%);
     color: white;
-    border: 2px solid #dc3545;
+    border: 1px solid #dc3545;
 }
 
 .attack-btn:hover {
     background: linear-gradient(145deg, #e74c5c 0%, #c0392b 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(220, 53, 69, 0.4);
 }
 
 .defend-btn {
     background: linear-gradient(145deg, #6c757d 0%, #495057 100%);
     color: white;
-    border: 2px solid #6c757d;
+    border: 1px solid #6c757d;
 }
 
 .defend-btn:hover {
     background: linear-gradient(145deg, #7c858d 0%, #5a6268 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.4);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(108, 117, 125, 0.4);
 }
 
 .reset-btn {
     background: linear-gradient(145deg, #28a745 0%, #1e7e34 100%);
     color: white;
-    border: 2px solid #28a745;
+    border: 1px solid #28a745;
 }
 
 .reset-btn:hover {
     background: linear-gradient(145deg, #34ce57 0%, #257e42 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(40, 167, 69, 0.4);
 }
 
 /* ===================================================================
@@ -482,22 +665,22 @@ body {
 .log-container {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 6px;
 }
 
 .game-log {
     background: rgba(0, 0, 0, 0.5);
     border: 1px solid #444;
-    border-radius: 6px;
-    padding: 12px;
-    height: 150px;
+    border-radius: 5px;
+    padding: 6px;
+    height: 80px;
     overflow-y: auto;
-    font-size: 13px;
-    line-height: 1.4;
+    font-size: 11px;
+    line-height: 1.3;
 }
 
 .log-entry {
-    padding: 3px 0;
+    padding: 2px 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     color: #ddd;
 }
@@ -510,7 +693,8 @@ body {
     color: #888;
     text-align: center;
     font-style: italic;
-    margin-top: 60px;
+    margin-top: 25px;
+    font-size: 10px;
 }
 
 .log-controls {
@@ -522,9 +706,9 @@ body {
     background: #6c757d;
     color: white;
     border: none;
-    padding: 6px 12px;
-    border-radius: 4px;
-    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 10px;
     cursor: pointer;
     transition: all 0.3s ease;
 }
@@ -538,42 +722,59 @@ body {
    FOOTER
    =================================================================== */
 .game-footer {
-    margin-top: 20px;
-    padding: 15px 0;
+    margin-top: 8px;
+    padding: 8px 0;
     border-top: 1px solid #333;
     text-align: center;
+    flex-shrink: 0;
 }
 
 .build-info {
-    font-size: 12px;
+    font-size: 10px;
     color: #888;
 }
 
 /* ===================================================================
    RESPONSIVE DESIGN
    =================================================================== */
+@media (max-width: 1200px) {
+    .battlefield-layout {
+        grid-template-columns: 100px 120px 1fr 120px 100px;
+        gap: 15px;
+    }
+    
+    .equipment-card {
+        width: 100px;
+        height: 130px;
+        padding: 8px;
+    }
+    
+    .mech-card {
+        width: 100px;
+        height: 140px;
+    }
+}
+
 @media (max-width: 768px) {
     .battlefield-container {
         padding: 0 10px;
     }
     
-    .battlefield-row {
-        flex-direction: column;
-        gap: 20px;
+    .battlefield-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto auto auto;
+        gap: 10px;
+        text-align: center;
     }
     
     .controls-panel {
         flex-direction: column;
-        gap: 20px;
-    }
-    
-    .action-buttons {
-        justify-content: center;
+        gap: 10px;
     }
     
     .top-bar {
         flex-direction: column;
-        gap: 10px;
+        gap: 8px;
         text-align: center;
     }
     
@@ -586,17 +787,17 @@ body {
    SCROLLBAR CUSTOMIZATION
    =================================================================== */
 .game-log::-webkit-scrollbar {
-    width: 6px;
+    width: 4px;
 }
 
 .game-log::-webkit-scrollbar-track {
     background: rgba(255, 255, 255, 0.1);
-    border-radius: 3px;
+    border-radius: 2px;
 }
 
 .game-log::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.3);
-    border-radius: 3px;
+    border-radius: 2px;
 }
 
 .game-log::-webkit-scrollbar-thumb:hover {

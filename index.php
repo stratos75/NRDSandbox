@@ -1,6 +1,6 @@
 <?php
 // ===================================================================
-// NRD SANDBOX - MAIN GAME INTERFACE
+// NRD SANDBOX - TACTICAL CARD BATTLE INTERFACE
 // ===================================================================
 require 'auth.php';
 
@@ -15,6 +15,18 @@ if (session_status() === PHP_SESSION_NONE) {
 $build = require 'builds.php';
 
 // ===================================================================
+// GAME CONFIGURATION VARIABLES
+// ===================================================================
+// These will eventually be configurable via the interface
+$gameConfig = [
+    'hand_size' => $_SESSION['hand_size'] ?? 5,
+    'draw_deck_size' => $_SESSION['draw_deck_size'] ?? 20,
+    'enable_companions' => $_SESSION['enable_companions'] ?? true,
+    'show_enemy_cards' => false, // Enemy cards always hidden
+    'show_player_cards' => true  // Player cards always visible
+];
+
+// ===================================================================
 // MECH DATA INITIALIZATION
 // ===================================================================
 // Base default values
@@ -26,14 +38,16 @@ $defaultPlayerMech = [
     'HP' => $_SESSION['player_hp'] ?? $basePlayerHP,
     'ATK' => $_SESSION['player_atk'] ?? 30,
     'DEF' => $_SESSION['player_def'] ?? 15,
-    'MAX_HP' => $_SESSION['player_hp'] ?? $basePlayerHP
+    'MAX_HP' => $_SESSION['player_hp'] ?? $basePlayerHP,
+    'companion' => $_SESSION['player_companion'] ?? 'Pilot-Alpha'
 ];
 
 $defaultEnemyMech = [
     'HP' => $_SESSION['enemy_hp'] ?? $baseEnemyHP,
     'ATK' => $_SESSION['enemy_atk'] ?? 25,
     'DEF' => $_SESSION['enemy_def'] ?? 10,
-    'MAX_HP' => $_SESSION['enemy_hp'] ?? $baseEnemyHP
+    'MAX_HP' => $_SESSION['enemy_hp'] ?? $baseEnemyHP,
+    'companion' => $_SESSION['enemy_companion'] ?? 'AI-Core'
 ];
 
 // Current mech states (persisted in session)
@@ -48,6 +62,22 @@ if (!isset($playerMech['MAX_HP']) || $playerMech['MAX_HP'] <= 0) {
 if (!isset($enemyMech['MAX_HP']) || $enemyMech['MAX_HP'] <= 0) {
     $enemyMech['MAX_HP'] = $enemyMech['HP'] > 0 ? $enemyMech['HP'] : $baseEnemyHP;
 }
+
+// ⚠️  CRITICAL: Ensure companion keys exist to prevent errors
+if (!isset($playerMech['companion']) || empty($playerMech['companion'])) {
+    $playerMech['companion'] = $defaultPlayerMech['companion'];
+}
+
+if (!isset($enemyMech['companion']) || empty($enemyMech['companion'])) {
+    $enemyMech['companion'] = $defaultEnemyMech['companion'];
+}
+
+// Initialize card data (placeholder for now)
+$playerWeapon = $_SESSION['playerWeapon'] ?? ['name' => 'Plasma Rifle', 'atk' => 15, 'durability' => 100];
+$playerArmor = $_SESSION['playerArmor'] ?? ['name' => 'Shield Array', 'def' => 10, 'durability' => 100];
+$enemyWeapon = $_SESSION['enemyWeapon'] ?? ['name' => 'Ion Cannon', 'atk' => 12, 'durability' => 100];
+$enemyArmor = $_SESSION['enemyArmor'] ?? ['name' => 'Reactive Plating', 'def' => 8, 'durability' => 100];
+
 $gameLog = $_SESSION['log'] ?? [];
 
 // ===================================================================
@@ -75,6 +105,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $gameLog[] = "[" . date('H:i:s') . "] Card activated: {$cardInfo}";
     }
     
+    // Handle equipment clicks
+    if (isset($_POST['equipment_click'])) {
+        $equipInfo = htmlspecialchars($_POST['equipment_click']);
+        $gameLog[] = "[" . date('H:i:s') . "] Equipment used: {$equipInfo}";
+    }
+    
     // Handle log clearing
     if (isset($_POST['clear_log'])) {
         $gameLog = [];
@@ -84,15 +120,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['reset_mechs'])) {
         $playerMech = $defaultPlayerMech;
         $enemyMech = $defaultEnemyMech;
-        // Ensure MAX_HP is properly set on reset
+        // Ensure MAX_HP and companion are properly set on reset
         $playerMech['MAX_HP'] = $playerMech['HP'];
         $enemyMech['MAX_HP'] = $enemyMech['HP'];
+        $playerMech['companion'] = $defaultPlayerMech['companion'];
+        $enemyMech['companion'] = $defaultEnemyMech['companion'];
         $gameLog[] = "[" . date('H:i:s') . "] Mechs reset to full health!";
     }
     
     // Save state back to session
     $_SESSION['playerMech'] = $playerMech;
     $_SESSION['enemyMech'] = $enemyMech;
+    $_SESSION['playerWeapon'] = $playerWeapon;
+    $_SESSION['playerArmor'] = $playerArmor;
+    $_SESSION['enemyWeapon'] = $enemyWeapon;
+    $_SESSION['enemyArmor'] = $enemyArmor;
     $_SESSION['log'] = $gameLog;
     
     // Prevent form resubmission on page refresh
@@ -117,6 +159,14 @@ function getMechStatusClass($currentHP, $maxHP) {
     if ($percent > 30) return 'damaged';
     return 'critical';
 }
+
+function safeHtmlOutput($value, $default = 'Unknown') {
+    // Safely output HTML, handling null/empty values
+    if (empty($value) || $value === null) {
+        return htmlspecialchars($default);
+    }
+    return htmlspecialchars($value);
+}
 ?>
 
 <!DOCTYPE html>
@@ -124,7 +174,7 @@ function getMechStatusClass($currentHP, $maxHP) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NRD Sandbox - Tactical Battle Interface</title>
+    <title>NRD Sandbox - Tactical Card Battle Interface</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -143,7 +193,7 @@ function getMechStatusClass($currentHP, $maxHP) {
             <h1 class="game-title">NRD TACTICAL SANDBOX</h1>
         </div>
         <div class="nav-right">
-            <span class="version-badge"><?= htmlspecialchars($build['version']) ?></span>
+            <a href="build-info.php" class="version-badge" title="View Build Information"><?= htmlspecialchars($build['version']) ?></a>
             <a href="logout.php" class="logout-link">🚪 Logout</a>
         </div>
     </header>
@@ -157,29 +207,47 @@ function getMechStatusClass($currentHP, $maxHP) {
         <section class="combat-zone enemy-zone">
             <div class="zone-label">ENEMY TERRITORY</div>
             
-            <div class="battlefield-row">
-                <!-- Enemy Deck -->
-                <div class="deck-area enemy-deck">
-                    <form method="post" class="card-stack">
-                        <?php for ($i = 1; $i <= 5; $i++): ?>
-                            <button type="submit" name="card_click" value="Enemy Card <?= $i ?>" 
-                                    class="game-card enemy-card" title="Enemy Card <?= $i ?>">
-                                <div class="card-face"></div>
-                            </button>
+            <div class="battlefield-layout">
+                <!-- Enemy Draw Deck (Far Left) -->
+                <div class="draw-deck-area enemy-deck">
+                    <div class="draw-pile">
+                        <?php for ($i = 0; $i < min(5, $gameConfig['draw_deck_size']); $i++): ?>
+                            <div class="draw-card face-down" style="z-index: <?= 5-$i ?>"></div>
                         <?php endfor; ?>
-                    </form>
-                    <div class="deck-label">Enemy Deck</div>
+                    </div>
+                    <div class="deck-label">Draw (<?= $gameConfig['draw_deck_size'] ?>)</div>
                 </div>
 
-                <!-- Enemy Mech -->
+                <!-- Enemy Weapon Card -->
+                <div class="equipment-area">
+                    <form method="post">
+                        <button type="submit" name="equipment_click" value="Enemy Weapon" class="equipment-card weapon-card enemy-equipment">
+                            <div class="card-type">WEAPON</div>
+                            <div class="card-name"><?= htmlspecialchars($enemyWeapon['name']) ?></div>
+                            <div class="card-stats">ATK: +<?= $enemyWeapon['atk'] ?></div>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Enemy Mech (Center) -->
                 <div class="mech-area enemy-mech">
                     <div class="mech-card <?= getMechStatusClass($enemyMech['HP'], $enemyMech['MAX_HP']) ?>">
-                        <div class="mech-hp-circle">
-                            <span class="hp-value"><?= $enemyMech['HP'] ?></span>
-                        </div>
+                        <?php if ($gameConfig['enable_companions']): ?>
+                            <div class="companion-pog enemy-companion">
+                                <div class="pog-content">
+                                    <div class="pog-name"><?= safeHtmlOutput($enemyMech['companion'], 'AI-Core') ?></div>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+                        
                         <div class="mech-faction-label">E</div>
                         <div class="mech-body"></div>
                     </div>
+                    
+                    <div class="mech-hp-circle">
+                        <span class="hp-value"><?= $enemyMech['HP'] ?></span>
+                    </div>
+                    
                     <div class="mech-info">
                         <div class="mech-name">Enemy Mech</div>
                         <div class="mech-stats">
@@ -190,7 +258,26 @@ function getMechStatusClass($currentHP, $maxHP) {
                     </div>
                 </div>
 
-                <div class="spacer"></div>
+                <!-- Enemy Armor Card -->
+                <div class="equipment-area">
+                    <form method="post">
+                        <button type="submit" name="equipment_click" value="Enemy Armor" class="equipment-card armor-card enemy-equipment">
+                            <div class="card-type">ARMOR</div>
+                            <div class="card-name"><?= htmlspecialchars($enemyArmor['name']) ?></div>
+                            <div class="card-stats">DEF: +<?= $enemyArmor['def'] ?></div>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Enemy Hand (Far Right - Hidden) -->
+                <div class="hand-area enemy-hand">
+                    <div class="hand-cards">
+                        <?php for ($i = 1; $i <= $gameConfig['hand_size']; $i++): ?>
+                            <div class="hand-card face-down"></div>
+                        <?php endfor; ?>
+                    </div>
+                    <div class="deck-label">Hand (<?= $gameConfig['hand_size'] ?>)</div>
+                </div>
             </div>
         </section>
 
@@ -204,18 +291,47 @@ function getMechStatusClass($currentHP, $maxHP) {
         <section class="combat-zone player-zone">
             <div class="zone-label">PLAYER TERRITORY</div>
             
-            <div class="battlefield-row">
-                <div class="spacer"></div>
+            <div class="battlefield-layout">
+                <!-- Player Draw Deck (Far Left) -->
+                <div class="draw-deck-area player-deck">
+                    <div class="draw-pile">
+                        <?php for ($i = 0; $i < min(5, $gameConfig['draw_deck_size']); $i++): ?>
+                            <div class="draw-card face-down" style="z-index: <?= 5-$i ?>"></div>
+                        <?php endfor; ?>
+                    </div>
+                    <div class="deck-label">Draw (<?= $gameConfig['draw_deck_size'] ?>)</div>
+                </div>
 
-                <!-- Player Mech -->
+                <!-- Player Weapon Card -->
+                <div class="equipment-area">
+                    <form method="post">
+                        <button type="submit" name="equipment_click" value="Player Weapon" class="equipment-card weapon-card player-equipment">
+                            <div class="card-type">WEAPON</div>
+                            <div class="card-name"><?= htmlspecialchars($playerWeapon['name']) ?></div>
+                            <div class="card-stats">ATK: +<?= $playerWeapon['atk'] ?></div>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Player Mech (Center) -->
                 <div class="mech-area player-mech">
                     <div class="mech-card <?= getMechStatusClass($playerMech['HP'], $playerMech['MAX_HP']) ?>">
-                        <div class="mech-hp-circle">
-                            <span class="hp-value"><?= $playerMech['HP'] ?></span>
-                        </div>
+                        <?php if ($gameConfig['enable_companions']): ?>
+                            <div class="companion-pog player-companion">
+                                <div class="pog-content">
+                                    <div class="pog-name"><?= safeHtmlOutput($playerMech['companion'], 'Pilot-Alpha') ?></div>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+                        
                         <div class="mech-faction-label">P</div>
                         <div class="mech-body"></div>
                     </div>
+                    
+                    <div class="mech-hp-circle">
+                        <span class="hp-value"><?= $playerMech['HP'] ?></span>
+                    </div>
+                    
                     <div class="mech-info">
                         <div class="mech-name">Your Mech</div>
                         <div class="mech-stats">
@@ -226,17 +342,30 @@ function getMechStatusClass($currentHP, $maxHP) {
                     </div>
                 </div>
 
-                <!-- Player Deck -->
-                <div class="deck-area player-deck">
-                    <form method="post" class="card-stack">
-                        <?php for ($i = 1; $i <= 5; $i++): ?>
-                            <button type="submit" name="card_click" value="Player Card <?= $i ?>" 
-                                    class="game-card player-card" title="Player Card <?= $i ?>">
-                                <div class="card-face"></div>
-                            </button>
-                        <?php endfor; ?>
+                <!-- Player Armor Card -->
+                <div class="equipment-area">
+                    <form method="post">
+                        <button type="submit" name="equipment_click" value="Player Armor" class="equipment-card armor-card player-equipment">
+                            <div class="card-type">ARMOR</div>
+                            <div class="card-name"><?= htmlspecialchars($playerArmor['name']) ?></div>
+                            <div class="card-stats">DEF: +<?= $playerArmor['def'] ?></div>
+                        </button>
                     </form>
-                    <div class="deck-label">Your Deck</div>
+                </div>
+
+                <!-- Player Hand (Far Right - Visible) -->
+                <div class="hand-area player-hand">
+                    <div class="hand-cards">
+                        <?php for ($i = 1; $i <= $gameConfig['hand_size']; $i++): ?>
+                            <form method="post" style="display: inline;">
+                                <button type="submit" name="card_click" value="Player Hand Card <?= $i ?>" class="hand-card face-up">
+                                    <div class="card-mini-name">Card <?= $i ?></div>
+                                    <div class="card-mini-cost"><?= rand(1,5) ?></div>
+                                </button>
+                            </form>
+                        <?php endfor; ?>
+                    </div>
+                    <div class="deck-label">Hand (<?= $gameConfig['hand_size'] ?>)</div>
                 </div>
             </div>
         </section>
@@ -269,7 +398,7 @@ function getMechStatusClass($currentHP, $maxHP) {
                     <?php if (empty($gameLog)): ?>
                         <div class="log-empty">No actions yet. Start the battle!</div>
                     <?php else: ?>
-                        <?php foreach (array_reverse(array_slice($gameLog, -10)) as $logEntry): ?>
+                        <?php foreach (array_reverse(array_slice($gameLog, -8)) as $logEntry): ?>
                             <div class="log-entry"><?= htmlspecialchars($logEntry) ?></div>
                         <?php endforeach; ?>
                     <?php endif; ?>
