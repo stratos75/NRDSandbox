@@ -6,9 +6,9 @@ require 'auth.php';
 
 // Build information directly embedded (no circular reference)
 $build = [
-    'version' => 'v0.3.2',
+    'version' => 'v0.4.1',
     'date'    => '2025-06-26',
-    'notes'   => 'Fixed companion pog positioning and alignment issues',
+    'notes'   => 'Fixed log panel interference with fan card layout - made controls more compact',
     
     // Additional build metadata
     'build_name' => 'Card Battle Layout',
@@ -30,16 +30,18 @@ $build = [
     
     // Changelog for this version
     'changelog' => [
-        'FIXED: Companion pogs now properly positioned on mech card corners',
-        'FIXED: Companion pogs no longer floating above cards',
-        'IMPROVED: Moved companion pogs inside mech-card divs for proper positioning',
-        'IMPROVED: Adjusted companion pog size and positioning for better appearance',
-        'IMPROVED: Fine-tuned faction label positioning to avoid conflicts',
-        'IMPROVED: Enhanced z-index management for overlapping elements'
+        'FIXED: Log panel no longer interferes with fan card layout',
+        'IMPROVED: Made controls panel more compact (max height 120px)',
+        'IMPROVED: Reduced log section height to 60px',
+        'IMPROVED: Optimized control group spacing and sizing',
+        'IMPROVED: Smaller font sizes for better space utilization',
+        'IMPROVED: Enhanced layout balance between cards and controls'
     ],
     
     // Previous versions for reference
     'previous_versions' => [
+        'v0.4.0' => '2025-06-26 - Added fan card layout for hands with realistic fan effect',
+        'v0.3.2' => '2025-06-26 - Fixed companion pog positioning and alignment issues',
         'v0.3.1' => '2025-06-26 - Critical bugfix: Fixed companion pog errors, added null safety checks',
         'v0.3.0' => '2025-06-26 - Complete layout restructure: Centered mechs, weapon/armor cards, companion pogs',
         'v0.2.0' => '2025-06-26 - Major UI overhaul: Fixed P/E alignment, HP in circles, improved layout',

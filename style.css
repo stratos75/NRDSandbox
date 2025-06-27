@@ -117,9 +117,11 @@ body {
 
 .combat-zone {
     flex: 1;
-    padding: 12px 20px;
+    padding: 8px 20px;
     position: relative;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 .enemy-zone {
@@ -150,10 +152,10 @@ body {
     grid-template-columns: 120px 140px 1fr 140px 120px;
     gap: 20px;
     align-items: center;
-    height: 100%;
+    flex: 1;
     max-width: 1400px;
     margin: 0 auto;
-    padding: 10px 0;
+    padding: 8px 0;
 }
 
 /* ===================================================================
@@ -457,45 +459,64 @@ body {
 }
 
 /* ===================================================================
-   HAND AREAS
+   HAND SECTIONS (NEW FAN LAYOUT)
    =================================================================== */
-.hand-area {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
+.hand-section {
+    padding: 15px 0;
+    text-align: center;
 }
 
-.hand-cards {
-    display: flex;
-    flex-direction: column;
-    gap: -5px;
+.enemy-hand-section {
+    order: -1; /* Appears at top of enemy zone */
 }
 
-.hand-card {
-    width: 80px;
-    height: 100px;
+.player-hand-section {
+    order: 1; /* Appears at bottom of player zone */
+}
+
+.hand-label {
+    font-size: 12px;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+}
+
+.hand-cards-fan {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    height: 80px;
+    position: relative;
+    perspective: 1000px;
+}
+
+.fan-card {
+    position: absolute;
+    width: 60px;
+    height: 80px;
     border-radius: 6px;
     border: 1px solid #444;
     cursor: pointer;
-    transition: all 0.2s ease;
-    margin-top: -10px;
-    position: relative;
+    transition: all 0.3s ease;
     background: linear-gradient(145deg, #2d4a87 0%, #1e3a5f 100%);
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    transform-origin: bottom center;
+    
+    /* Fan positioning and rotation using CSS custom property */
+    left: calc(50% + (var(--card-index) - 2) * 20px);
+    transform: translateX(-50%) rotate(calc((var(--card-index) - 2) * 8deg));
+    z-index: calc(10 + var(--card-index));
 }
 
-.hand-card:first-child {
-    margin-top: 0;
+.fan-card:hover {
+    transform: translateX(-50%) rotate(calc((var(--card-index) - 2) * 8deg)) translateY(-10px) scale(1.1);
+    z-index: 20;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
 }
 
-.hand-card:hover {
-    transform: translateX(-5px) scale(1.05);
-    z-index: 5;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-}
-
-.face-up {
+/* Player cards (face-up) styling */
+.fan-card.face-up {
     background: linear-gradient(145deg, #2d6b35 0%, #1e4a25 100%);
     border-color: #28a745;
     color: white;
@@ -505,31 +526,43 @@ body {
     padding: 6px;
 }
 
-.face-up:hover {
-    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+.fan-card.face-up:hover {
+    box-shadow: 0 8px 16px rgba(40, 167, 69, 0.4);
+}
+
+/* Enemy cards (face-down) styling */
+.fan-card.face-down {
+    background: repeating-linear-gradient(
+        45deg,
+        #2a2a3e,
+        #2a2a3e 8px,
+        #1e1e2e 8px,
+        #1e1e2e 16px
+    );
 }
 
 .card-mini-name {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: bold;
     text-align: center;
-    line-height: 1.2;
+    line-height: 1.1;
 }
 
 .card-mini-cost {
-    font-size: 14px;
+    font-size: 12px;
     font-weight: bold;
     color: #00d4ff;
     text-align: center;
     background: rgba(0, 0, 0, 0.3);
     padding: 2px;
     border-radius: 50%;
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     display: flex;
     align-items: center;
     justify-content: center;
     align-self: center;
+    margin-top: auto;
 }
 
 /* ===================================================================
@@ -581,22 +614,31 @@ body {
 .controls-panel {
     background: rgba(0, 0, 0, 0.3);
     border-radius: 10px;
-    padding: 12px;
-    margin-top: 8px;
+    padding: 10px;
+    margin-top: 5px;
     display: flex;
     gap: 15px;
     border: 1px solid #333;
     flex-shrink: 0;
     height: auto;
+    max-height: 80px;
 }
 
 .control-group {
     flex: 1;
 }
 
+.control-group:first-child {
+    flex: 0.6; /* Combat actions take less space */
+}
+
+.control-group:last-child {
+    flex: 1.4; /* Log section takes more space but stays compact */
+}
+
 .control-group h3 {
-    font-size: 13px;
-    margin-bottom: 6px;
+    font-size: 12px;
+    margin-bottom: 5px;
     color: #00d4ff;
     border-bottom: 1px solid #333;
     padding-bottom: 2px;
@@ -607,20 +649,20 @@ body {
    =================================================================== */
 .action-buttons {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     flex-wrap: wrap;
 }
 
 .action-btn {
-    padding: 8px 12px;
+    padding: 6px 10px;
     border: none;
-    border-radius: 5px;
-    font-size: 12px;
+    border-radius: 4px;
+    font-size: 11px;
     font-weight: bold;
     cursor: pointer;
     transition: all 0.3s ease;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-    min-width: 100px;
+    min-width: 90px;
 }
 
 .attack-btn {
@@ -672,15 +714,15 @@ body {
     background: rgba(0, 0, 0, 0.5);
     border: 1px solid #444;
     border-radius: 5px;
-    padding: 6px;
-    height: 80px;
+    padding: 5px;
+    height: 60px;
     overflow-y: auto;
-    font-size: 11px;
-    line-height: 1.3;
+    font-size: 10px;
+    line-height: 1.2;
 }
 
 .log-entry {
-    padding: 2px 0;
+    padding: 1px 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     color: #ddd;
 }
@@ -693,8 +735,8 @@ body {
     color: #888;
     text-align: center;
     font-style: italic;
-    margin-top: 25px;
-    font-size: 10px;
+    margin-top: 15px;
+    font-size: 9px;
 }
 
 .log-controls {

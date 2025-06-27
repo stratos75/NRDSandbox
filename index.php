@@ -207,6 +207,16 @@ function safeHtmlOutput($value, $default = 'Unknown') {
         <section class="combat-zone enemy-zone">
             <div class="zone-label">ENEMY TERRITORY</div>
             
+            <!-- Enemy Hand (Top - Hidden Cards in Fan Layout) -->
+            <div class="hand-section enemy-hand-section">
+                <div class="hand-cards-fan">
+                    <?php for ($i = 1; $i <= $gameConfig['hand_size']; $i++): ?>
+                        <div class="hand-card face-down fan-card" style="--card-index: <?= $i-1 ?>"></div>
+                    <?php endfor; ?>
+                </div>
+                <div class="hand-label">Enemy Hand (<?= $gameConfig['hand_size'] ?>)</div>
+            </div>
+            
             <div class="battlefield-layout">
                 <!-- Enemy Draw Deck (Far Left) -->
                 <div class="draw-deck-area enemy-deck">
@@ -269,15 +279,8 @@ function safeHtmlOutput($value, $default = 'Unknown') {
                     </form>
                 </div>
 
-                <!-- Enemy Hand (Far Right - Hidden) -->
-                <div class="hand-area enemy-hand">
-                    <div class="hand-cards">
-                        <?php for ($i = 1; $i <= $gameConfig['hand_size']; $i++): ?>
-                            <div class="hand-card face-down"></div>
-                        <?php endfor; ?>
-                    </div>
-                    <div class="deck-label">Hand (<?= $gameConfig['hand_size'] ?>)</div>
-                </div>
+                <!-- Spacer (replaces old hand area) -->
+                <div class="spacer"></div>
             </div>
         </section>
 
@@ -353,19 +356,22 @@ function safeHtmlOutput($value, $default = 'Unknown') {
                     </form>
                 </div>
 
-                <!-- Player Hand (Far Right - Visible) -->
-                <div class="hand-area player-hand">
-                    <div class="hand-cards">
-                        <?php for ($i = 1; $i <= $gameConfig['hand_size']; $i++): ?>
-                            <form method="post" style="display: inline;">
-                                <button type="submit" name="card_click" value="Player Hand Card <?= $i ?>" class="hand-card face-up">
-                                    <div class="card-mini-name">Card <?= $i ?></div>
-                                    <div class="card-mini-cost"><?= rand(1,5) ?></div>
-                                </button>
-                            </form>
-                        <?php endfor; ?>
-                    </div>
-                    <div class="deck-label">Hand (<?= $gameConfig['hand_size'] ?>)</div>
+                <!-- Spacer (replaces old hand area) -->
+                <div class="spacer"></div>
+            </div>
+            
+            <!-- Player Hand (Bottom - Visible Cards in Fan Layout) -->
+            <div class="hand-section player-hand-section">
+                <div class="hand-label">Your Hand (<?= $gameConfig['hand_size'] ?>)</div>
+                <div class="hand-cards-fan">
+                    <?php for ($i = 1; $i <= $gameConfig['hand_size']; $i++): ?>
+                        <form method="post" style="display: inline;">
+                            <button type="submit" name="card_click" value="Player Hand Card <?= $i ?>" class="hand-card face-up fan-card" style="--card-index: <?= $i-1 ?>">
+                                <div class="card-mini-name">Card <?= $i ?></div>
+                                <div class="card-mini-cost"><?= rand(1,5) ?></div>
+                            </button>
+                        </form>
+                    <?php endfor; ?>
                 </div>
             </div>
         </section>
