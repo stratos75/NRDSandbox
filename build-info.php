@@ -6,9 +6,9 @@ require 'auth.php';
 
 // Build information directly embedded (no circular reference)
 $build = [
-    'version' => 'v0.4.1',
+    'version' => 'v0.5.3',
     'date'    => '2025-06-26',
-    'notes'   => 'Fixed log panel interference with fan card layout - made controls more compact',
+    'notes'   => 'Cleanup: Removed log panel, consolidated build files, focused on card system',
     
     // Additional build metadata
     'build_name' => 'Card Battle Layout',
@@ -30,16 +30,20 @@ $build = [
     
     // Changelog for this version
     'changelog' => [
-        'FIXED: Log panel no longer interferes with fan card layout',
-        'IMPROVED: Made controls panel more compact (max height 120px)',
-        'IMPROVED: Reduced log section height to 60px',
-        'IMPROVED: Optimized control group spacing and sizing',
-        'IMPROVED: Smaller font sizes for better space utilization',
-        'IMPROVED: Enhanced layout balance between cards and controls'
+        'REMOVED: Troublesome log panel - simplified interface',
+        'CONSOLIDATED: Build files - builds.php is now simple data, build-info.php is display page',
+        'IMPROVED: Cleaner interface focused on card creation',
+        'IMPROVED: More stable layout without log panel conflicts',
+        'IMPROVED: Streamlined file structure',
+        'FOCUSED: Card system is now the primary feature'
     ],
     
     // Previous versions for reference
     'previous_versions' => [
+        'v0.5.2' => '2025-06-26 - Added JSON file storage system for persistent card data',
+        'v0.5.1' => '2025-06-26 - Moved game log to dedicated right-side panel, simplified controls panel',
+        'v0.5.0' => '2025-06-26 - Added Card Creator interface - Phase 1 of game creation tools',
+        'v0.4.1' => '2025-06-26 - Fixed log panel interference with fan card layout - made controls compact',
         'v0.4.0' => '2025-06-26 - Added fan card layout for hands with realistic fan effect',
         'v0.3.2' => '2025-06-26 - Fixed companion pog positioning and alignment issues',
         'v0.3.1' => '2025-06-26 - Critical bugfix: Fixed companion pog errors, added null safety checks',

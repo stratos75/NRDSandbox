@@ -621,7 +621,7 @@ body {
     border: 1px solid #333;
     flex-shrink: 0;
     height: auto;
-    max-height: 80px;
+    max-height: 120px;
 }
 
 .control-group {
@@ -823,6 +823,521 @@ body {
     .nav-left, .nav-right {
         justify-content: center;
     }
+}
+
+/* ===================================================================
+   CARD CREATOR PANEL
+   =================================================================== */
+.card-creator-btn {
+    background: none;
+    border: none;
+    color: #88c0ff;
+    text-decoration: none;
+    padding: 6px 10px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    border: 1px solid transparent;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.card-creator-btn:hover {
+    background: rgba(136, 192, 255, 0.1);
+    border-color: #88c0ff;
+}
+
+.card-creator-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 998;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.card-creator-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.card-creator-panel {
+    position: fixed;
+    top: 0;
+    right: -600px;
+    width: 600px;
+    height: 100vh;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border-left: 2px solid #333;
+    z-index: 999;
+    transition: right 0.3s ease;
+    overflow-y: auto;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.card-creator-panel.active {
+    right: 0;
+}
+
+.card-creator-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 2px solid #333;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.card-creator-header h2 {
+    color: #00d4ff;
+    margin: 0;
+    font-size: 20px;
+}
+
+.close-btn {
+    background: #dc3545;
+    color: white;
+    border: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.3s ease;
+}
+
+.close-btn:hover {
+    background: #e74c5c;
+    transform: scale(1.1);
+}
+
+.card-creator-content {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.card-form-section h3,
+.card-preview-section h3 {
+    color: #00d4ff;
+    margin-bottom: 15px;
+    font-size: 16px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 5px;
+}
+
+/* Form Styling */
+.card-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.form-row {
+    display: flex;
+    gap: 15px;
+}
+
+.form-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.form-group label {
+    color: #ddd;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid #444;
+    border-radius: 5px;
+    padding: 8px 10px;
+    color: #fff;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #00d4ff;
+    box-shadow: 0 0 8px rgba(0, 212, 255, 0.3);
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 60px;
+    font-family: inherit;
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+/* Card Preview Styling */
+.card-preview-container {
+    display: flex;
+    justify-content: center;
+}
+
+.preview-card {
+    width: 200px;
+    height: 280px;
+    background: linear-gradient(145deg, #2d4a87 0%, #1e3a5f 100%);
+    border: 2px solid #444;
+    border-radius: 12px;
+    padding: 15px;
+    position: relative;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+    color: white;
+    display: flex;
+    flex-direction: column;
+}
+
+.preview-cost {
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    width: 30px;
+    height: 30px;
+    background: #ffc107;
+    color: #000;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+    border: 2px solid #333;
+}
+
+.preview-name {
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 5px;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.preview-type {
+    font-size: 10px;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.7);
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+}
+
+.preview-art {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px dashed #666;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #888;
+    font-style: italic;
+    margin-bottom: 10px;
+}
+
+.preview-damage {
+    text-align: center;
+    font-size: 14px;
+    font-weight: bold;
+    color: #dc3545;
+    margin-bottom: 8px;
+}
+
+.preview-description {
+    font-size: 11px;
+    text-align: center;
+    line-height: 1.3;
+    color: #ddd;
+    margin-bottom: 8px;
+    min-height: 40px;
+}
+
+.preview-rarity {
+    position: absolute;
+    bottom: -8px;
+    right: -8px;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: bold;
+    border: 1px solid #333;
+}
+
+/* Card Type Styling */
+.spell-card {
+    background: linear-gradient(145deg, #2d4a87 0%, #1e3a5f 100%);
+    border-color: #4dabf7;
+}
+
+.weapon-card {
+    background: linear-gradient(145deg, #8b2635 0%, #5f1e2a 100%);
+    border-color: #dc3545;
+}
+
+.armor-card {
+    background: linear-gradient(145deg, #2d6b35 0%, #1e4a25 100%);
+    border-color: #28a745;
+}
+
+.creature-card {
+    background: linear-gradient(145deg, #7d4a87 0%, #5f1e3a 100%);
+    border-color: #9c27b0;
+}
+
+.support-card {
+    background: linear-gradient(145deg, #87652d 0%, #5f4a1e 100%);
+    border-color: #ff9800;
+}
+
+/* Rarity Styling */
+.common-rarity {
+    background: #6c757d;
+    color: white;
+}
+
+.uncommon-rarity {
+    background: #28a745;
+    color: white;
+}
+
+.rare-rarity {
+    background: #007bff;
+    color: white;
+}
+
+.legendary-rarity {
+    background: linear-gradient(45deg, #ffc107, #ff6b35);
+    color: white;
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0%, 100% { box-shadow: 0 0 5px rgba(255, 193, 7, 0.5); }
+    50% { box-shadow: 0 0 15px rgba(255, 107, 53, 0.7); }
+}
+
+/* ===================================================================
+   CARD LIBRARY SECTION
+   =================================================================== */
+.card-library-section {
+    margin-top: 20px;
+}
+
+.library-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+    border: 1px solid #333;
+}
+
+.refresh-btn {
+    background: #17a2b8;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.refresh-btn:hover {
+    background: #138496;
+    transform: scale(1.05);
+}
+
+.card-library {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #333;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.library-empty,
+.library-error {
+    text-align: center;
+    color: #888;
+    font-style: italic;
+    padding: 40px 20px;
+    font-size: 12px;
+}
+
+.library-error {
+    color: #dc3545;
+}
+
+.library-card {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid #444;
+    border-radius: 6px;
+    margin: 8px;
+    padding: 10px;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.library-card:hover {
+    border-color: #00d4ff;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.library-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.library-card-name {
+    font-weight: bold;
+    color: #fff;
+    font-size: 13px;
+}
+
+.library-card-cost {
+    background: #ffc107;
+    color: #000;
+    padding: 2px 6px;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: bold;
+    min-width: 20px;
+    text-align: center;
+}
+
+.library-card-type {
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.7);
+    letter-spacing: 1px;
+    margin-bottom: 3px;
+}
+
+.library-card-damage {
+    font-size: 11px;
+    color: #dc3545;
+    font-weight: bold;
+    margin-bottom: 5px;
+    min-height: 15px;
+}
+
+.library-card-description {
+    font-size: 10px;
+    color: #ddd;
+    line-height: 1.3;
+    margin-bottom: 8px;
+    max-height: 40px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.library-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.library-card-rarity {
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-weight: bold;
+}
+
+.library-card-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.edit-btn,
+.delete-btn {
+    background: none;
+    border: 1px solid #666;
+    color: #ddd;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.edit-btn:hover {
+    background: #17a2b8;
+    border-color: #17a2b8;
+    color: white;
+}
+
+.delete-btn:hover {
+    background: #dc3545;
+    border-color: #dc3545;
+    color: white;
+}
+
+/* Library card type styling */
+.library-card.spell-card {
+    border-left: 3px solid #4dabf7;
+}
+
+.library-card.weapon-card {
+    border-left: 3px solid #dc3545;
+}
+
+.library-card.armor-card {
+    border-left: 3px solid #28a745;
+}
+
+.library-card.creature-card {
+    border-left: 3px solid #9c27b0;
+}
+
+.library-card.support-card {
+    border-left: 3px solid #ff9800;
+}
+
+/* ===================================================================
+   SCROLLBAR CUSTOMIZATION FOR CARD CREATOR
+   =================================================================== */
+.card-creator-panel::-webkit-scrollbar {
+    width: 6px;
+}
+
+.card-creator-panel::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.card-creator-panel::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+}
+
+.card-creator-panel::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
 }
 
 /* ===================================================================

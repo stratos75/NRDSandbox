@@ -1,78 +1,12 @@
 <?php
-// ===================================================================
-// NRD SANDBOX - TACTICAL CARD BATTLE INTERFACE
-// ===================================================================
 require 'auth.php';
 
-// Initialize session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+$gameConfig = ['hand_size' => 5, 'draw_deck_size' => 20, 'enable_companions' => true];
 
-// ===================================================================
-// VERSION & BUILD INFO
-// ===================================================================
-$build = require 'builds.php';
+// Initialize basic mech data
+$playerMech = $_SESSION['playerMech'] ?? ['HP' => 100, 'ATK' => 30, 'DEF' => 15, 'MAX_HP' => 100, 'companion' => 'Pilot-Alpha'];
+$enemyMech = $_SESSION['enemyMech'] ?? ['HP' => 100, 'ATK' => 25, 'DEF' => 10, 'MAX_HP' => 100, 'companion' => 'AI-Core'];
 
-// ===================================================================
-// GAME CONFIGURATION VARIABLES
-// ===================================================================
-// These will eventually be configurable via the interface
-$gameConfig = [
-    'hand_size' => $_SESSION['hand_size'] ?? 5,
-    'draw_deck_size' => $_SESSION['draw_deck_size'] ?? 20,
-    'enable_companions' => $_SESSION['enable_companions'] ?? true,
-    'show_enemy_cards' => false, // Enemy cards always hidden
-    'show_player_cards' => true  // Player cards always visible
-];
-
-// ===================================================================
-// MECH DATA INITIALIZATION
-// ===================================================================
-// Base default values
-$basePlayerHP = 100;
-$baseEnemyHP = 100;
-
-// Default mech stats - can be overridden via config.php
-$defaultPlayerMech = [
-    'HP' => $_SESSION['player_hp'] ?? $basePlayerHP,
-    'ATK' => $_SESSION['player_atk'] ?? 30,
-    'DEF' => $_SESSION['player_def'] ?? 15,
-    'MAX_HP' => $_SESSION['player_hp'] ?? $basePlayerHP,
-    'companion' => $_SESSION['player_companion'] ?? 'Pilot-Alpha'
-];
-
-$defaultEnemyMech = [
-    'HP' => $_SESSION['enemy_hp'] ?? $baseEnemyHP,
-    'ATK' => $_SESSION['enemy_atk'] ?? 25,
-    'DEF' => $_SESSION['enemy_def'] ?? 10,
-    'MAX_HP' => $_SESSION['enemy_hp'] ?? $baseEnemyHP,
-    'companion' => $_SESSION['enemy_companion'] ?? 'AI-Core'
-];
-
-// Current mech states (persisted in session)
-$playerMech = $_SESSION['playerMech'] ?? $defaultPlayerMech;
-$enemyMech = $_SESSION['enemyMech'] ?? $defaultEnemyMech;
-
-// ⚠️  CRITICAL: Ensure MAX_HP is never null or zero
-if (!isset($playerMech['MAX_HP']) || $playerMech['MAX_HP'] <= 0) {
-    $playerMech['MAX_HP'] = $playerMech['HP'] > 0 ? $playerMech['HP'] : $basePlayerHP;
-}
-
-if (!isset($enemyMech['MAX_HP']) || $enemyMech['MAX_HP'] <= 0) {
-    $enemyMech['MAX_HP'] = $enemyMech['HP'] > 0 ? $enemyMech['HP'] : $baseEnemyHP;
-}
-
-// ⚠️  CRITICAL: Ensure companion keys exist to prevent errors
-if (!isset($playerMech['companion']) || empty($playerMech['companion'])) {
-    $playerMech['companion'] = $defaultPlayerMech['companion'];
-}
-
-if (!isset($enemyMech['companion']) || empty($enemyMech['companion'])) {
-    $enemyMech['companion'] = $defaultEnemyMech['companion'];
-}
-
-// Initialize card data (placeholder for now)
 $playerWeapon = $_SESSION['playerWeapon'] ?? ['name' => 'Plasma Rifle', 'atk' => 15, 'durability' => 100];
 $playerArmor = $_SESSION['playerArmor'] ?? ['name' => 'Shield Array', 'def' => 10, 'durability' => 100];
 $enemyWeapon = $_SESSION['enemyWeapon'] ?? ['name' => 'Ion Cannon', 'atk' => 12, 'durability' => 100];
@@ -80,9 +14,7 @@ $enemyArmor = $_SESSION['enemyArmor'] ?? ['name' => 'Reactive Plating', 'def' =>
 
 $gameLog = $_SESSION['log'] ?? [];
 
-// ===================================================================
 // FORM PROCESSING
-// ===================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Handle damage actions
@@ -118,13 +50,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Handle mech reset
     if (isset($_POST['reset_mechs'])) {
-        $playerMech = $defaultPlayerMech;
-        $enemyMech = $defaultEnemyMech;
-        // Ensure MAX_HP and companion are properly set on reset
-        $playerMech['MAX_HP'] = $playerMech['HP'];
-        $enemyMech['MAX_HP'] = $enemyMech['HP'];
-        $playerMech['companion'] = $defaultPlayerMech['companion'];
-        $enemyMech['companion'] = $defaultEnemyMech['companion'];
+        $playerMech = ['HP' => 100, 'ATK' => 30, 'DEF' => 15, 'MAX_HP' => 100, 'companion' => 'Pilot-Alpha'];
+        $enemyMech = ['HP' => 100, 'ATK' => 25, 'DEF' => 10, 'MAX_HP' => 100, 'companion' => 'AI-Core'];
         $gameLog[] = "[" . date('H:i:s') . "] Mechs reset to full health!";
     }
     
@@ -142,9 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// ===================================================================
 // HELPER FUNCTIONS
-// ===================================================================
 function getMechHealthPercent($currentHP, $maxHP) {
     // Safety check: prevent division by zero
     if (!$maxHP || $maxHP <= 0) {
@@ -187,13 +112,13 @@ function safeHtmlOutput($value, $default = 'Unknown') {
     <header class="top-bar">
         <div class="nav-left">
             <a href="config.php" class="config-link">⚙️ Configure Mechs</a>
+            <button type="button" class="config-link card-creator-btn" onclick="toggleCardCreator()">🃏 Card Creator</button>
             <span class="user-info">👤 <?= htmlspecialchars($_SESSION['username'] ?? 'Unknown') ?></span>
         </div>
         <div class="nav-center">
             <h1 class="game-title">NRD TACTICAL SANDBOX</h1>
         </div>
         <div class="nav-right">
-            <a href="build-info.php" class="version-badge" title="View Build Information"><?= htmlspecialchars($build['version']) ?></a>
             <a href="logout.php" class="logout-link">🚪 Logout</a>
         </div>
     </header>
@@ -379,7 +304,7 @@ function safeHtmlOutput($value, $default = 'Unknown') {
     </main>
 
     <!-- ===================================================================
-         GAME CONTROLS PANEL
+         GAME CONTROLS PANEL (ACTION BUTTONS ONLY)
          =================================================================== -->
     <section class="controls-panel">
         <div class="control-group">
@@ -396,24 +321,6 @@ function safeHtmlOutput($value, $default = 'Unknown') {
                 </button>
             </form>
         </div>
-
-        <div class="control-group">
-            <h3>Game Log</h3>
-            <div class="log-container">
-                <div id="game-log" class="game-log">
-                    <?php if (empty($gameLog)): ?>
-                        <div class="log-empty">No actions yet. Start the battle!</div>
-                    <?php else: ?>
-                        <?php foreach (array_reverse(array_slice($gameLog, -8)) as $logEntry): ?>
-                            <div class="log-entry"><?= htmlspecialchars($logEntry) ?></div>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </div>
-                <form method="post" class="log-controls">
-                    <button type="submit" name="clear_log" value="1" class="clear-btn">Clear Log</button>
-                </form>
-            </div>
-        </div>
     </section>
 
     <!-- ===================================================================
@@ -421,13 +328,299 @@ function safeHtmlOutput($value, $default = 'Unknown') {
          =================================================================== -->
     <footer class="game-footer">
         <div class="build-info">
-            Build: <?= htmlspecialchars($build['version']) ?> | 
-            Date: <?= htmlspecialchars($build['date']) ?> | 
-            <?= htmlspecialchars($build['notes']) ?>
+            NRD Tactical Sandbox | Game Interface
         </div>
     </footer>
 
 </div>
+
+<!-- ===================================================================
+     CARD CREATOR PANEL (SLIDE-IN)
+     =================================================================== -->
+<div id="cardCreatorPanel" class="card-creator-panel">
+    <div class="card-creator-header">
+        <h2>🃏 Card Creator</h2>
+        <button type="button" class="close-btn" onclick="toggleCardCreator()">✕</button>
+    </div>
+    
+    <div class="card-creator-content">
+        <!-- Card Form -->
+        <div class="card-form-section">
+            <h3>Card Properties</h3>
+            <form id="cardCreatorForm" class="card-form">
+                <div class="form-group">
+                    <label for="cardName">Card Name:</label>
+                    <input type="text" id="cardName" name="cardName" placeholder="Lightning Bolt" oninput="updateCardPreview()">
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="cardCost">Cost:</label>
+                        <input type="number" id="cardCost" name="cardCost" min="0" max="10" value="3" oninput="updateCardPreview()">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="cardType">Type:</label>
+                        <select id="cardType" name="cardType" onchange="updateCardPreview()">
+                            <option value="spell">Spell</option>
+                            <option value="weapon">Weapon</option>
+                            <option value="armor">Armor</option>
+                            <option value="creature">Creature</option>
+                            <option value="support">Support</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="cardDamage">Damage:</label>
+                        <input type="number" id="cardDamage" name="cardDamage" min="0" max="50" value="5" oninput="updateCardPreview()">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="cardRarity">Rarity:</label>
+                        <select id="cardRarity" name="cardRarity" onchange="updateCardPreview()">
+                            <option value="common">Common</option>
+                            <option value="uncommon">Uncommon</option>
+                            <option value="rare">Rare</option>
+                            <option value="legendary">Legendary</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="cardDescription">Description:</label>
+                    <textarea id="cardDescription" name="cardDescription" placeholder="Deal damage to target enemy..." oninput="updateCardPreview()"></textarea>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="action-btn reset-btn" onclick="resetCardForm()">🔄 Reset</button>
+                    <button type="button" class="action-btn attack-btn" onclick="saveCard()">💾 Save Card</button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Card Preview -->
+        <div class="card-preview-section">
+            <h3>Live Preview</h3>
+            <div class="card-preview-container">
+                <div id="cardPreview" class="preview-card spell-card">
+                    <div class="preview-cost">3</div>
+                    <div class="preview-name">Lightning Bolt</div>
+                    <div class="preview-type">SPELL</div>
+                    <div class="preview-art">[Art]</div>
+                    <div class="preview-damage">💥 5</div>
+                    <div class="preview-description">Deal damage to target enemy...</div>
+                    <div class="preview-rarity common-rarity">Common</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Card Library -->
+        <div class="card-library-section">
+            <h3>Your Card Library</h3>
+            <div class="library-stats">
+                <span id="cardCount">0 cards</span> | 
+                <button type="button" onclick="loadCardLibrary()" class="refresh-btn">🔄 Refresh</button>
+            </div>
+            <div id="cardLibrary" class="card-library">
+                <div class="library-empty">No cards created yet. Create your first card above!</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Card Creator Overlay -->
+<div id="cardCreatorOverlay" class="card-creator-overlay" onclick="toggleCardCreator()"></div>
+
+<script>
+// Card Creator JavaScript Functions
+function toggleCardCreator() {
+    const panel = document.getElementById('cardCreatorPanel');
+    const overlay = document.getElementById('cardCreatorOverlay');
+    
+    if (panel.classList.contains('active')) {
+        panel.classList.remove('active');
+        overlay.classList.remove('active');
+    } else {
+        panel.classList.add('active');
+        overlay.classList.add('active');
+    }
+}
+
+function updateCardPreview() {
+    const preview = document.getElementById('cardPreview');
+    const name = document.getElementById('cardName').value || 'New Card';
+    const cost = document.getElementById('cardCost').value || '0';
+    const type = document.getElementById('cardType').value || 'spell';
+    const damage = document.getElementById('cardDamage').value || '0';
+    const description = document.getElementById('cardDescription').value || 'Card description...';
+    const rarity = document.getElementById('cardRarity').value || 'common';
+    
+    // Update preview card
+    preview.querySelector('.preview-cost').textContent = cost;
+    preview.querySelector('.preview-name').textContent = name;
+    preview.querySelector('.preview-type').textContent = type.toUpperCase();
+    preview.querySelector('.preview-damage').textContent = damage > 0 ? `💥 ${damage}` : '';
+    preview.querySelector('.preview-description').textContent = description;
+    preview.querySelector('.preview-rarity').textContent = rarity.charAt(0).toUpperCase() + rarity.slice(1);
+    
+    // Update card styling based on type
+    preview.className = `preview-card ${type}-card`;
+    preview.querySelector('.preview-rarity').className = `preview-rarity ${rarity}-rarity`;
+}
+
+function resetCardForm() {
+    document.getElementById('cardCreatorForm').reset();
+    document.getElementById('cardCost').value = '3';
+    document.getElementById('cardDamage').value = '5';
+    updateCardPreview();
+}
+
+function saveCard() {
+    const cardData = {
+        name: document.getElementById('cardName').value,
+        cost: document.getElementById('cardCost').value,
+        type: document.getElementById('cardType').value,
+        damage: document.getElementById('cardDamage').value,
+        description: document.getElementById('cardDescription').value,
+        rarity: document.getElementById('cardRarity').value
+    };
+    
+    // Validate required fields
+    if (!cardData.name.trim()) {
+        alert('Please enter a card name');
+        return;
+    }
+    
+    // Prepare form data for submission
+    const formData = new FormData();
+    formData.append('action', 'save_card');
+    formData.append('name', cardData.name);
+    formData.append('cost', cardData.cost);
+    formData.append('type', cardData.type);
+    formData.append('damage', cardData.damage);
+    formData.append('description', cardData.description);
+    formData.append('rarity', cardData.rarity);
+    
+    // Send to server
+    fetch('card-manager.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Card saved successfully!\n\nCard ID: ' + data.data.id + '\nName: ' + data.data.name);
+            // Reset form after successful save
+            resetCardForm();
+            // Update card library
+            loadCardLibrary();
+        } else {
+            alert('Error saving card: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Network error while saving card. Please try again.');
+    });
+}
+
+function loadCardLibrary() {
+    // Load saved cards from server
+    fetch('card-manager.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'action=get_all_cards'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayCardLibrary(data.data);
+            updateCardCount(data.data.length);
+        }
+    })
+    .catch(error => {
+        console.error('Error loading cards:', error);
+        document.getElementById('cardLibrary').innerHTML = '<div class="library-error">Error loading cards</div>';
+    });
+}
+
+function displayCardLibrary(cards) {
+    const libraryContainer = document.getElementById('cardLibrary');
+    
+    if (cards.length === 0) {
+        libraryContainer.innerHTML = '<div class="library-empty">No cards created yet. Create your first card above!</div>';
+        return;
+    }
+    
+    let html = '';
+    cards.forEach(card => {
+        html += `
+            <div class="library-card ${card.type}-card" data-card-id="${card.id}">
+                <div class="library-card-header">
+                    <span class="library-card-name">${card.name}</span>
+                    <span class="library-card-cost">${card.cost}</span>
+                </div>
+                <div class="library-card-type">${card.type.toUpperCase()}</div>
+                <div class="library-card-damage">${card.damage > 0 ? '💥 ' + card.damage : ''}</div>
+                <div class="library-card-description">${card.description}</div>
+                <div class="library-card-footer">
+                    <span class="library-card-rarity ${card.rarity}-rarity">${card.rarity}</span>
+                    <div class="library-card-actions">
+                        <button onclick="editCard('${card.id}')" class="edit-btn">✏️</button>
+                        <button onclick="deleteCard('${card.id}')" class="delete-btn">🗑️</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    libraryContainer.innerHTML = html;
+}
+
+function updateCardCount(count) {
+    document.getElementById('cardCount').textContent = count + (count === 1 ? ' card' : ' cards');
+}
+
+function editCard(cardId) {
+    // TODO: Load card data into form for editing
+    alert('Edit card feature coming soon! Card ID: ' + cardId);
+}
+
+function deleteCard(cardId) {
+    if (confirm('Are you sure you want to delete this card?')) {
+        const formData = new FormData();
+        formData.append('action', 'delete_card');
+        formData.append('card_id', cardId);
+        
+        fetch('card-manager.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                loadCardLibrary(); // Refresh the library
+            } else {
+                alert('Error deleting card: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Network error while deleting card.');
+        });
+    }
+}
+
+// Initialize preview on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateCardPreview();
+    loadCardLibrary(); // Load existing cards when page loads
+});
+</script>
 
 </body>
 </html>
