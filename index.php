@@ -14,6 +14,24 @@ $enemyArmor = $_SESSION['enemyArmor'] ?? ['name' => 'Reactive Plating', 'def' =>
 
 $gameLog = $_SESSION['log'] ?? [];
 
+// ===================================================================
+// LOAD PLAYER HAND CARDS FROM JSON
+// ===================================================================
+require_once 'card-manager.php';
+$cardManager = new CardManager();
+$availableCards = $cardManager->getAllCards();
+
+// Prepare player hand - fill with real cards first, then empty slots
+$playerHand = [];
+for ($i = 0; $i < $gameConfig['hand_size']; $i++) {
+    if (isset($availableCards[$i])) {
+        $playerHand[] = $availableCards[$i];
+    } else {
+        // Create empty card slot
+        $playerHand[] = null;
+    }
+}
+
 // FORM PROCESSING
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
@@ -91,6 +109,17 @@ function safeHtmlOutput($value, $default = 'Unknown') {
         return htmlspecialchars($default);
     }
     return htmlspecialchars($value);
+}
+
+function getCardTypeIcon($type) {
+    $icons = [
+        'spell' => '✨',
+        'weapon' => '⚔️',
+        'armor' => '🛡️',
+        'creature' => '👾',
+        'support' => '🔧'
+    ];
+    return $icons[$type] ?? '🃏';
 }
 ?>
 
@@ -285,16 +314,32 @@ function safeHtmlOutput($value, $default = 'Unknown') {
                 <div class="spacer"></div>
             </div>
             
-            <!-- Player Hand (Bottom - Visible Cards in Fan Layout) -->
+            <!-- Player Hand (Bottom - Real Cards from JSON) -->
             <div class="hand-section player-hand-section">
-                <div class="hand-label">Your Hand (<?= $gameConfig['hand_size'] ?>)</div>
+                <div class="hand-label">Your Hand (<?= count(array_filter($playerHand)) ?>/<?= $gameConfig['hand_size'] ?>)</div>
                 <div class="hand-cards-fan">
-                    <?php for ($i = 1; $i <= $gameConfig['hand_size']; $i++): ?>
+                    <?php for ($i = 0; $i < $gameConfig['hand_size']; $i++): ?>
                         <form method="post" style="display: inline;">
-                            <button type="submit" name="card_click" value="Player Hand Card <?= $i ?>" class="hand-card face-up fan-card" style="--card-index: <?= $i-1 ?>">
-                                <div class="card-mini-name">Card <?= $i ?></div>
-                                <div class="card-mini-cost"><?= rand(1,5) ?></div>
-                            </button>
+                            <?php if ($playerHand[$i] !== null): ?>
+                                <!-- Real Card from JSON -->
+                                <?php $card = $playerHand[$i]; ?>
+                                <button type="submit" name="card_click" value="<?= htmlspecialchars($card['name']) ?>" class="hand-card face-up fan-card real-card <?= $card['type'] ?>-card" style="--card-index: <?= $i ?>">
+                                    <div class="card-mini-icon"><?= getCardTypeIcon($card['type']) ?></div>
+                                    <div class="card-mini-name"><?= htmlspecialchars($card['name']) ?></div>
+                                    <div class="card-mini-cost"><?= $card['cost'] ?></div>
+                                    <?php if ($card['damage'] > 0): ?>
+                                        <div class="card-mini-damage">💥<?= $card['damage'] ?></div>
+                                    <?php endif; ?>
+                                </button>
+                            <?php else: ?>
+                                <!-- Empty Card Slot -->
+                                <div class="hand-card face-up fan-card empty-card" style="--card-index: <?= $i ?>">
+                                    <div class="empty-card-content">
+                                        <div class="empty-card-text">Empty</div>
+                                        <div class="empty-card-icon">➕</div>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
                         </form>
                     <?php endfor; ?>
                 </div>
@@ -516,6 +561,10 @@ function saveCard() {
             resetCardForm();
             // Update card library
             loadCardLibrary();
+            // Refresh the page to show the new card in the hand
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
         } else {
             alert('Error saving card: ' + data.message);
         }
@@ -604,6 +653,10 @@ function deleteCard(cardId) {
         .then(data => {
             if (data.success) {
                 loadCardLibrary(); // Refresh the library
+                // Refresh the page to update the hand display
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
             } else {
                 alert('Error deleting card: ' + data.message);
             }

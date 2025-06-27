@@ -541,11 +541,57 @@ body {
     );
 }
 
+/* ===================================================================
+   REAL CARD STYLING (NEW FOR JSON INTEGRATION)
+   =================================================================== */
+.real-card {
+    position: relative;
+}
+
+.real-card.spell-card {
+    background: linear-gradient(145deg, #2d4a87 0%, #1e3a5f 100%);
+    border-color: #4dabf7;
+}
+
+.real-card.weapon-card {
+    background: linear-gradient(145deg, #8b2635 0%, #5f1e2a 100%);
+    border-color: #dc3545;
+}
+
+.real-card.armor-card {
+    background: linear-gradient(145deg, #2d6b35 0%, #1e4a25 100%);
+    border-color: #28a745;
+}
+
+.real-card.creature-card {
+    background: linear-gradient(145deg, #7d4a87 0%, #5f1e3a 100%);
+    border-color: #9c27b0;
+}
+
+.real-card.support-card {
+    background: linear-gradient(145deg, #87652d 0%, #5f4a1e 100%);
+    border-color: #ff9800;
+}
+
+.card-mini-icon {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    font-size: 12px;
+    z-index: 1;
+}
+
 .card-mini-name {
-    font-size: 9px;
+    font-size: 8px;
     font-weight: bold;
     text-align: center;
     line-height: 1.1;
+    margin-top: 16px;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
 .card-mini-cost {
@@ -563,6 +609,54 @@ body {
     justify-content: center;
     align-self: center;
     margin-top: auto;
+}
+
+.card-mini-damage {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    font-size: 8px;
+    font-weight: bold;
+    color: #dc3545;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 1px 3px;
+    border-radius: 3px;
+    z-index: 1;
+}
+
+/* ===================================================================
+   EMPTY CARD SLOT STYLING (NEW)
+   =================================================================== */
+.empty-card {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 2px dashed #555 !important;
+    cursor: default !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.empty-card:hover {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border-color: #777 !important;
+    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1) !important;
+}
+
+.empty-card-content {
+    text-align: center;
+    opacity: 0.6;
+}
+
+.empty-card-text {
+    font-size: 9px;
+    color: #888;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.empty-card-icon {
+    font-size: 14px;
+    color: #666;
 }
 
 /* ===================================================================
@@ -822,6 +916,21 @@ body {
     
     .nav-left, .nav-right {
         justify-content: center;
+    }
+    
+    .fan-card {
+        width: 50px;
+        height: 70px;
+    }
+    
+    .card-mini-name {
+        font-size: 7px;
+    }
+    
+    .card-mini-cost {
+        width: 15px;
+        height: 15px;
+        font-size: 10px;
     }
 }
 
