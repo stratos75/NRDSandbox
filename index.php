@@ -1,7 +1,37 @@
 <?php
 require 'auth.php';
 
-$gameConfig = ['hand_size' => 5, 'draw_deck_size' => 20, 'enable_companions' => true];
+// ===================================================================
+// LOAD BUILD INFORMATION
+// ===================================================================
+$build = require 'builds.php';
+
+// ===================================================================
+// LOAD GAME RULES CONFIGURATION
+// ===================================================================
+$gameRulesDefaults = [
+    'starting_hand_size' => 5,
+    'max_hand_size' => 7,
+    'deck_size' => 20,
+    'cards_drawn_per_turn' => 1,
+    'starting_player' => 'player'
+];
+
+// Get configured game rules from session or use defaults
+$gameRules = [];
+foreach ($gameRulesDefaults as $key => $default) {
+    $gameRules[$key] = $_SESSION[$key] ?? $default;
+}
+
+// Apply rules to game configuration
+$gameConfig = [
+    'hand_size' => $gameRules['starting_hand_size'],
+    'max_hand_size' => $gameRules['max_hand_size'],
+    'draw_deck_size' => $gameRules['deck_size'],
+    'cards_per_turn' => $gameRules['cards_drawn_per_turn'],
+    'starting_player' => $gameRules['starting_player'],
+    'enable_companions' => true
+];
 
 // Initialize basic mech data
 $playerMech = $_SESSION['playerMech'] ?? ['HP' => 100, 'ATK' => 30, 'DEF' => 15, 'MAX_HP' => 100, 'companion' => 'Pilot-Alpha'];
@@ -164,7 +194,7 @@ function getCardTypeIcon($type) {
          =================================================================== -->
     <header class="top-bar">
         <div class="nav-left">
-            <a href="config.php" class="config-link">⚙️ Configure Mechs</a>
+            <a href="config/index.php" class="config-link">⚙️ Configure</a>
             <button type="button" class="config-link card-creator-btn" onclick="toggleCardCreator()">🃏 Card Creator</button>
             <span class="user-info">👤 <?= htmlspecialchars($_SESSION['username'] ?? 'Unknown') ?></span>
         </div>
@@ -181,6 +211,19 @@ function getCardTypeIcon($type) {
          MAIN BATTLEFIELD LAYOUT
          =================================================================== -->
     <main class="battlefield">
+
+        <!-- Game Rules Summary Bar -->
+        <div class="game-rules-summary">
+            <div class="rules-info">
+                <span class="rule-item">🃏 Hand: <?= $gameConfig['hand_size'] ?>/<?= $gameConfig['max_hand_size'] ?></span>
+                <span class="rule-item">📚 Deck: <?= $gameConfig['draw_deck_size'] ?></span>
+                <span class="rule-item">🔄 Draw: <?= $gameConfig['cards_per_turn'] ?>/turn</span>
+                <span class="rule-item">🎯 Start: <?= ucfirst($gameConfig['starting_player']) ?></span>
+            </div>
+            <div class="rules-link">
+                <a href="config/rules.php" class="rules-config-link">⚙️ Configure Rules</a>
+            </div>
+        </div>
 
         <!-- ENEMY SECTION (TOP) -->
         <section class="combat-zone enemy-zone">

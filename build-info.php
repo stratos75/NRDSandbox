@@ -26,7 +26,7 @@ $build = require 'builds.php';
     <header class="top-bar">
         <div class="nav-left">
             <a href="index.php" class="config-link">🏠 Back to Game</a>
-            <button type="button" class="config-link card-creator-btn" onclick="window.location.href='index.php'">🃏 Card Creator</button>
+            <a href="config/index.php" class="config-link">⚙️ Configuration</a>
         </div>
         <div class="nav-center">
             <h1 class="game-title">BUILD INFORMATION</h1>

@@ -4,12 +4,12 @@
 // ===================================================================
 
 return [
-    'version' => 'v0.6.0',
+    'version' => 'v0.8.0',
     'date'    => '2025-06-27',
-    'notes'   => 'Added interactive card detail modal system with enhanced card interaction',
+    'notes'   => 'Major refactor: Created organized configuration system with dedicated pages and clean architecture',
     
     // Additional build metadata
-    'build_name' => 'Card Detail System',
+    'build_name' => 'Configuration System Refactor',
     'php_required' => '7.4+',
     'features' => [
         'Authentication system',
@@ -18,13 +18,20 @@ return [
         'JSON card storage with persistent data',
         'Card Creator interface with live preview',
         'Companion pog system for mechs',
-        'Configurable hand and deck sizes',
+        'Organized configuration system with dedicated hub',
+        'Dedicated mech configuration page with presets',
+        'Dedicated game rules configuration with analysis',
+        'Configuration dashboard with system overview',
+        'Export/import configuration functionality',
+        'Hand size and deck size management',
+        'Turn system configuration',
+        'Scenario creation variables',
         'Equipment card mechanics (weapons/armor)',
         'Game state persistence',
         'Responsive tactical battlefield layout',
         'Health status indicators with animations',
         'Combat action logging',
-        'Configurable mech stats',
+        'Configurable mech stats with presets',
         'Face-up/face-down card display logic',
         'Card detail modal system',
         'Enhanced card interaction and visualization'
@@ -32,18 +39,24 @@ return [
     
     // Changelog for this version
     'changelog' => [
-        'ADDED: Interactive card detail modal system',
-        'ADDED: Large card preview with full information display',
-        'ADDED: Card metadata viewing (creation date, creator, ID)',
-        'ADDED: Enhanced card interaction with click-to-view functionality',
-        'IMPROVED: Card visual presentation and type-specific styling',
-        'IMPROVED: Action logging for card interactions',
-        'IMPROVED: Modal animation and user experience',
-        'PREPARED: Foundation for Phase 3 game rules configuration'
+        'REFACTORED: Configuration system into organized /config/ subdirectory',
+        'ADDED: Configuration dashboard hub with system overview',
+        'ADDED: Dedicated mech configuration page with enhanced presets',
+        'ADDED: Dedicated game rules configuration with balance analysis',
+        'ADDED: Shared configuration functions and consistent styling',
+        'ADDED: Export/import configuration functionality',
+        'ADDED: Reset all settings functionality',
+        'IMPROVED: Separation of concerns with focused pages',
+        'IMPROVED: Navigation structure and user experience',
+        'IMPROVED: Code organization and maintainability',
+        'PREPARED: Foundation for future configuration modules (cards, AI)',
+        'CONSOLIDATED: All configuration logic into logical sections'
     ],
     
     // Previous versions for reference
     'previous_versions' => [
+        'v0.7.0' => '2025-06-27 - Added comprehensive game rules configuration system for scenario creation',
+        'v0.6.0' => '2025-06-27 - Added interactive card detail modal system with enhanced card interaction',
         'v0.5.3' => '2025-06-26 - Cleanup: Removed log panel, consolidated build files, focused on card system',
         'v0.5.2' => '2025-06-26 - Added JSON file storage system for persistent card data',
         'v0.5.1' => '2025-06-26 - Moved game log to dedicated right-side panel, simplified controls panel',

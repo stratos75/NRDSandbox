@@ -14,12 +14,20 @@ $build = require 'builds.php';
 
 // Set default values
 $defaults = [
+    // Mech Stats
     'player_hp' => 100,
     'player_atk' => 30,
     'player_def' => 15,
     'enemy_hp'  => 100,
     'enemy_atk' => 25,
-    'enemy_def' => 10
+    'enemy_def' => 10,
+    
+    // Game Rules  
+    'starting_hand_size' => 5,
+    'max_hand_size' => 7,
+    'deck_size' => 20,
+    'cards_drawn_per_turn' => 1,
+    'starting_player' => 'player' // player, enemy, random
 ];
 
 $success_message = '';
@@ -33,13 +41,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Validate and sanitize inputs
         foreach ($defaults as $key => $default) {
-            $value = isset($_POST[$key]) ? intval($_POST[$key]) : $default;
-            
-            // Basic validation
-            if ($value < 1 || $value > 999) {
-                $error_message = "All values must be between 1 and 999.";
-                $valid = false;
-                break;
+            if (strpos($key, '_hp') !== false || strpos($key, '_atk') !== false || strpos($key, '_def') !== false) {
+                // Mech stats validation
+                $value = isset($_POST[$key]) ? intval($_POST[$key]) : $default;
+                if ($value < 1 || $value > 999) {
+                    $error_message = "Mech stats must be between 1 and 999.";
+                    $valid = false;
+                    break;
+                }
+            } elseif ($key === 'starting_hand_size' || $key === 'max_hand_size') {
+                // Hand size validation
+                $value = isset($_POST[$key]) ? intval($_POST[$key]) : $default;
+                if ($value < 1 || $value > 10) {
+                    $error_message = "Hand sizes must be between 1 and 10.";
+                    $valid = false;
+                    break;
+                }
+            } elseif ($key === 'deck_size') {
+                // Deck size validation
+                $value = isset($_POST[$key]) ? intval($_POST[$key]) : $default;
+                if ($value < 10 || $value > 50) {
+                    $error_message = "Deck size must be between 10 and 50.";
+                    $valid = false;
+                    break;
+                }
+            } elseif ($key === 'cards_drawn_per_turn') {
+                // Cards drawn validation
+                $value = isset($_POST[$key]) ? intval($_POST[$key]) : $default;
+                if ($value < 0 || $value > 3) {
+                    $error_message = "Cards drawn per turn must be between 0 and 3.";
+                    $valid = false;
+                    break;
+                }
+            } elseif ($key === 'starting_player') {
+                // Starting player validation
+                $value = isset($_POST[$key]) ? $_POST[$key] : $default;
+                if (!in_array($value, ['player', 'enemy', 'random'])) {
+                    $error_message = "Invalid starting player option.";
+                    $valid = false;
+                    break;
+                }
+            } else {
+                $value = $default;
             }
             
             $new_values[$key] = $value;
@@ -242,6 +285,115 @@ foreach ($defaults as $key => $default) {
             </form>
         </section>
 
+        <!-- Game Rules Configuration -->
+        <section class="config-section">
+            <div class="config-card game-rules-config">
+                <div class="config-header">
+                    <h2>🎲 Game Rules Configuration</h2>
+                    <div class="rules-preview">
+                        <span class="rules-summary"><?= $current_values['starting_hand_size'] ?> Cards | <?= $current_values['deck_size'] ?> Deck</span>
+                    </div>
+                </div>
+                
+                <form method="post" class="rules-form">
+                    <!-- Include all current mech values as hidden inputs -->
+                    <?php foreach (['player_hp', 'player_atk', 'player_def', 'enemy_hp', 'enemy_atk', 'enemy_def'] as $mech_key): ?>
+                        <input type="hidden" name="<?= $mech_key ?>" value="<?= $current_values[$mech_key] ?>">
+                    <?php endforeach; ?>
+                    
+                    <div class="rules-grid">
+                        <!-- Hand Management -->
+                        <div class="rules-section">
+                            <h3>🃏 Hand Management</h3>
+                            <div class="rules-inputs">
+                                <div class="input-group">
+                                    <label for="starting_hand_size" class="input-label">
+                                        <span class="label-icon">🎯</span>
+                                        Starting Hand Size
+                                    </label>
+                                    <input type="number" id="starting_hand_size" name="starting_hand_size" 
+                                           value="<?= $current_values['starting_hand_size'] ?>" 
+                                           min="1" max="10" required class="stat-input rules-input">
+                                    <div class="input-help">Number of cards dealt at game start</div>
+                                </div>
+
+                                <div class="input-group">
+                                    <label for="max_hand_size" class="input-label">
+                                        <span class="label-icon">📏</span>
+                                        Maximum Hand Size
+                                    </label>
+                                    <input type="number" id="max_hand_size" name="max_hand_size" 
+                                           value="<?= $current_values['max_hand_size'] ?>" 
+                                           min="1" max="10" required class="stat-input rules-input">
+                                    <div class="input-help">Maximum cards a player can hold</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Deck Management -->
+                        <div class="rules-section">
+                            <h3>📚 Deck Management</h3>
+                            <div class="rules-inputs">
+                                <div class="input-group">
+                                    <label for="deck_size" class="input-label">
+                                        <span class="label-icon">📦</span>
+                                        Total Deck Size
+                                    </label>
+                                    <input type="number" id="deck_size" name="deck_size" 
+                                           value="<?= $current_values['deck_size'] ?>" 
+                                           min="10" max="50" required class="stat-input rules-input">
+                                    <div class="input-help">Total cards in each player's deck</div>
+                                </div>
+
+                                <div class="input-group">
+                                    <label for="cards_drawn_per_turn" class="input-label">
+                                        <span class="label-icon">🔄</span>
+                                        Cards Drawn Per Turn
+                                    </label>
+                                    <input type="number" id="cards_drawn_per_turn" name="cards_drawn_per_turn" 
+                                           value="<?= $current_values['cards_drawn_per_turn'] ?>" 
+                                           min="0" max="3" required class="stat-input rules-input">
+                                    <div class="input-help">Cards automatically drawn each turn</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Turn System -->
+                        <div class="rules-section">
+                            <h3>⚡ Turn System</h3>
+                            <div class="rules-inputs">
+                                <div class="input-group">
+                                    <label for="starting_player" class="input-label">
+                                        <span class="label-icon">🎲</span>
+                                        Starting Player
+                                    </label>
+                                    <select id="starting_player" name="starting_player" class="stat-input rules-input">
+                                        <option value="player" <?= $current_values['starting_player'] === 'player' ? 'selected' : '' ?>>Player Always</option>
+                                        <option value="enemy" <?= $current_values['starting_player'] === 'enemy' ? 'selected' : '' ?>>Enemy Always</option>
+                                        <option value="random" <?= $current_values['starting_player'] === 'random' ? 'selected' : '' ?>>Random Choice</option>
+                                    </select>
+                                    <div class="input-help">Who takes the first turn</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="config-actions">
+                        <button type="submit" class="action-btn save-btn">
+                            💾 Save Game Rules
+                        </button>
+                        <button type="button" class="action-btn reset-btn" onclick="resetRulesToDefaults()">
+                            🔄 Reset Rules
+                        </button>
+                        <a href="index.php" class="action-btn cancel-btn">
+                            ↩️ Return to Game
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </section>
+
         <!-- Quick Presets -->
         <section class="config-section">
             <div class="config-card">
@@ -318,6 +470,7 @@ function applyPreset(presetName) {
 }
 
 function resetToDefaults() {
+    // Mech defaults
     document.getElementById('player_hp').value = 100;
     document.getElementById('player_atk').value = 30;
     document.getElementById('player_def').value = 15;
@@ -325,6 +478,27 @@ function resetToDefaults() {
     document.getElementById('enemy_atk').value = 25;
     document.getElementById('enemy_def').value = 10;
     updatePreview();
+}
+
+function resetRulesToDefaults() {
+    // Game rules defaults
+    document.getElementById('starting_hand_size').value = 5;
+    document.getElementById('max_hand_size').value = 7;
+    document.getElementById('deck_size').value = 20;
+    document.getElementById('cards_drawn_per_turn').value = 1;
+    document.getElementById('starting_player').value = 'player';
+    updateRulesPreview();
+}
+
+function updateRulesPreview() {
+    // Update rules summary
+    const handSize = document.getElementById('starting_hand_size').value;
+    const deckSize = document.getElementById('deck_size').value;
+    const rulesSummary = document.querySelector('.rules-summary');
+    
+    if (rulesSummary) {
+        rulesSummary.textContent = `${handSize} Cards | ${deckSize} Deck`;
+    }
 }
 
 function updatePreview() {
@@ -338,10 +512,21 @@ function updatePreview() {
 
 // Add event listeners for real-time preview updates
 document.addEventListener('DOMContentLoaded', function() {
-    const inputs = document.querySelectorAll('.stat-input');
-    inputs.forEach(input => {
+    // Mech stat inputs
+    const mechInputs = document.querySelectorAll('.stat-input:not(.rules-input)');
+    mechInputs.forEach(input => {
         input.addEventListener('input', updatePreview);
     });
+    
+    // Game rules inputs
+    const rulesInputs = document.querySelectorAll('.rules-input');
+    rulesInputs.forEach(input => {
+        input.addEventListener('input', updateRulesPreview);
+        input.addEventListener('change', updateRulesPreview); // For select dropdown
+    });
+    
+    // Initialize previews
+    updateRulesPreview();
 });
 </script>
 
@@ -377,6 +562,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .enemy-config {
     border-left: 4px solid #dc3545;
+}
+
+.game-rules-config {
+    border-left: 4px solid #17a2b8;
+    grid-column: 1 / -1; /* Span full width */
 }
 
 .config-header {
@@ -588,6 +778,55 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .message-icon {
     font-size: 16px;
+}
+
+/* Game Rules Specific Styling */
+.rules-preview {
+    display: flex;
+    align-items: center;
+}
+
+.rules-summary {
+    background: rgba(23, 162, 184, 0.2);
+    color: #17a2b8;
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: bold;
+    border: 1px solid #17a2b8;
+}
+
+.rules-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    padding: 20px;
+}
+
+.rules-section {
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+    padding: 15px;
+    border: 1px solid #444;
+}
+
+.rules-section h3 {
+    color: #17a2b8;
+    font-size: 16px;
+    margin: 0 0 15px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #333;
+}
+
+.rules-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.rules-input:focus {
+    border-color: #17a2b8;
+    box-shadow: 0 0 10px rgba(23, 162, 184, 0.3);
 }
 
 @media (max-width: 768px) {
