@@ -1,59 +1,11 @@
 <?php
 // ===================================================================
-// NRD SANDBOX - BUILD INFORMATION PAGE
+// NRD SANDBOX - BUILD INFORMATION DISPLAY PAGE
 // ===================================================================
 require 'auth.php';
 
-// Build information directly embedded (no circular reference)
-$build = [
-    'version' => 'v0.5.3',
-    'date'    => '2025-06-26',
-    'notes'   => 'Cleanup: Removed log panel, consolidated build files, focused on card system',
-    
-    // Additional build metadata
-    'build_name' => 'Card Battle Layout',
-    'php_required' => '7.4+',
-    'features' => [
-        'Authentication system',
-        'Real-time mech combat with weapon/armor cards',
-        'Interactive card battle system',
-        'Companion pog system for mechs',
-        'Configurable hand and deck sizes',
-        'Equipment card mechanics (weapons/armor)',
-        'Game state persistence',
-        'Responsive tactical battlefield layout',
-        'Health status indicators with animations',
-        'Combat action logging',
-        'Configurable mech stats',
-        'Face-up/face-down card display logic'
-    ],
-    
-    // Changelog for this version
-    'changelog' => [
-        'REMOVED: Troublesome log panel - simplified interface',
-        'CONSOLIDATED: Build files - builds.php is now simple data, build-info.php is display page',
-        'IMPROVED: Cleaner interface focused on card creation',
-        'IMPROVED: More stable layout without log panel conflicts',
-        'IMPROVED: Streamlined file structure',
-        'FOCUSED: Card system is now the primary feature'
-    ],
-    
-    // Previous versions for reference
-    'previous_versions' => [
-        'v0.5.2' => '2025-06-26 - Added JSON file storage system for persistent card data',
-        'v0.5.1' => '2025-06-26 - Moved game log to dedicated right-side panel, simplified controls panel',
-        'v0.5.0' => '2025-06-26 - Added Card Creator interface - Phase 1 of game creation tools',
-        'v0.4.1' => '2025-06-26 - Fixed log panel interference with fan card layout - made controls compact',
-        'v0.4.0' => '2025-06-26 - Added fan card layout for hands with realistic fan effect',
-        'v0.3.2' => '2025-06-26 - Fixed companion pog positioning and alignment issues',
-        'v0.3.1' => '2025-06-26 - Critical bugfix: Fixed companion pog errors, added null safety checks',
-        'v0.3.0' => '2025-06-26 - Complete layout restructure: Centered mechs, weapon/armor cards, companion pogs',
-        'v0.2.0' => '2025-06-26 - Major UI overhaul: Fixed P/E alignment, HP in circles, improved layout',
-        'v0.1.4' => '2025-06-26 - Overlay labels aligned, HP in circles, log + buttons stable',
-        'v0.1.1' => '2025-06-26 - Improved layout; HP in mech circles; P/E deck labels',
-        'v0.1.0' => '2025-06-25 - Initial battlefield prototype'
-    ]
-];
+// Load build information from builds.php
+$build = require 'builds.php';
 ?>
 
 <!DOCTYPE html>
@@ -74,7 +26,7 @@ $build = [
     <header class="top-bar">
         <div class="nav-left">
             <a href="index.php" class="config-link">🏠 Back to Game</a>
-            <a href="config.php" class="config-link">⚙️ Configure Mechs</a>
+            <button type="button" class="config-link card-creator-btn" onclick="window.location.href='index.php'">🃏 Card Creator</button>
         </div>
         <div class="nav-center">
             <h1 class="game-title">BUILD INFORMATION</h1>
@@ -160,6 +112,18 @@ $build = [
                             } elseif (strpos($change, 'IMPROVED:') === 0) {
                                 $type = 'improve';
                                 $icon = '⚡';
+                            } elseif (strpos($change, 'PREPARED:') === 0) {
+                                $type = 'prepare';
+                                $icon = '🚀';
+                            } elseif (strpos($change, 'REMOVED:') === 0) {
+                                $type = 'remove';
+                                $icon = '🗑️';
+                            } elseif (strpos($change, 'CONSOLIDATED:') === 0) {
+                                $type = 'consolidate';
+                                $icon = '📦';
+                            } elseif (strpos($change, 'FOCUSED:') === 0) {
+                                $type = 'focus';
+                                $icon = '🎯';
                             } else {
                                 $type = 'general';
                                 $icon = '📌';
@@ -199,7 +163,7 @@ $build = [
     <footer class="game-footer">
         <div class="build-info">
             NRD Tactical Sandbox | Build <?= htmlspecialchars($build['version']) ?> | 
-            Released <?= htmlspecialchars($build['date']) ?>
+            Released <?= htmlspecialchars($build['date']) ?> | <?= htmlspecialchars($build['build_name']) ?>
         </div>
     </footer>
 
@@ -342,6 +306,22 @@ $build = [
 
 .change-text.improve {
     color: #17a2b8;
+}
+
+.change-text.prepare {
+    color: #fd7e14;
+}
+
+.change-text.remove {
+    color: #dc3545;
+}
+
+.change-text.consolidate {
+    color: #6f42c1;
+}
+
+.change-text.focus {
+    color: #20c997;
 }
 
 .version-history {

@@ -15,8 +15,13 @@ $enemyArmor = $_SESSION['enemyArmor'] ?? ['name' => 'Reactive Plating', 'def' =>
 $gameLog = $_SESSION['log'] ?? [];
 
 // ===================================================================
-// LOAD PLAYER HAND CARDS FROM JSON
+// LOAD BUILD INFORMATION
 // ===================================================================
+$build = require 'builds.php';
+
+// ===================================================================
+// LOAD PLAYER HAND CARDS FROM JSON
+// =================================================================== 
 require_once 'card-manager.php';
 $cardManager = new CardManager();
 $availableCards = $cardManager->getAllCards();
@@ -52,7 +57,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Handle card clicks
     if (isset($_POST['card_click'])) {
         $cardInfo = htmlspecialchars($_POST['card_click']);
-        $gameLog[] = "[" . date('H:i:s') . "] Card activated: {$cardInfo}";
+        $gameLog[] = "[" . date('H:i:s') . "] Card viewed: {$cardInfo}";
+    }
+    
+    // Handle card detail requests
+    if (isset($_POST['view_card_details'])) {
+        $cardId = $_POST['card_id'] ?? '';
+        if ($cardId) {
+            // Find the card in our available cards
+            $viewedCard = null;
+            foreach ($availableCards as $card) {
+                if ($card['id'] === $cardId) {
+                    $viewedCard = $card;
+                    break;
+                }
+            }
+            
+            if ($viewedCard) {
+                $gameLog[] = "[" . date('H:i:s') . "] Detailed view: {$viewedCard['name']}";
+            }
+        }
     }
     
     // Handle equipment clicks
@@ -148,6 +172,7 @@ function getCardTypeIcon($type) {
             <h1 class="game-title">NRD TACTICAL SANDBOX</h1>
         </div>
         <div class="nav-right">
+            <a href="build-info.php" class="version-badge" title="View Build Information"><?= htmlspecialchars($build['version']) ?></a>
             <a href="logout.php" class="logout-link">🚪 Logout</a>
         </div>
     </header>
@@ -323,7 +348,7 @@ function getCardTypeIcon($type) {
                             <?php if ($playerHand[$i] !== null): ?>
                                 <!-- Real Card from JSON -->
                                 <?php $card = $playerHand[$i]; ?>
-                                <button type="submit" name="card_click" value="<?= htmlspecialchars($card['name']) ?>" class="hand-card face-up fan-card real-card <?= $card['type'] ?>-card" style="--card-index: <?= $i ?>">
+                                <button type="button" onclick="viewCardDetails('<?= htmlspecialchars($card['id']) ?>')" class="hand-card face-up fan-card real-card <?= $card['type'] ?>-card" style="--card-index: <?= $i ?>">
                                     <div class="card-mini-icon"><?= getCardTypeIcon($card['type']) ?></div>
                                     <div class="card-mini-name"><?= htmlspecialchars($card['name']) ?></div>
                                     <div class="card-mini-cost"><?= $card['cost'] ?></div>
@@ -373,7 +398,8 @@ function getCardTypeIcon($type) {
          =================================================================== -->
     <footer class="game-footer">
         <div class="build-info">
-            NRD Tactical Sandbox | Game Interface
+            NRD Tactical Sandbox | Build <?= htmlspecialchars($build['version']) ?> | 
+            <?= htmlspecialchars($build['build_name']) ?>
         </div>
     </footer>
 
@@ -478,7 +504,102 @@ function getCardTypeIcon($type) {
 <!-- Card Creator Overlay -->
 <div id="cardCreatorOverlay" class="card-creator-overlay" onclick="toggleCardCreator()"></div>
 
+<!-- ===================================================================
+     CARD DETAIL MODAL
+     =================================================================== -->
+<div id="cardDetailModal" class="card-detail-modal">
+    <div class="card-detail-content">
+        <div class="card-detail-header">
+            <h2 id="cardDetailTitle">🃏 Card Details</h2>
+            <button type="button" class="close-btn" onclick="closeCardDetails()">✕</button>
+        </div>
+        
+        <div class="card-detail-body">
+            <!-- Large Card Display -->
+            <div class="large-card-section">
+                <div id="largeCardPreview" class="large-card spell-card">
+                    <div class="large-card-cost">3</div>
+                    <div class="large-card-name">Card Name</div>
+                    <div class="large-card-type">SPELL</div>
+                    <div class="large-card-art">
+                        <div class="art-placeholder">[Card Art]</div>
+                    </div>
+                    <div class="large-card-damage">💥 5</div>
+                    <div class="large-card-description">Card description goes here...</div>
+                    <div class="large-card-rarity common-rarity">Common</div>
+                </div>
+            </div>
+            
+            <!-- Card Information -->
+            <div class="card-info-section">
+                <h3>Card Information</h3>
+                <div class="card-info-grid">
+                    <div class="info-row">
+                        <span class="info-label">Name:</span>
+                        <span id="detailName" class="info-value">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Type:</span>
+                        <span id="detailType" class="info-value">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Cost:</span>
+                        <span id="detailCost" class="info-value">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Damage:</span>
+                        <span id="detailDamage" class="info-value">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Rarity:</span>
+                        <span id="detailRarity" class="info-value">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Description:</span>
+                        <span id="detailDescription" class="info-value description">-</span>
+                    </div>
+                </div>
+                
+                <!-- Card Metadata -->
+                <div class="card-metadata">
+                    <h4>Metadata</h4>
+                    <div class="metadata-grid">
+                        <div class="metadata-item">
+                            <span class="metadata-label">Created:</span>
+                            <span id="detailCreated" class="metadata-value">-</span>
+                        </div>
+                        <div class="metadata-item">
+                            <span class="metadata-label">Creator:</span>
+                            <span id="detailCreator" class="metadata-value">-</span>
+                        </div>
+                        <div class="metadata-item">
+                            <span class="metadata-label">Card ID:</span>
+                            <span id="detailCardId" class="metadata-value">-</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="card-detail-actions">
+                    <button type="button" class="action-btn reset-btn" onclick="closeCardDetails()">
+                        ↩️ Close
+                    </button>
+                    <button type="button" class="action-btn attack-btn" onclick="playCard()">
+                        ⚡ Play Card
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Card Detail Overlay -->
+<div id="cardDetailOverlay" class="card-detail-overlay" onclick="closeCardDetails()"></div>
+
 <script>
+// Make card data available to JavaScript
+const availableCards = <?= json_encode($availableCards) ?>;
+
 // Card Creator JavaScript Functions
 function toggleCardCreator() {
     const panel = document.getElementById('cardCreatorPanel');
@@ -491,6 +612,82 @@ function toggleCardCreator() {
         panel.classList.add('active');
         overlay.classList.add('active');
     }
+}
+
+// ===================================================================
+// CARD DETAIL MODAL FUNCTIONS
+// ===================================================================
+function viewCardDetails(cardId) {
+    // Find the card data
+    const card = availableCards.find(c => c.id === cardId);
+    if (!card) {
+        alert('Card not found!');
+        return;
+    }
+    
+    // Update modal title
+    document.getElementById('cardDetailTitle').textContent = `🃏 ${card.name}`;
+    
+    // Update large card preview
+    const largeCard = document.getElementById('largeCardPreview');
+    largeCard.className = `large-card ${card.type}-card`;
+    largeCard.querySelector('.large-card-cost').textContent = card.cost;
+    largeCard.querySelector('.large-card-name').textContent = card.name;
+    largeCard.querySelector('.large-card-type').textContent = card.type.toUpperCase();
+    largeCard.querySelector('.large-card-damage').textContent = card.damage > 0 ? `💥 ${card.damage}` : '';
+    largeCard.querySelector('.large-card-damage').style.display = card.damage > 0 ? 'block' : 'none';
+    largeCard.querySelector('.large-card-description').textContent = card.description || 'No description provided.';
+    
+    const rarityElement = largeCard.querySelector('.large-card-rarity');
+    rarityElement.textContent = card.rarity.charAt(0).toUpperCase() + card.rarity.slice(1);
+    rarityElement.className = `large-card-rarity ${card.rarity}-rarity`;
+    
+    // Update card information
+    document.getElementById('detailName').textContent = card.name;
+    document.getElementById('detailType').textContent = card.type.charAt(0).toUpperCase() + card.type.slice(1);
+    document.getElementById('detailCost').textContent = card.cost;
+    document.getElementById('detailDamage').textContent = card.damage > 0 ? card.damage : 'None';
+    document.getElementById('detailRarity').textContent = card.rarity.charAt(0).toUpperCase() + card.rarity.slice(1);
+    document.getElementById('detailDescription').textContent = card.description || 'No description provided.';
+    
+    // Update metadata
+    document.getElementById('detailCreated').textContent = card.created_at || 'Unknown';
+    document.getElementById('detailCreator').textContent = card.created_by || 'Unknown';
+    document.getElementById('detailCardId').textContent = card.id;
+    
+    // Show the modal
+    document.getElementById('cardDetailModal').classList.add('active');
+    document.getElementById('cardDetailOverlay').classList.add('active');
+    
+    // Log the action
+    logCardAction(`Viewed details: ${card.name}`);
+}
+
+function closeCardDetails() {
+    document.getElementById('cardDetailModal').classList.remove('active');
+    document.getElementById('cardDetailOverlay').classList.remove('active');
+}
+
+function playCard() {
+    const cardName = document.getElementById('detailName').textContent;
+    logCardAction(`Played card: ${cardName}`);
+    alert(`You played: ${cardName}!\n\n(Card mechanics coming in future phases)`);
+    closeCardDetails();
+}
+
+function logCardAction(action) {
+    // Send card action to server for logging
+    const formData = new FormData();
+    formData.append('card_click', action);
+    
+    fetch(window.location.pathname, {
+        method: 'POST',
+        body: formData
+    }).then(() => {
+        // Action logged successfully
+    }).catch(error => {
+        console.error('Error logging action:', error);
+    });
 }
 
 function updateCardPreview() {

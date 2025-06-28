@@ -9,7 +9,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Get build information for version display
+// Load build information
 $build = require 'builds.php';
 
 // Set default values
@@ -87,7 +87,7 @@ foreach ($defaults as $key => $default) {
     <header class="top-bar">
         <div class="nav-left">
             <a href="index.php" class="config-link">🏠 Back to Game</a>
-            <a href="build-info.php" class="config-link">📦 Build Info</a>
+            <button type="button" class="config-link card-creator-btn" onclick="window.location.href='index.php'">🃏 Card Creator</button>
         </div>
         <div class="nav-center">
             <h1 class="game-title">MECH CONFIGURATION</h1>
@@ -277,7 +277,7 @@ foreach ($defaults as $key => $default) {
     <footer class="game-footer">
         <div class="build-info">
             Mech Configuration | Build <?= htmlspecialchars($build['version']) ?> | 
-            All changes are saved automatically
+            <?= htmlspecialchars($build['build_name']) ?>
         </div>
     </footer>
 
