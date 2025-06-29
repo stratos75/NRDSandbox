@@ -1,37 +1,23 @@
 <?php
 require 'auth.php';
 
-// ===================================================================
-// LOAD BUILD INFORMATION
-// ===================================================================
-$build = require 'builds.php';
+$gameConfig = ['hand_size' => 5, 'draw_deck_size' => 20, 'enable_companions' => true];
 
-// ===================================================================
-// LOAD GAME RULES CONFIGURATION
-// ===================================================================
-$gameRulesDefaults = [
-    'starting_hand_size' => 5,
-    'max_hand_size' => 7,
-    'deck_size' => 20,
-    'cards_drawn_per_turn' => 1,
-    'starting_player' => 'player'
+// Load game rules from session with defaults
+$gameRules = [
+    'starting_hand_size' => $_SESSION['starting_hand_size'] ?? 5,
+    'max_hand_size' => $_SESSION['max_hand_size'] ?? 7,
+    'deck_size' => $_SESSION['deck_size'] ?? 20,
+    'cards_drawn_per_turn' => $_SESSION['cards_drawn_per_turn'] ?? 1,
+    'starting_player' => $_SESSION['starting_player'] ?? 'player'
 ];
 
-// Get configured game rules from session or use defaults
-$gameRules = [];
-foreach ($gameRulesDefaults as $key => $default) {
-    $gameRules[$key] = $_SESSION[$key] ?? $default;
+// Load cards from JSON
+$cards = [];
+if (file_exists('data/cards.json')) {
+    $cardData = json_decode(file_get_contents('data/cards.json'), true);
+    $cards = $cardData['cards'] ?? [];
 }
-
-// Apply rules to game configuration
-$gameConfig = [
-    'hand_size' => $gameRules['starting_hand_size'],
-    'max_hand_size' => $gameRules['max_hand_size'],
-    'draw_deck_size' => $gameRules['deck_size'],
-    'cards_per_turn' => $gameRules['cards_drawn_per_turn'],
-    'starting_player' => $gameRules['starting_player'],
-    'enable_companions' => true
-];
 
 // Initialize basic mech data
 $playerMech = $_SESSION['playerMech'] ?? ['HP' => 100, 'ATK' => 30, 'DEF' => 15, 'MAX_HP' => 100, 'companion' => 'Pilot-Alpha'];
@@ -43,29 +29,6 @@ $enemyWeapon = $_SESSION['enemyWeapon'] ?? ['name' => 'Ion Cannon', 'atk' => 12,
 $enemyArmor = $_SESSION['enemyArmor'] ?? ['name' => 'Reactive Plating', 'def' => 8, 'durability' => 100];
 
 $gameLog = $_SESSION['log'] ?? [];
-
-// ===================================================================
-// LOAD BUILD INFORMATION
-// ===================================================================
-$build = require 'builds.php';
-
-// ===================================================================
-// LOAD PLAYER HAND CARDS FROM JSON
-// =================================================================== 
-require_once 'card-manager.php';
-$cardManager = new CardManager();
-$availableCards = $cardManager->getAllCards();
-
-// Prepare player hand - fill with real cards first, then empty slots
-$playerHand = [];
-for ($i = 0; $i < $gameConfig['hand_size']; $i++) {
-    if (isset($availableCards[$i])) {
-        $playerHand[] = $availableCards[$i];
-    } else {
-        // Create empty card slot
-        $playerHand[] = null;
-    }
-}
 
 // FORM PROCESSING
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -87,26 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Handle card clicks
     if (isset($_POST['card_click'])) {
         $cardInfo = htmlspecialchars($_POST['card_click']);
-        $gameLog[] = "[" . date('H:i:s') . "] Card viewed: {$cardInfo}";
-    }
-    
-    // Handle card detail requests
-    if (isset($_POST['view_card_details'])) {
-        $cardId = $_POST['card_id'] ?? '';
-        if ($cardId) {
-            // Find the card in our available cards
-            $viewedCard = null;
-            foreach ($availableCards as $card) {
-                if ($card['id'] === $cardId) {
-                    $viewedCard = $card;
-                    break;
-                }
-            }
-            
-            if ($viewedCard) {
-                $gameLog[] = "[" . date('H:i:s') . "] Detailed view: {$viewedCard['name']}";
-            }
-        }
+        $gameLog[] = "[" . date('H:i:s') . "] Card activated: {$cardInfo}";
     }
     
     // Handle equipment clicks
@@ -143,9 +87,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // HELPER FUNCTIONS
 function getMechHealthPercent($currentHP, $maxHP) {
-    // Safety check: prevent division by zero
     if (!$maxHP || $maxHP <= 0) {
-        return 100; // Default to full health if maxHP is invalid
+        return 100;
     }
     return max(0, min(100, ($currentHP / $maxHP) * 100));
 }
@@ -158,22 +101,10 @@ function getMechStatusClass($currentHP, $maxHP) {
 }
 
 function safeHtmlOutput($value, $default = 'Unknown') {
-    // Safely output HTML, handling null/empty values
     if (empty($value) || $value === null) {
         return htmlspecialchars($default);
     }
     return htmlspecialchars($value);
-}
-
-function getCardTypeIcon($type) {
-    $icons = [
-        'spell' => '✨',
-        'weapon' => '⚔️',
-        'armor' => '🛡️',
-        'creature' => '👾',
-        'support' => '🔧'
-    ];
-    return $icons[$type] ?? '🃏';
 }
 ?>
 
@@ -202,28 +133,26 @@ function getCardTypeIcon($type) {
             <h1 class="game-title">NRD TACTICAL SANDBOX</h1>
         </div>
         <div class="nav-right">
-            <a href="build-info.php" class="version-badge" title="View Build Information"><?= htmlspecialchars($build['version']) ?></a>
+            <a href="build-info.php" class="version-badge">v0.9.0</a>
             <a href="logout.php" class="logout-link">🚪 Logout</a>
         </div>
     </header>
+
+    <!-- Game Rules Summary Bar -->
+    <div class="rules-summary-bar">
+        <div class="rules-summary-content">
+            <span class="rules-item">📋 Hand: <?= $gameRules['starting_hand_size'] ?>/<?= $gameRules['max_hand_size'] ?></span>
+            <span class="rules-item">📚 Deck: <?= $gameRules['deck_size'] ?> cards</span>
+            <span class="rules-item">🎯 Draw: <?= $gameRules['cards_drawn_per_turn'] ?>/turn</span>
+            <span class="rules-item">🎮 Start: <?= ucfirst($gameRules['starting_player']) ?></span>
+            <a href="config/rules.php" class="rules-config-link">⚙️ Configure Rules</a>
+        </div>
+    </div>
 
     <!-- ===================================================================
          MAIN BATTLEFIELD LAYOUT
          =================================================================== -->
     <main class="battlefield">
-
-        <!-- Game Rules Summary Bar -->
-        <div class="game-rules-summary">
-            <div class="rules-info">
-                <span class="rule-item">🃏 Hand: <?= $gameConfig['hand_size'] ?>/<?= $gameConfig['max_hand_size'] ?></span>
-                <span class="rule-item">📚 Deck: <?= $gameConfig['draw_deck_size'] ?></span>
-                <span class="rule-item">🔄 Draw: <?= $gameConfig['cards_per_turn'] ?>/turn</span>
-                <span class="rule-item">🎯 Start: <?= ucfirst($gameConfig['starting_player']) ?></span>
-            </div>
-            <div class="rules-link">
-                <a href="config/rules.php" class="rules-config-link">⚙️ Configure Rules</a>
-            </div>
-        </div>
 
         <!-- ENEMY SECTION (TOP) -->
         <section class="combat-zone enemy-zone">
@@ -232,22 +161,22 @@ function getCardTypeIcon($type) {
             <!-- Enemy Hand (Top - Hidden Cards in Fan Layout) -->
             <div class="hand-section enemy-hand-section">
                 <div class="hand-cards-fan">
-                    <?php for ($i = 1; $i <= $gameConfig['hand_size']; $i++): ?>
+                    <?php for ($i = 1; $i <= $gameRules['starting_hand_size']; $i++): ?>
                         <div class="hand-card face-down fan-card" style="--card-index: <?= $i-1 ?>"></div>
                     <?php endfor; ?>
                 </div>
-                <div class="hand-label">Enemy Hand (<?= $gameConfig['hand_size'] ?>)</div>
+                <div class="hand-label">Enemy Hand (<?= $gameRules['starting_hand_size'] ?>)</div>
             </div>
             
             <div class="battlefield-layout">
                 <!-- Enemy Draw Deck (Far Left) -->
                 <div class="draw-deck-area enemy-deck">
                     <div class="draw-pile">
-                        <?php for ($i = 0; $i < min(5, $gameConfig['draw_deck_size']); $i++): ?>
+                        <?php for ($i = 0; $i < min(5, $gameRules['deck_size']); $i++): ?>
                             <div class="draw-card face-down" style="z-index: <?= 5-$i ?>"></div>
                         <?php endfor; ?>
                     </div>
-                    <div class="deck-label">Draw (<?= $gameConfig['draw_deck_size'] ?>)</div>
+                    <div class="deck-label">Draw (<?= $gameRules['deck_size'] ?>)</div>
                 </div>
 
                 <!-- Enemy Weapon Card -->
@@ -301,7 +230,7 @@ function getCardTypeIcon($type) {
                     </form>
                 </div>
 
-                <!-- Spacer (replaces old hand area) -->
+                <!-- Spacer -->
                 <div class="spacer"></div>
             </div>
         </section>
@@ -320,11 +249,11 @@ function getCardTypeIcon($type) {
                 <!-- Player Draw Deck (Far Left) -->
                 <div class="draw-deck-area player-deck">
                     <div class="draw-pile">
-                        <?php for ($i = 0; $i < min(5, $gameConfig['draw_deck_size']); $i++): ?>
+                        <?php for ($i = 0; $i < min(5, $gameRules['deck_size']); $i++): ?>
                             <div class="draw-card face-down" style="z-index: <?= 5-$i ?>"></div>
                         <?php endfor; ?>
                     </div>
-                    <div class="deck-label">Draw (<?= $gameConfig['draw_deck_size'] ?>)</div>
+                    <div class="deck-label">Draw (<?= $gameRules['deck_size'] ?>)</div>
                 </div>
 
                 <!-- Player Weapon Card -->
@@ -378,37 +307,47 @@ function getCardTypeIcon($type) {
                     </form>
                 </div>
 
-                <!-- Spacer (replaces old hand area) -->
+                <!-- Spacer -->
                 <div class="spacer"></div>
             </div>
             
-            <!-- Player Hand (Bottom - Real Cards from JSON) -->
+            <!-- Player Hand (Bottom - Visible Cards in Fan Layout) -->
             <div class="hand-section player-hand-section">
-                <div class="hand-label">Your Hand (<?= count(array_filter($playerHand)) ?>/<?= $gameConfig['hand_size'] ?>)</div>
+                <div class="hand-label">Your Hand (<?= count($cards) ?>/<?= $gameRules['starting_hand_size'] ?>)</div>
                 <div class="hand-cards-fan">
-                    <?php for ($i = 0; $i < $gameConfig['hand_size']; $i++): ?>
-                        <form method="post" style="display: inline;">
-                            <?php if ($playerHand[$i] !== null): ?>
-                                <!-- Real Card from JSON -->
-                                <?php $card = $playerHand[$i]; ?>
-                                <button type="button" onclick="viewCardDetails('<?= htmlspecialchars($card['id']) ?>')" class="hand-card face-up fan-card real-card <?= $card['type'] ?>-card" style="--card-index: <?= $i ?>">
-                                    <div class="card-mini-icon"><?= getCardTypeIcon($card['type']) ?></div>
-                                    <div class="card-mini-name"><?= htmlspecialchars($card['name']) ?></div>
-                                    <div class="card-mini-cost"><?= $card['cost'] ?></div>
-                                    <?php if ($card['damage'] > 0): ?>
-                                        <div class="card-mini-damage">💥<?= $card['damage'] ?></div>
-                                    <?php endif; ?>
-                                </button>
-                            <?php else: ?>
-                                <!-- Empty Card Slot -->
-                                <div class="hand-card face-up fan-card empty-card" style="--card-index: <?= $i ?>">
-                                    <div class="empty-card-content">
-                                        <div class="empty-card-text">Empty</div>
-                                        <div class="empty-card-icon">➕</div>
-                                    </div>
-                                </div>
+                    <?php 
+                    // Display real cards up to hand size
+                    for ($i = 0; $i < $gameRules['starting_hand_size']; $i++): 
+                        if ($i < count($cards)):
+                            $card = $cards[$i];
+                    ?>
+                        <button type="button" onclick="showCardDetails(<?= $i ?>)" class="hand-card face-up fan-card <?= $card['type'] ?>-card" style="--card-index: <?= $i ?>" data-card='<?= htmlspecialchars(json_encode($card), ENT_QUOTES, 'UTF-8') ?>'>
+                            <div class="card-mini-name"><?= htmlspecialchars($card['name']) ?></div>
+                            <div class="card-mini-cost"><?= $card['cost'] ?></div>
+                            <?php if ($card['damage'] > 0): ?>
+                                <div class="card-mini-damage">💥<?= $card['damage'] ?></div>
                             <?php endif; ?>
-                        </form>
+                            <div class="card-type-icon">
+                                <?php
+                                $typeIcons = [
+                                    'spell' => '✨',
+                                    'weapon' => '⚔️', 
+                                    'armor' => '🛡️',
+                                    'creature' => '👾',
+                                    'support' => '🔧'
+                                ];
+                                echo $typeIcons[$card['type']] ?? '❓';
+                                ?>
+                            </div>
+                        </button>
+                    <?php else: ?>
+                        <div class="hand-card empty-card-slot fan-card" style="--card-index: <?= $i ?>">
+                            <div class="empty-card-content">
+                                <div class="empty-card-icon">+</div>
+                                <div class="empty-card-text">Empty</div>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                     <?php endfor; ?>
                 </div>
             </div>
@@ -417,7 +356,7 @@ function getCardTypeIcon($type) {
     </main>
 
     <!-- ===================================================================
-         GAME CONTROLS PANEL (ACTION BUTTONS ONLY)
+         GAME CONTROLS PANEL
          =================================================================== -->
     <section class="controls-panel">
         <div class="control-group">
@@ -441,12 +380,95 @@ function getCardTypeIcon($type) {
          =================================================================== -->
     <footer class="game-footer">
         <div class="build-info">
-            NRD Tactical Sandbox | Build <?= htmlspecialchars($build['version']) ?> | 
-            <?= htmlspecialchars($build['build_name']) ?>
+            NRD Tactical Sandbox | Game Interface | Build v0.9.0
         </div>
     </footer>
 
 </div>
+
+<!-- ===================================================================
+     CARD DETAIL MODAL
+     =================================================================== -->
+<div id="cardDetailModal" class="card-detail-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>🃏 Card Details</h2>
+            <button type="button" class="close-btn" onclick="closeCardDetails()">✕</button>
+        </div>
+        
+        <div class="modal-body">
+            <div class="card-detail-layout">
+                <!-- Large Card Preview -->
+                <div class="card-preview-section">
+                    <div id="modalCardPreview" class="modal-card-preview">
+                        <div class="modal-card-cost">0</div>
+                        <div class="modal-card-name">Card Name</div>
+                        <div class="modal-card-type">TYPE</div>
+                        <div class="modal-card-art">[Card Art]</div>
+                        <div class="modal-card-damage"></div>
+                        <div class="modal-card-description">Card description...</div>
+                        <div class="modal-card-rarity">Common</div>
+                    </div>
+                </div>
+                
+                <!-- Card Information Panel -->
+                <div class="card-info-section">
+                    <h3>Card Information</h3>
+                    <div class="card-info-grid">
+                        <div class="info-row">
+                            <span class="info-label">Name:</span>
+                            <span id="modalCardName" class="info-value">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Type:</span>
+                            <span id="modalCardType" class="info-value">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Cost:</span>
+                            <span id="modalCardCost" class="info-value">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Damage:</span>
+                            <span id="modalCardDamage" class="info-value">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Rarity:</span>
+                            <span id="modalCardRarity" class="info-value">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Description:</span>
+                            <span id="modalCardDescription" class="info-value">-</span>
+                        </div>
+                    </div>
+                    
+                    <h3>Metadata</h3>
+                    <div class="card-info-grid">
+                        <div class="info-row">
+                            <span class="info-label">Created:</span>
+                            <span id="modalCardCreated" class="info-value">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Creator:</span>
+                            <span id="modalCardCreator" class="info-value">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Card ID:</span>
+                            <span id="modalCardId" class="info-value">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="modal-footer">
+            <button type="button" onclick="playCard()" class="action-btn attack-btn">⚡ Play Card</button>
+            <button type="button" onclick="closeCardDetails()" class="action-btn cancel-btn">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Card Detail Modal Overlay -->
+<div id="cardDetailOverlay" class="card-detail-overlay" onclick="closeCardDetails()"></div>
 
 <!-- ===================================================================
      CARD CREATOR PANEL (SLIDE-IN)
@@ -547,101 +569,70 @@ function getCardTypeIcon($type) {
 <!-- Card Creator Overlay -->
 <div id="cardCreatorOverlay" class="card-creator-overlay" onclick="toggleCardCreator()"></div>
 
-<!-- ===================================================================
-     CARD DETAIL MODAL
-     =================================================================== -->
-<div id="cardDetailModal" class="card-detail-modal">
-    <div class="card-detail-content">
-        <div class="card-detail-header">
-            <h2 id="cardDetailTitle">🃏 Card Details</h2>
-            <button type="button" class="close-btn" onclick="closeCardDetails()">✕</button>
-        </div>
-        
-        <div class="card-detail-body">
-            <!-- Large Card Display -->
-            <div class="large-card-section">
-                <div id="largeCardPreview" class="large-card spell-card">
-                    <div class="large-card-cost">3</div>
-                    <div class="large-card-name">Card Name</div>
-                    <div class="large-card-type">SPELL</div>
-                    <div class="large-card-art">
-                        <div class="art-placeholder">[Card Art]</div>
-                    </div>
-                    <div class="large-card-damage">💥 5</div>
-                    <div class="large-card-description">Card description goes here...</div>
-                    <div class="large-card-rarity common-rarity">Common</div>
-                </div>
-            </div>
-            
-            <!-- Card Information -->
-            <div class="card-info-section">
-                <h3>Card Information</h3>
-                <div class="card-info-grid">
-                    <div class="info-row">
-                        <span class="info-label">Name:</span>
-                        <span id="detailName" class="info-value">-</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Type:</span>
-                        <span id="detailType" class="info-value">-</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Cost:</span>
-                        <span id="detailCost" class="info-value">-</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Damage:</span>
-                        <span id="detailDamage" class="info-value">-</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Rarity:</span>
-                        <span id="detailRarity" class="info-value">-</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Description:</span>
-                        <span id="detailDescription" class="info-value description">-</span>
-                    </div>
-                </div>
-                
-                <!-- Card Metadata -->
-                <div class="card-metadata">
-                    <h4>Metadata</h4>
-                    <div class="metadata-grid">
-                        <div class="metadata-item">
-                            <span class="metadata-label">Created:</span>
-                            <span id="detailCreated" class="metadata-value">-</span>
-                        </div>
-                        <div class="metadata-item">
-                            <span class="metadata-label">Creator:</span>
-                            <span id="detailCreator" class="metadata-value">-</span>
-                        </div>
-                        <div class="metadata-item">
-                            <span class="metadata-label">Card ID:</span>
-                            <span id="detailCardId" class="metadata-value">-</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Action Buttons -->
-                <div class="card-detail-actions">
-                    <button type="button" class="action-btn reset-btn" onclick="closeCardDetails()">
-                        ↩️ Close
-                    </button>
-                    <button type="button" class="action-btn attack-btn" onclick="playCard()">
-                        ⚡ Play Card
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Card Detail Overlay -->
-<div id="cardDetailOverlay" class="card-detail-overlay" onclick="closeCardDetails()"></div>
-
 <script>
-// Make card data available to JavaScript
-const availableCards = <?= json_encode($availableCards) ?>;
+// Card Detail Modal Functions
+function showCardDetails(cardIndex) {
+    // Get the card button element
+    const cardButton = document.querySelector(`[data-card][style*="--card-index: ${cardIndex}"]`);
+    if (!cardButton) {
+        console.error('Card button not found for index:', cardIndex);
+        return;
+    }
+    
+    // Parse card data from data attribute
+    let cardData;
+    try {
+        cardData = JSON.parse(cardButton.getAttribute('data-card'));
+    } catch (e) {
+        console.error('Error parsing card data:', e);
+        return;
+    }
+    
+    console.log('Showing card details for:', cardData); // Debug log
+    
+    // Update card preview
+    const preview = document.getElementById('modalCardPreview');
+    const typeClasses = ['spell-card', 'weapon-card', 'armor-card', 'creature-card', 'support-card'];
+    preview.className = 'modal-card-preview ' + (cardData.type || 'spell') + '-card';
+    
+    // Update preview elements
+    preview.querySelector('.modal-card-cost').textContent = cardData.cost || '0';
+    preview.querySelector('.modal-card-name').textContent = cardData.name || 'Unknown Card';
+    preview.querySelector('.modal-card-type').textContent = (cardData.type || 'unknown').toUpperCase();
+    preview.querySelector('.modal-card-damage').textContent = cardData.damage > 0 ? `💥 ${cardData.damage}` : '';
+    preview.querySelector('.modal-card-description').textContent = cardData.description || 'No description available';
+    
+    const rarityElement = preview.querySelector('.modal-card-rarity');
+    rarityElement.textContent = (cardData.rarity || 'common').charAt(0).toUpperCase() + (cardData.rarity || 'common').slice(1);
+    rarityElement.className = 'modal-card-rarity ' + (cardData.rarity || 'common') + '-rarity';
+    
+    // Update information panel
+    document.getElementById('modalCardName').textContent = cardData.name || 'Unknown';
+    document.getElementById('modalCardType').textContent = (cardData.type || 'Unknown').charAt(0).toUpperCase() + (cardData.type || 'Unknown').slice(1);
+    document.getElementById('modalCardCost').textContent = cardData.cost || '0';
+    document.getElementById('modalCardDamage').textContent = cardData.damage || '0';
+    document.getElementById('modalCardRarity').textContent = (cardData.rarity || 'Unknown').charAt(0).toUpperCase() + (cardData.rarity || 'Unknown').slice(1);
+    document.getElementById('modalCardDescription').textContent = cardData.description || 'No description available';
+    document.getElementById('modalCardCreated').textContent = cardData.created_at || 'Unknown';
+    document.getElementById('modalCardCreator').textContent = cardData.created_by || 'Unknown';
+    document.getElementById('modalCardId').textContent = cardData.id || 'Unknown';
+    
+    // Show modal
+    document.getElementById('cardDetailModal').classList.add('active');
+    document.getElementById('cardDetailOverlay').classList.add('active');
+}
+
+function closeCardDetails() {
+    document.getElementById('cardDetailModal').classList.remove('active');
+    document.getElementById('cardDetailOverlay').classList.remove('active');
+}
+
+function playCard() {
+    // Log card play action
+    console.log('Playing card');
+    // TODO: Implement card play mechanics
+    closeCardDetails();
+}
 
 // Card Creator JavaScript Functions
 function toggleCardCreator() {
@@ -655,82 +646,6 @@ function toggleCardCreator() {
         panel.classList.add('active');
         overlay.classList.add('active');
     }
-}
-
-// ===================================================================
-// CARD DETAIL MODAL FUNCTIONS
-// ===================================================================
-function viewCardDetails(cardId) {
-    // Find the card data
-    const card = availableCards.find(c => c.id === cardId);
-    if (!card) {
-        alert('Card not found!');
-        return;
-    }
-    
-    // Update modal title
-    document.getElementById('cardDetailTitle').textContent = `🃏 ${card.name}`;
-    
-    // Update large card preview
-    const largeCard = document.getElementById('largeCardPreview');
-    largeCard.className = `large-card ${card.type}-card`;
-    largeCard.querySelector('.large-card-cost').textContent = card.cost;
-    largeCard.querySelector('.large-card-name').textContent = card.name;
-    largeCard.querySelector('.large-card-type').textContent = card.type.toUpperCase();
-    largeCard.querySelector('.large-card-damage').textContent = card.damage > 0 ? `💥 ${card.damage}` : '';
-    largeCard.querySelector('.large-card-damage').style.display = card.damage > 0 ? 'block' : 'none';
-    largeCard.querySelector('.large-card-description').textContent = card.description || 'No description provided.';
-    
-    const rarityElement = largeCard.querySelector('.large-card-rarity');
-    rarityElement.textContent = card.rarity.charAt(0).toUpperCase() + card.rarity.slice(1);
-    rarityElement.className = `large-card-rarity ${card.rarity}-rarity`;
-    
-    // Update card information
-    document.getElementById('detailName').textContent = card.name;
-    document.getElementById('detailType').textContent = card.type.charAt(0).toUpperCase() + card.type.slice(1);
-    document.getElementById('detailCost').textContent = card.cost;
-    document.getElementById('detailDamage').textContent = card.damage > 0 ? card.damage : 'None';
-    document.getElementById('detailRarity').textContent = card.rarity.charAt(0).toUpperCase() + card.rarity.slice(1);
-    document.getElementById('detailDescription').textContent = card.description || 'No description provided.';
-    
-    // Update metadata
-    document.getElementById('detailCreated').textContent = card.created_at || 'Unknown';
-    document.getElementById('detailCreator').textContent = card.created_by || 'Unknown';
-    document.getElementById('detailCardId').textContent = card.id;
-    
-    // Show the modal
-    document.getElementById('cardDetailModal').classList.add('active');
-    document.getElementById('cardDetailOverlay').classList.add('active');
-    
-    // Log the action
-    logCardAction(`Viewed details: ${card.name}`);
-}
-
-function closeCardDetails() {
-    document.getElementById('cardDetailModal').classList.remove('active');
-    document.getElementById('cardDetailOverlay').classList.remove('active');
-}
-
-function playCard() {
-    const cardName = document.getElementById('detailName').textContent;
-    logCardAction(`Played card: ${cardName}`);
-    alert(`You played: ${cardName}!\n\n(Card mechanics coming in future phases)`);
-    closeCardDetails();
-}
-
-function logCardAction(action) {
-    // Send card action to server for logging
-    const formData = new FormData();
-    formData.append('card_click', action);
-    
-    fetch(window.location.pathname, {
-        method: 'POST',
-        body: formData
-    }).then(() => {
-        // Action logged successfully
-    }).catch(error => {
-        console.error('Error logging action:', error);
-    });
 }
 
 function updateCardPreview() {
@@ -801,7 +716,7 @@ function saveCard() {
             resetCardForm();
             // Update card library
             loadCardLibrary();
-            // Refresh the page to show the new card in the hand
+            // Reload the page to show new card in hand
             setTimeout(() => {
                 window.location.reload();
             }, 1000);
@@ -893,7 +808,7 @@ function deleteCard(cardId) {
         .then(data => {
             if (data.success) {
                 loadCardLibrary(); // Refresh the library
-                // Refresh the page to update the hand display
+                // Reload page to update hand display
                 setTimeout(() => {
                     window.location.reload();
                 }, 500);
