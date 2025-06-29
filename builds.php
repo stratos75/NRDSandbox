@@ -4,59 +4,50 @@
 // ===================================================================
 
 return [
-    'version' => 'v0.8.0',
-    'date'    => '2025-06-27',
-    'notes'   => 'Major refactor: Created organized configuration system with dedicated pages and clean architecture',
+    'version' => 'v0.9.0',
+    'date'    => '2025-06-29',
+    'notes'   => 'AI Context System: Seamless chat handoff documentation for development continuity',
     
     // Additional build metadata
-    'build_name' => 'Configuration System Refactor',
+    'build_name' => 'AI Context System',
     'php_required' => '7.4+',
     'features' => [
         'Authentication system',
         'Real-time mech combat with weapon/armor cards',
-        'Interactive card battle system with detail modals',
-        'JSON card storage with persistent data',
-        'Card Creator interface with live preview',
+        'Interactive card battle system',
         'Companion pog system for mechs',
-        'Organized configuration system with dedicated hub',
-        'Dedicated mech configuration page with presets',
-        'Dedicated game rules configuration with analysis',
-        'Configuration dashboard with system overview',
-        'Export/import configuration functionality',
-        'Hand size and deck size management',
-        'Turn system configuration',
-        'Scenario creation variables',
+        'Configurable hand and deck sizes',
         'Equipment card mechanics (weapons/armor)',
         'Game state persistence',
         'Responsive tactical battlefield layout',
         'Health status indicators with animations',
         'Combat action logging',
-        'Configurable mech stats with presets',
+        'Configurable mech stats',
         'Face-up/face-down card display logic',
+        'JSON card storage and management',
+        'Card Creator with live preview',
         'Card detail modal system',
-        'Enhanced card interaction and visualization'
+        'Game rules configuration',
+        'Clean /config/ directory organization',
+        'AI Context System for chat handoffs'
     ],
     
     // Changelog for this version
     'changelog' => [
-        'REFACTORED: Configuration system into organized /config/ subdirectory',
-        'ADDED: Configuration dashboard hub with system overview',
-        'ADDED: Dedicated mech configuration page with enhanced presets',
-        'ADDED: Dedicated game rules configuration with balance analysis',
-        'ADDED: Shared configuration functions and consistent styling',
-        'ADDED: Export/import configuration functionality',
-        'ADDED: Reset all settings functionality',
-        'IMPROVED: Separation of concerns with focused pages',
-        'IMPROVED: Navigation structure and user experience',
-        'IMPROVED: Code organization and maintainability',
-        'PREPARED: Foundation for future configuration modules (cards, AI)',
-        'CONSOLIDATED: All configuration logic into logical sections'
+        'ADDED: AI Context System for seamless Claude chat restarts',
+        'ADDED: Auto-generated project state documentation',
+        'ADDED: Complete resource availability mapping',
+        'ADDED: One-click copy functionality for AI handoffs',
+        'IMPROVED: Development workflow continuity',
+        'IMPROVED: Project documentation system',
+        'IMPROVED: Chat restart efficiency'
     ],
     
     // Previous versions for reference
     'previous_versions' => [
-        'v0.7.0' => '2025-06-27 - Added comprehensive game rules configuration system for scenario creation',
-        'v0.6.0' => '2025-06-27 - Added interactive card detail modal system with enhanced card interaction',
+        'v0.8.0' => '2025-06-29 - Configuration System Refactor: Clean /config/ directory organization',
+        'v0.7.0' => '2025-06-29 - Game Rules Configuration: Hand size, deck size, turn system controls',
+        'v0.6.0' => '2025-06-29 - Card Detail System: Interactive modal for full card information',
         'v0.5.3' => '2025-06-26 - Cleanup: Removed log panel, consolidated build files, focused on card system',
         'v0.5.2' => '2025-06-26 - Added JSON file storage system for persistent card data',
         'v0.5.1' => '2025-06-26 - Moved game log to dedicated right-side panel, simplified controls panel',
