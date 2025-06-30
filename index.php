@@ -12,27 +12,134 @@ $gameRules = [
     'starting_player' => $_SESSION['starting_player'] ?? 'player'
 ];
 
-// Load cards from JSON
-$cards = [];
+// ===================================================================
+// CARD LIBRARY & HAND MANAGEMENT
+// ===================================================================
+// Load permanent card library from JSON (never modified by gameplay)
+$cardLibrary = [];
+$debugInfo = [];
+
+$debugInfo[] = "Cards JSON exists: " . (file_exists('data/cards.json') ? 'YES' : 'NO');
+
 if (file_exists('data/cards.json')) {
-    $cardData = json_decode(file_get_contents('data/cards.json'), true);
-    $cards = $cardData['cards'] ?? [];
+    $jsonContent = file_get_contents('data/cards.json');
+    $cardData = json_decode($jsonContent, true);
+    if ($cardData === null) {
+        $debugInfo[] = "JSON ERROR: " . json_last_error_msg();
+    } else {
+        $cardLibrary = $cardData['cards'] ?? [];
+        $debugInfo[] = "Cards loaded: " . count($cardLibrary);
+    }
+} else {
+    $debugInfo[] = "ERROR: data/cards.json missing!";
 }
+
+// Initialize player hand from session (separate from library)
+if (!isset($_SESSION['player_hand'])) {
+    $_SESSION['player_hand'] = [];
+}
+$playerHand = $_SESSION['player_hand'] ?? [];
+$debugInfo[] = "Hand size: " . count($playerHand);
 
 // Initialize basic mech data
 $playerMech = $_SESSION['playerMech'] ?? ['HP' => 100, 'ATK' => 30, 'DEF' => 15, 'MAX_HP' => 100, 'companion' => 'Pilot-Alpha'];
 $enemyMech = $_SESSION['enemyMech'] ?? ['HP' => 100, 'ATK' => 25, 'DEF' => 10, 'MAX_HP' => 100, 'companion' => 'AI-Core'];
 
-$playerWeapon = $_SESSION['playerWeapon'] ?? ['name' => 'Plasma Rifle', 'atk' => 15, 'durability' => 100];
-$playerArmor = $_SESSION['playerArmor'] ?? ['name' => 'Shield Array', 'def' => 10, 'durability' => 100];
-$enemyWeapon = $_SESSION['enemyWeapon'] ?? ['name' => 'Ion Cannon', 'atk' => 12, 'durability' => 100];
-$enemyArmor = $_SESSION['enemyArmor'] ?? ['name' => 'Reactive Plating', 'def' => 8, 'durability' => 100];
+// ===================================================================
+// EQUIPMENT STATE TRACKING
+// ===================================================================
+$playerEquipment = $_SESSION['playerEquipment'] ?? ['weapon' => null, 'armor' => null];
+$enemyEquipment = $_SESSION['enemyEquipment'] ?? ['weapon' => null, 'armor' => null];
+
+// For enemy, pre-populate equipment (they start equipped)
+if ($enemyEquipment['weapon'] === null && $enemyEquipment['armor'] === null) {
+    $enemyEquipment = [
+        'weapon' => ['name' => 'Ion Cannon', 'atk' => 12, 'durability' => 100, 'type' => 'weapon'],
+        'armor' => ['name' => 'Reactive Plating', 'def' => 8, 'durability' => 100, 'type' => 'armor']
+    ];
+}
 
 $gameLog = $_SESSION['log'] ?? [];
 
+// ===================================================================
 // FORM PROCESSING
+// ===================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
+    // ===================================================================
+    // DEBUG RESET FUNCTIONS (NEW)
+    // ===================================================================
+    // Reset mech health to full
+    if (isset($_POST['reset_mechs'])) {
+        $playerMech['HP'] = $playerMech['MAX_HP'];
+        $enemyMech['HP'] = $enemyMech['MAX_HP'];
+        $gameLog[] = "[" . date('H:i:s') . "] Debug: Mech health reset to full";
+    }
+    
+    // Reset card hands to starting state
+    if (isset($_POST['reset_hands'])) {
+        // Clear existing hands
+        $_SESSION['player_hand'] = [];
+        $playerHand = [];
+        
+        // Rebuild starting hands from card library
+        if (!empty($cardLibrary)) {
+            $handSize = $gameRules['starting_hand_size'];
+            $shuffledCards = $cardLibrary;
+            shuffle($shuffledCards);
+            
+            for ($i = 0; $i < min($handSize, count($shuffledCards)); $i++) {
+                $playerHand[] = $shuffledCards[$i];
+            }
+            $_SESSION['player_hand'] = $playerHand;
+        }
+        
+        $gameLog[] = "[" . date('H:i:s') . "] Debug: Card hands reset to starting state";
+    }
+    
+    // Clear game log only
+    if (isset($_POST['clear_log'])) {
+        $gameLog = [];
+        $gameLog[] = "[" . date('H:i:s') . "] Debug: Game log cleared";
+    }
+    
+    // Reset everything to initial state
+    if (isset($_POST['reset_all'])) {
+        // Reset mech stats
+        $playerMech = ['HP' => 100, 'ATK' => 30, 'DEF' => 15, 'MAX_HP' => 100, 'companion' => 'Pilot-Alpha'];
+        $enemyMech = ['HP' => 100, 'ATK' => 25, 'DEF' => 10, 'MAX_HP' => 100, 'companion' => 'AI-Core'];
+        
+        // Reset equipment
+        $playerEquipment = ['weapon' => null, 'armor' => null];
+        $enemyEquipment = [
+            'weapon' => ['name' => 'Ion Cannon', 'atk' => 12, 'durability' => 100, 'type' => 'weapon'],
+            'armor' => ['name' => 'Reactive Plating', 'def' => 8, 'durability' => 100, 'type' => 'armor']
+        ];
+        
+        // Reset hands
+        $_SESSION['player_hand'] = [];
+        $playerHand = [];
+        
+        // Rebuild starting hands
+        if (!empty($cardLibrary)) {
+            $handSize = $gameRules['starting_hand_size'];
+            $shuffledCards = $cardLibrary;
+            shuffle($shuffledCards);
+            
+            for ($i = 0; $i < min($handSize, count($shuffledCards)); $i++) {
+                $playerHand[] = $shuffledCards[$i];
+            }
+            $_SESSION['player_hand'] = $playerHand;
+        }
+        
+        // Reset log
+        $gameLog = [];
+        $gameLog[] = "[" . date('H:i:s') . "] Debug: Complete game state reset";
+    }
+    
+    // ===================================================================
+    // COMBAT ACTIONS
+    // ===================================================================
     // Handle damage actions
     if (isset($_POST['damage'])) {
         $target = $_POST['damage'];
@@ -44,6 +151,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($target === 'player') {
             $playerMech['HP'] = max(0, $playerMech['HP'] - $damageAmount);
             $gameLog[] = "[" . date('H:i:s') . "] Enemy attacks Player for {$damageAmount} damage!";
+        }
+    }
+    
+    // ===================================================================
+    // CARD MANAGEMENT SYSTEM
+    // ===================================================================
+    // Handle card deletion (remove from hand without equipping)
+    if (isset($_POST['delete_card'])) {
+        $cardIndex = intval($_POST['card_index']);
+        
+        if (isset($playerHand[$cardIndex])) {
+            $card = $playerHand[$cardIndex];
+            array_splice($playerHand, $cardIndex, 1);
+            $_SESSION['player_hand'] = $playerHand;
+            $gameLog[] = "[" . date('H:i:s') . "] Deleted {$card['name']} from hand!";
+        }
+    }
+    
+    // ===================================================================
+    // DECK INTERACTION SYSTEM
+    // ===================================================================
+    // Handle deck clicking (draw cards)
+    if (isset($_POST['draw_cards'])) {
+        $requestedCards = intval($_POST['cards_to_draw'] ?? 5);
+        $maxHandSize = $gameRules['max_hand_size'];
+        $currentHandSize = count($playerHand);
+        
+        // Calculate how many cards we can actually draw
+        $availableSlots = $maxHandSize - $currentHandSize;
+        $cardsInLibrary = count($cardLibrary);
+        $cardsToDraw = min($requestedCards, $availableSlots, $cardsInLibrary);
+        
+        if ($cardsToDraw > 0) {
+            // Draw cards from library to hand
+            $drawnCards = array_slice($cardLibrary, 0, $cardsToDraw);
+            $playerHand = array_merge($playerHand, $drawnCards);
+            $_SESSION['player_hand'] = $playerHand;
+            
+            $gameLog[] = "[" . date('H:i:s') . "] Drew {$cardsToDraw} cards from deck!";
+        } else {
+            if ($availableSlots <= 0) {
+                $gameLog[] = "[" . date('H:i:s') . "] Hand is full! Cannot draw more cards.";
+            } elseif ($cardsInLibrary <= 0) {
+                $gameLog[] = "[" . date('H:i:s') . "] Deck is empty! No cards to draw.";
+            }
+        }
+    }
+    
+    // ===================================================================
+    // EQUIPMENT SYSTEM
+    // ===================================================================
+    // Handle card equipping
+    if (isset($_POST['equip_card'])) {
+        $cardIndex = intval($_POST['card_index']);
+        $equipSlot = $_POST['equip_slot']; // 'weapon' or 'armor'
+        
+        if (isset($playerHand[$cardIndex])) {
+            $card = $playerHand[$cardIndex];
+            
+            // Validate card type matches slot
+            if ($card['type'] === $equipSlot) {
+                // Equip the card
+                $playerEquipment[$equipSlot] = [
+                    'name' => $card['name'],
+                    'atk' => $card['damage'] ?? 0,
+                    'def' => $card['damage'] ?? 0, // For armor, we'll use damage as defense value
+                    'durability' => 100,
+                    'type' => $card['type'],
+                    'card_data' => $card
+                ];
+                
+                // Remove card from hand session only (NOT from JSON library)
+                array_splice($playerHand, $cardIndex, 1);
+                $_SESSION['player_hand'] = $playerHand;
+                
+                $gameLog[] = "[" . date('H:i:s') . "] Equipped {$card['name']} to {$equipSlot} slot!";
+            } else {
+                $gameLog[] = "[" . date('H:i:s') . "] Error: Cannot equip {$card['type']} card to {$equipSlot} slot!";
+            }
         }
     }
     
@@ -59,25 +245,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $gameLog[] = "[" . date('H:i:s') . "] Equipment used: {$equipInfo}";
     }
     
-    // Handle log clearing
-    if (isset($_POST['clear_log'])) {
-        $gameLog = [];
-    }
-    
-    // Handle mech reset
-    if (isset($_POST['reset_mechs'])) {
-        $playerMech = ['HP' => 100, 'ATK' => 30, 'DEF' => 15, 'MAX_HP' => 100, 'companion' => 'Pilot-Alpha'];
-        $enemyMech = ['HP' => 100, 'ATK' => 25, 'DEF' => 10, 'MAX_HP' => 100, 'companion' => 'AI-Core'];
-        $gameLog[] = "[" . date('H:i:s') . "] Mechs reset to full health!";
-    }
-    
     // Save state back to session
     $_SESSION['playerMech'] = $playerMech;
     $_SESSION['enemyMech'] = $enemyMech;
-    $_SESSION['playerWeapon'] = $playerWeapon;
-    $_SESSION['playerArmor'] = $playerArmor;
-    $_SESSION['enemyWeapon'] = $enemyWeapon;
-    $_SESSION['enemyArmor'] = $enemyArmor;
+    $_SESSION['playerEquipment'] = $playerEquipment;
+    $_SESSION['enemyEquipment'] = $enemyEquipment;
     $_SESSION['log'] = $gameLog;
     
     // Prevent form resubmission on page refresh
@@ -85,7 +257,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
+// ===================================================================
 // HELPER FUNCTIONS
+// ===================================================================
 function getMechHealthPercent($currentHP, $maxHP) {
     if (!$maxHP || $maxHP <= 0) {
         return 100;
@@ -106,6 +280,44 @@ function safeHtmlOutput($value, $default = 'Unknown') {
     }
     return htmlspecialchars($value);
 }
+
+// ===================================================================
+// EQUIPMENT DISPLAY HELPER
+// ===================================================================
+function renderEquipmentSlot($equipment, $slotType, $owner) {
+    if ($equipment === null) {
+        // Empty slot
+        $slotLabel = ucfirst($slotType);
+        $placeholderText = "Equip {$slotLabel} Here";
+        $slotClass = "empty-equipment-slot";
+        
+        return "
+            <div class='equipment-area'>
+                <div class='equipment-card {$slotType}-card {$owner}-equipment {$slotClass}' data-slot='{$slotType}'>
+                    <div class='card-type'>{$slotLabel}</div>
+                    <div class='card-name empty-slot-text'>{$placeholderText}</div>
+                    <div class='card-stats empty-slot-stats'>Click card in hand</div>
+                </div>
+            </div>
+        ";
+    } else {
+        // Equipped item
+        $statValue = $slotType === 'weapon' ? "+{$equipment['atk']}" : "+{$equipment['def']}";
+        $statLabel = $slotType === 'weapon' ? 'ATK' : 'DEF';
+        
+        return "
+            <div class='equipment-area'>
+                <form method='post'>
+                    <button type='submit' name='equipment_click' value='{$owner} {$slotType}' class='equipment-card {$slotType}-card {$owner}-equipment equipped'>
+                        <div class='card-type'>{$slotType}</div>
+                        <div class='card-name'>" . htmlspecialchars($equipment['name']) . "</div>
+                        <div class='card-stats'>{$statLabel}: {$statValue}</div>
+                    </button>
+                </form>
+            </div>
+        ";
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -121,11 +333,12 @@ function safeHtmlOutput($value, $default = 'Unknown') {
 <div class="battlefield-container">
 
     <!-- ===================================================================
-         TOP NAVIGATION BAR
+         TOP NAVIGATION BAR (CLEANED UP)
          =================================================================== -->
     <header class="top-bar">
         <div class="nav-left">
-            <a href="config/index.php" class="config-link">⚙️ Configure</a>
+            <a href="config/" class="config-link">⚙️ Configure</a>
+            <button type="button" class="config-link debug-toggle-btn" onclick="toggleDebugPanel()">🐛 Debug</button>
             <button type="button" class="config-link card-creator-btn" onclick="toggleCardCreator()">🃏 Card Creator</button>
             <span class="user-info">👤 <?= htmlspecialchars($_SESSION['username'] ?? 'Unknown') ?></span>
         </div>
@@ -133,7 +346,7 @@ function safeHtmlOutput($value, $default = 'Unknown') {
             <h1 class="game-title">NRD TACTICAL SANDBOX</h1>
         </div>
         <div class="nav-right">
-            <a href="build-info.php" class="version-badge">v0.9.0</a>
+            <a href="build-info.php" class="version-badge">v0.9.2</a>
             <a href="logout.php" class="logout-link">🚪 Logout</a>
         </div>
     </header>
@@ -171,24 +384,18 @@ function safeHtmlOutput($value, $default = 'Unknown') {
             <div class="battlefield-layout">
                 <!-- Enemy Draw Deck (Far Left) -->
                 <div class="draw-deck-area enemy-deck">
-                    <div class="draw-pile">
-                        <?php for ($i = 0; $i < min(5, $gameRules['deck_size']); $i++): ?>
-                            <div class="draw-card face-down" style="z-index: <?= 5-$i ?>"></div>
-                        <?php endfor; ?>
+                    <div class="simple-deck-display">
+                        <div class="deck-stack">
+                            <div class="deck-card"></div>
+                            <div class="deck-card"></div>
+                            <div class="deck-card"></div>
+                        </div>
                     </div>
-                    <div class="deck-label">Draw (<?= $gameRules['deck_size'] ?>)</div>
+                    <div class="simple-deck-label">Draw (<?= count($cardLibrary) ?>)</div>
                 </div>
 
                 <!-- Enemy Weapon Card -->
-                <div class="equipment-area">
-                    <form method="post">
-                        <button type="submit" name="equipment_click" value="Enemy Weapon" class="equipment-card weapon-card enemy-equipment">
-                            <div class="card-type">WEAPON</div>
-                            <div class="card-name"><?= htmlspecialchars($enemyWeapon['name']) ?></div>
-                            <div class="card-stats">ATK: +<?= $enemyWeapon['atk'] ?></div>
-                        </button>
-                    </form>
-                </div>
+                <?= renderEquipmentSlot($enemyEquipment['weapon'], 'weapon', 'enemy') ?>
 
                 <!-- Enemy Mech (Center) -->
                 <div class="mech-area enemy-mech">
@@ -220,15 +427,7 @@ function safeHtmlOutput($value, $default = 'Unknown') {
                 </div>
 
                 <!-- Enemy Armor Card -->
-                <div class="equipment-area">
-                    <form method="post">
-                        <button type="submit" name="equipment_click" value="Enemy Armor" class="equipment-card armor-card enemy-equipment">
-                            <div class="card-type">ARMOR</div>
-                            <div class="card-name"><?= htmlspecialchars($enemyArmor['name']) ?></div>
-                            <div class="card-stats">DEF: +<?= $enemyArmor['def'] ?></div>
-                        </button>
-                    </form>
-                </div>
+                <?= renderEquipmentSlot($enemyEquipment['armor'], 'armor', 'enemy') ?>
 
                 <!-- Spacer -->
                 <div class="spacer"></div>
@@ -248,24 +447,21 @@ function safeHtmlOutput($value, $default = 'Unknown') {
             <div class="battlefield-layout">
                 <!-- Player Draw Deck (Far Left) -->
                 <div class="draw-deck-area player-deck">
-                    <div class="draw-pile">
-                        <?php for ($i = 0; $i < min(5, $gameRules['deck_size']); $i++): ?>
-                            <div class="draw-card face-down" style="z-index: <?= 5-$i ?>"></div>
-                        <?php endfor; ?>
-                    </div>
-                    <div class="deck-label">Draw (<?= $gameRules['deck_size'] ?>)</div>
+                    <form method="post">
+                        <button type="submit" name="draw_cards" value="1" class="simple-deck-button" title="Click to draw 5 cards">
+                            <input type="hidden" name="cards_to_draw" value="5">
+                            <div class="deck-stack">
+                                <div class="deck-card"></div>
+                                <div class="deck-card"></div>
+                                <div class="deck-card"></div>
+                            </div>
+                        </button>
+                    </form>
+                    <div class="simple-deck-label">Draw (<?= count($cardLibrary) ?>)</div>
                 </div>
 
                 <!-- Player Weapon Card -->
-                <div class="equipment-area">
-                    <form method="post">
-                        <button type="submit" name="equipment_click" value="Player Weapon" class="equipment-card weapon-card player-equipment">
-                            <div class="card-type">WEAPON</div>
-                            <div class="card-name"><?= htmlspecialchars($playerWeapon['name']) ?></div>
-                            <div class="card-stats">ATK: +<?= $playerWeapon['atk'] ?></div>
-                        </button>
-                    </form>
-                </div>
+                <?= renderEquipmentSlot($playerEquipment['weapon'], 'weapon', 'player') ?>
 
                 <!-- Player Mech (Center) -->
                 <div class="mech-area player-mech">
@@ -297,15 +493,7 @@ function safeHtmlOutput($value, $default = 'Unknown') {
                 </div>
 
                 <!-- Player Armor Card -->
-                <div class="equipment-area">
-                    <form method="post">
-                        <button type="submit" name="equipment_click" value="Player Armor" class="equipment-card armor-card player-equipment">
-                            <div class="card-type">ARMOR</div>
-                            <div class="card-name"><?= htmlspecialchars($playerArmor['name']) ?></div>
-                            <div class="card-stats">DEF: +<?= $playerArmor['def'] ?></div>
-                        </button>
-                    </form>
-                </div>
+                <?= renderEquipmentSlot($playerEquipment['armor'], 'armor', 'player') ?>
 
                 <!-- Spacer -->
                 <div class="spacer"></div>
@@ -313,42 +501,43 @@ function safeHtmlOutput($value, $default = 'Unknown') {
             
             <!-- Player Hand (Bottom - Visible Cards in Fan Layout) -->
             <div class="hand-section player-hand-section">
-                <div class="hand-label">Your Hand (<?= count($cards) ?>/<?= $gameRules['starting_hand_size'] ?>)</div>
+                <div class="hand-label">Your Hand (<?= count($playerHand) ?>/<?= $gameRules['max_hand_size'] ?>)</div>
                 <div class="hand-cards-fan">
                     <?php 
-                    // Display real cards up to hand size
-                    for ($i = 0; $i < $gameRules['starting_hand_size']; $i++): 
-                        if ($i < count($cards)):
-                            $card = $cards[$i];
+                    // Only display actual cards in hand (no empty slots)
+                    foreach ($playerHand as $index => $card): 
                     ?>
-                        <button type="button" onclick="showCardDetails(<?= $i ?>)" class="hand-card face-up fan-card <?= $card['type'] ?>-card" style="--card-index: <?= $i ?>" data-card='<?= htmlspecialchars(json_encode($card), ENT_QUOTES, 'UTF-8') ?>'>
-                            <div class="card-mini-name"><?= htmlspecialchars($card['name']) ?></div>
-                            <div class="card-mini-cost"><?= $card['cost'] ?></div>
-                            <?php if ($card['damage'] > 0): ?>
-                                <div class="card-mini-damage">💥<?= $card['damage'] ?></div>
-                            <?php endif; ?>
-                            <div class="card-type-icon">
-                                <?php
-                                $typeIcons = [
-                                    'spell' => '✨',
-                                    'weapon' => '⚔️', 
-                                    'armor' => '🛡️',
-                                    'creature' => '👾',
-                                    'support' => '🔧'
-                                ];
-                                echo $typeIcons[$card['type']] ?? '❓';
-                                ?>
-                            </div>
-                        </button>
-                    <?php else: ?>
-                        <div class="hand-card empty-card-slot fan-card" style="--card-index: <?= $i ?>">
-                            <div class="empty-card-content">
-                                <div class="empty-card-icon">+</div>
-                                <div class="empty-card-text">Empty</div>
-                            </div>
+                        <div class="hand-card-container" style="--card-index: <?= $index ?>">
+                            <button type="button" onclick="handleCardClick(<?= $index ?>, '<?= $card['type'] ?>')" class="hand-card face-up fan-card <?= $card['type'] ?>-card" data-card='<?= htmlspecialchars(json_encode($card), ENT_QUOTES, 'UTF-8') ?>'>
+                                <div class="card-mini-name"><?= htmlspecialchars($card['name']) ?></div>
+                                <div class="card-mini-cost"><?= $card['cost'] ?></div>
+                                <?php if ($card['damage'] > 0): ?>
+                                    <div class="card-mini-damage">💥<?= $card['damage'] ?></div>
+                                <?php endif; ?>
+                                <div class="card-type-icon">
+                                    <?php
+                                    $typeIcons = [
+                                        'spell' => '✨',
+                                        'weapon' => '⚔️', 
+                                        'armor' => '🛡️',
+                                        'creature' => '👾',
+                                        'support' => '🔧'
+                                    ];
+                                    echo $typeIcons[$card['type']] ?? '❓';
+                                    ?>
+                                </div>
+                                
+                                <!-- DELETE BUTTON (X) -->
+                                <button type="button" onclick="deleteCard(<?= $index ?>)" class="card-delete-btn" title="Remove card from hand">✕</button>
+                            </button>
+                        </div>
+                    <?php endforeach; ?>
+                    
+                    <?php if (count($playerHand) === 0): ?>
+                        <div class="hand-empty-message">
+                            <div class="empty-hand-text">Click deck to draw cards</div>
                         </div>
                     <?php endif; ?>
-                    <?php endfor; ?>
                 </div>
             </div>
         </section>
@@ -380,11 +569,144 @@ function safeHtmlOutput($value, $default = 'Unknown') {
          =================================================================== -->
     <footer class="game-footer">
         <div class="build-info">
-            NRD Tactical Sandbox | Game Interface | Build v0.9.0
+            NRD Tactical Sandbox | Build v0.9.2 | Stable Debug System & Reset Functions
         </div>
     </footer>
 
 </div>
+
+<!-- ===================================================================
+     DEBUG PANEL (SLIDE-IN FROM LEFT)
+     =================================================================== -->
+<div id="debugPanel" class="debug-panel">
+    <div class="debug-header">
+        <h2>🐛 Debug Console</h2>
+        <button type="button" class="close-btn" onclick="toggleDebugPanel()">✕</button>
+    </div>
+    
+    <div class="debug-content">
+        
+        <!-- System Status Section -->
+        <div class="debug-section">
+            <h3>📊 System Status</h3>
+            <div class="status-grid">
+                <?php foreach ($debugInfo as $info): ?>
+                    <div class="status-item">
+                        <span class="status-value"><?= htmlspecialchars($info) ?></span>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
+        <!-- Current Game State -->
+        <div class="debug-section">
+            <h3>🎮 Current Game State</h3>
+            <div class="game-state-grid">
+                <div class="state-card player-state">
+                    <div class="state-header">Player Mech</div>
+                    <div class="state-stats">
+                        <div class="stat-line">HP: <?= $playerMech['HP'] ?>/<?= $playerMech['MAX_HP'] ?></div>
+                        <div class="stat-line">ATK: <?= $playerMech['ATK'] ?></div>
+                        <div class="stat-line">DEF: <?= $playerMech['DEF'] ?></div>
+                    </div>
+                </div>
+                <div class="state-card enemy-state">
+                    <div class="state-header">Enemy Mech</div>
+                    <div class="state-stats">
+                        <div class="stat-line">HP: <?= $enemyMech['HP'] ?>/<?= $enemyMech['MAX_HP'] ?></div>
+                        <div class="stat-line">ATK: <?= $enemyMech['ATK'] ?></div>
+                        <div class="stat-line">DEF: <?= $enemyMech['DEF'] ?></div>
+                    </div>
+                </div>
+            </div>
+            <div class="hand-status">
+                <div class="hand-info">
+                    <span>Player Hand: <?= count($playerHand) ?> cards</span>
+                    <span>Card Library: <?= count($cardLibrary) ?> cards</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reset Controls -->
+        <div class="debug-section">
+            <h3>🔄 Reset Controls</h3>
+            <div class="reset-controls">
+                <form method="post" style="display: inline;">
+                    <button type="submit" name="reset_mechs" value="1" class="debug-btn reset-health">
+                        ❤️ Reset Mech Health
+                    </button>
+                </form>
+                <form method="post" style="display: inline;">
+                    <button type="submit" name="reset_hands" value="1" class="debug-btn reset-hands">
+                        🃏 Reset Card Hands
+                    </button>
+                </form>
+                <form method="post" style="display: inline;">
+                    <button type="submit" name="clear_log" value="1" class="debug-btn clear-log">
+                        📝 Clear Game Log
+                    </button>
+                </form>
+                <form method="post" style="display: inline;">
+                    <button type="submit" name="reset_all" value="1" class="debug-btn reset-all">
+                        🔄 Reset Everything
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Action Log -->
+        <div class="debug-section">
+            <h3>📝 Action Log</h3>
+            <div class="action-log">
+                <?php if (!empty($gameLog)): ?>
+                    <?php foreach (array_slice($gameLog, -10) as $logEntry): ?>
+                        <div class="log-entry"><?= htmlspecialchars($logEntry) ?></div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <div class="log-entry">No actions yet</div>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <!-- Technical Info -->
+        <div class="debug-section">
+            <h3>⚙️ Technical Info</h3>
+            <div class="tech-info">
+                <div class="tech-item">
+                    <span class="tech-label">Version:</span>
+                    <span class="tech-value">v0.9.2</span>
+                </div>
+                <div class="tech-item">
+                    <span class="tech-label">PHP Session ID:</span>
+                    <span class="tech-value"><?= substr(session_id(), 0, 8) ?>...</span>
+                </div>
+                <div class="tech-item">
+                    <span class="tech-label">Equipment Status:</span>
+                    <span class="tech-value">
+                        W:<?= $playerEquipment['weapon'] ? '✓' : '✗' ?> 
+                        A:<?= $playerEquipment['armor'] ? '✓' : '✗' ?>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Debug Panel Overlay -->
+<div id="debugOverlay" class="debug-overlay" onclick="toggleDebugPanel()"></div>
+
+<!-- Hidden forms for card actions -->
+<form id="equipmentForm" method="post" style="display: none;">
+    <input type="hidden" name="equip_card" value="1">
+    <input type="hidden" name="card_index" id="equipCardIndex">
+    <input type="hidden" name="equip_slot" id="equipSlot">
+</form>
+
+<form id="deleteCardForm" method="post" style="display: none;">
+    <input type="hidden" name="delete_card" value="1">
+    <input type="hidden" name="card_index" id="deleteCardIndex">
+</form>
 
 <!-- ===================================================================
      CARD DETAIL MODAL
@@ -471,7 +793,7 @@ function safeHtmlOutput($value, $default = 'Unknown') {
 <div id="cardDetailOverlay" class="card-detail-overlay" onclick="closeCardDetails()"></div>
 
 <!-- ===================================================================
-     CARD CREATOR PANEL (SLIDE-IN)
+     CARD CREATOR PANEL (SLIDE-IN FROM RIGHT)
      =================================================================== -->
 <div id="cardCreatorPanel" class="card-creator-panel">
     <div class="card-creator-header">
@@ -570,7 +892,58 @@ function safeHtmlOutput($value, $default = 'Unknown') {
 <div id="cardCreatorOverlay" class="card-creator-overlay" onclick="toggleCardCreator()"></div>
 
 <script>
-// Card Detail Modal Functions
+// ===================================================================
+// CARD MANAGEMENT JAVASCRIPT
+// ===================================================================
+function handleCardClick(cardIndex, cardType) {
+    // Check if this is a weapon or armor card
+    if (cardType === 'weapon' || cardType === 'armor') {
+        // Try to equip the card
+        equipCard(cardIndex, cardType);
+    } else {
+        // Show card details for non-equipment cards
+        showCardDetails(cardIndex);
+    }
+}
+
+function equipCard(cardIndex, cardType) {
+    // Set the form values
+    document.getElementById('equipCardIndex').value = cardIndex;
+    document.getElementById('equipSlot').value = cardType;
+    
+    // Submit the form
+    document.getElementById('equipmentForm').submit();
+}
+
+function deleteCard(cardIndex) {
+    if (confirm('Remove this card from your hand?')) {
+        // Set the form values
+        document.getElementById('deleteCardIndex').value = cardIndex;
+        
+        // Submit the form
+        document.getElementById('deleteCardForm').submit();
+    }
+}
+
+// ===================================================================
+// DEBUG PANEL FUNCTIONS
+// ===================================================================
+function toggleDebugPanel() {
+    const panel = document.getElementById('debugPanel');
+    const overlay = document.getElementById('debugOverlay');
+    
+    if (panel.classList.contains('active')) {
+        panel.classList.remove('active');
+        overlay.classList.remove('active');
+    } else {
+        panel.classList.add('active');
+        overlay.classList.add('active');
+    }
+}
+
+// ===================================================================
+// CARD DETAIL MODAL FUNCTIONS
+// ===================================================================
 function showCardDetails(cardIndex) {
     // Get the card button element
     const cardButton = document.querySelector(`[data-card][style*="--card-index: ${cardIndex}"]`);
@@ -588,11 +961,8 @@ function showCardDetails(cardIndex) {
         return;
     }
     
-    console.log('Showing card details for:', cardData); // Debug log
-    
     // Update card preview
     const preview = document.getElementById('modalCardPreview');
-    const typeClasses = ['spell-card', 'weapon-card', 'armor-card', 'creature-card', 'support-card'];
     preview.className = 'modal-card-preview ' + (cardData.type || 'spell') + '-card';
     
     // Update preview elements
@@ -634,7 +1004,9 @@ function playCard() {
     closeCardDetails();
 }
 
-// Card Creator JavaScript Functions
+// ===================================================================
+// CARD CREATOR JAVASCRIPT FUNCTIONS
+// ===================================================================
 function toggleCardCreator() {
     const panel = document.getElementById('cardCreatorPanel');
     const overlay = document.getElementById('cardCreatorOverlay');
@@ -716,10 +1088,10 @@ function saveCard() {
             resetCardForm();
             // Update card library
             loadCardLibrary();
-            // Reload the page to show new card in hand
+            // Reload the page to show new card in library
             setTimeout(() => {
                 window.location.reload();
-            }, 1000);
+            }, 500);
         } else {
             alert('Error saving card: ' + data.message);
         }
@@ -775,7 +1147,7 @@ function displayCardLibrary(cards) {
                     <span class="library-card-rarity ${card.rarity}-rarity">${card.rarity}</span>
                     <div class="library-card-actions">
                         <button onclick="editCard('${card.id}')" class="edit-btn">✏️</button>
-                        <button onclick="deleteCard('${card.id}')" class="delete-btn">🗑️</button>
+                        <button onclick="deleteLibraryCard('${card.id}')" class="delete-btn">🗑️</button>
                     </div>
                 </div>
             </div>
@@ -794,8 +1166,8 @@ function editCard(cardId) {
     alert('Edit card feature coming soon! Card ID: ' + cardId);
 }
 
-function deleteCard(cardId) {
-    if (confirm('Are you sure you want to delete this card?')) {
+function deleteLibraryCard(cardId) {
+    if (confirm('Are you sure you want to delete this card from the library?')) {
         const formData = new FormData();
         formData.append('action', 'delete_card');
         formData.append('card_id', cardId);

@@ -1,11 +1,11 @@
 <?php
 // ===================================================================
-// NRD SANDBOX - BUILD INFORMATION DISPLAY PAGE
+// NRD SANDBOX - BUILD INFORMATION PAGE
 // ===================================================================
 require 'auth.php';
 
-// Load build information from builds.php
-$build = require 'builds.php';
+// Get build information from shared data file
+$build = require 'build-data.php';  // FIXED: Updated to use build-data.php
 ?>
 
 <!DOCTYPE html>
@@ -26,7 +26,7 @@ $build = require 'builds.php';
     <header class="top-bar">
         <div class="nav-left">
             <a href="index.php" class="config-link">🏠 Back to Game</a>
-            <a href="config/index.php" class="config-link">⚙️ Configuration</a>
+            <a href="config/" class="config-link">⚙️ Configure</a>
         </div>
         <div class="nav-center">
             <h1 class="game-title">BUILD INFORMATION</h1>
@@ -112,18 +112,18 @@ $build = require 'builds.php';
                             } elseif (strpos($change, 'IMPROVED:') === 0) {
                                 $type = 'improve';
                                 $icon = '⚡';
+                            } elseif (strpos($change, 'CLEANUP:') === 0) {
+                                $type = 'cleanup';
+                                $icon = '🧹';
+                            } elseif (strpos($change, 'ENHANCED:') === 0) {
+                                $type = 'enhance';
+                                $icon = '🔧';
                             } elseif (strpos($change, 'PREPARED:') === 0) {
                                 $type = 'prepare';
                                 $icon = '🚀';
-                            } elseif (strpos($change, 'REMOVED:') === 0) {
-                                $type = 'remove';
-                                $icon = '🗑️';
-                            } elseif (strpos($change, 'CONSOLIDATED:') === 0) {
-                                $type = 'consolidate';
-                                $icon = '📦';
-                            } elseif (strpos($change, 'FOCUSED:') === 0) {
-                                $type = 'focus';
-                                $icon = '🎯';
+                            } elseif (strpos($change, 'TESTED:') === 0) {
+                                $type = 'test';
+                                $icon = '✅';
                             } else {
                                 $type = 'general';
                                 $icon = '📌';
@@ -163,7 +163,7 @@ $build = require 'builds.php';
     <footer class="game-footer">
         <div class="build-info">
             NRD Tactical Sandbox | Build <?= htmlspecialchars($build['version']) ?> | 
-            Released <?= htmlspecialchars($build['date']) ?> | <?= htmlspecialchars($build['build_name']) ?>
+            Released <?= htmlspecialchars($build['date']) ?>
         </div>
     </footer>
 
@@ -308,20 +308,20 @@ $build = require 'builds.php';
     color: #17a2b8;
 }
 
+.change-text.cleanup {
+    color: #6f42c1;
+}
+
+.change-text.enhance {
+    color: #20c997;
+}
+
 .change-text.prepare {
     color: #fd7e14;
 }
 
-.change-text.remove {
-    color: #dc3545;
-}
-
-.change-text.consolidate {
-    color: #6f42c1;
-}
-
-.change-text.focus {
-    color: #20c997;
+.change-text.test {
+    color: #28a745;
 }
 
 .version-history {

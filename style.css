@@ -1881,3 +1881,675 @@ body {
 .game-log::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.5);
 }
+/* ===================================================================
+   EMPTY EQUIPMENT SLOT STYLING (NEW)
+   =================================================================== */
+
+/* Empty Equipment Slot Base Styling */
+.empty-equipment-slot {
+    background: linear-gradient(145deg, #3a3a3a 0%, #2a2a2a 100%) !important;
+    border: 2px dashed #666 !important;
+    opacity: 0.7;
+    cursor: default !important;
+    position: relative;
+    overflow: hidden;
+}
+
+.empty-equipment-slot:hover {
+    transform: none !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+    border-color: #888 !important;
+    opacity: 0.9;
+}
+
+.empty-equipment-slot .empty-slot-text {
+    color: #aaa !important;
+    font-size: 12px !important;
+    font-weight: normal !important;
+    text-align: center;
+    font-style: italic;
+}
+
+.empty-equipment-slot .empty-slot-stats {
+    color: #777 !important;
+    font-size: 10px !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border-radius: 3px;
+}
+
+/* Empty Slot Animation */
+.empty-equipment-slot::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 30px;
+    height: 30px;
+    border: 2px dashed #666;
+    border-radius: 50%;
+    opacity: 0.3;
+    animation: pulse-empty 3s infinite;
+}
+
+@keyframes pulse-empty {
+    0%, 100% { 
+        opacity: 0.2;
+        transform: translate(-50%, -50%) scale(0.8);
+    }
+    50% { 
+        opacity: 0.5;
+        transform: translate(-50%, -50%) scale(1.1);
+    }
+}
+
+/* Enhanced Equipment Card Styling */
+.equipment-card.equipped {
+    border-color: #00d4ff !important;
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.3) !important;
+    position: relative;
+}
+
+.equipment-card.equipped::after {
+    content: '✓';
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 16px;
+    height: 16px;
+    background: #00d4ff;
+    color: #000;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: bold;
+    z-index: 10;
+}
+
+/* Equipment Slot Type Indicators */
+.empty-equipment-slot.weapon-card::before {
+    content: '⚔️';
+    font-size: 18px;
+    border: none;
+    width: auto;
+    height: auto;
+    animation: none;
+    opacity: 0.4;
+}
+
+.empty-equipment-slot.armor-card::before {
+    content: '🛡️';
+    font-size: 18px;
+    border: none;
+    width: auto;
+    height: auto;
+    animation: none;
+    opacity: 0.4;
+}
+
+/* Player vs Enemy Equipment Styling */
+.player-equipment.empty-equipment-slot {
+    border-color: #28a745;
+}
+
+.player-equipment.empty-equipment-slot:hover {
+    border-color: #34ce57;
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.2);
+}
+
+.enemy-equipment.empty-equipment-slot {
+    border-color: #dc3545;
+}
+
+.enemy-equipment.empty-equipment-slot:hover {
+    border-color: #e74c5c;
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.2);
+}
+
+/* Hand Card Equipment Highlighting */
+.hand-card.weapon-card, 
+.hand-card.armor-card {
+    position: relative;
+    cursor: pointer;
+}
+
+.hand-card.weapon-card:hover::after,
+.hand-card.armor-card:hover::after {
+    content: 'Click to Equip';
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: #00d4ff;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 8px;
+    white-space: nowrap;
+    z-index: 100;
+    pointer-events: none;
+}
+
+/* Equipment Slot Click Areas */
+.equipment-area {
+    position: relative;
+}
+
+.equipment-area .empty-equipment-slot {
+    pointer-events: none; /* Prevent clicking empty slots directly */
+}
+
+/* Enhanced Tooltips for Equipment */
+.equipment-card[title]:hover::before {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    white-space: nowrap;
+    z-index: 1000;
+    margin-bottom: 5px;
+    pointer-events: none;
+}
+/* ===================================================================
+   CLICKABLE DECK SYSTEM (NEW - STEP 2)
+   =================================================================== */
+
+/* Clickable Deck Styling */
+.clickable-deck {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    position: relative;
+    width: 70px;
+    height: 90px;
+    transition: all 0.3s ease;
+}
+
+.clickable-deck:hover {
+    transform: translateY(-3px);
+}
+
+.clickable-deck:hover .draw-card {
+    border-color: #00d4ff;
+    box-shadow: 0 4px 12px rgba(0, 212, 255, 0.3);
+}
+
+/* Deck Hint Text */
+.deck-hint {
+    font-size: 9px;
+    color: #00d4ff;
+    font-style: italic;
+    margin-top: 2px;
+    opacity: 0.8;
+}
+
+/* Draw Pile Hover Effects */
+.draw-deck-area:hover .deck-label {
+    color: #00d4ff;
+}
+
+.draw-deck-area:hover .deck-hint {
+    opacity: 1;
+    animation: pulse-hint 1.5s infinite;
+}
+
+@keyframes pulse-hint {
+    0%, 100% { opacity: 0.8; }
+    50% { opacity: 1; }
+}
+
+/* Empty Deck State */
+.empty-deck {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.empty-deck:hover {
+    transform: none;
+}
+
+.empty-deck .draw-card {
+    background: #333 !important;
+    border-color: #555 !important;
+}
+
+/* Deck Click Feedback */
+.clickable-deck:active {
+    transform: translateY(0px);
+}
+
+.clickable-deck:active .draw-card {
+    transform: scale(0.95);
+}
+/* ===================================================================
+   HAND LAYOUT FIX - Prevent Cards Being Cut Off
+   =================================================================== */
+
+/* Ensure hand section doesn't overflow viewport */
+.hand-section {
+    max-width: 100%;
+    overflow: visible;
+    padding: 15px 20px; /* Add side padding */
+}
+
+.hand-cards-fan {
+    max-width: 100%;
+    margin: 0 auto;
+    position: relative;
+    overflow: visible;
+    justify-content: center;
+    
+    /* Constrain the fan width */
+    width: fit-content;
+    min-width: 400px;
+    max-width: 90vw; /* Responsive to viewport */
+}
+
+/* Adjust fan card positioning to stay within bounds */
+.fan-card {
+    position: absolute;
+    width: 60px;
+    height: 80px;
+    border-radius: 6px;
+    border: 1px solid #444;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: linear-gradient(145deg, #2d4a87 0%, #1e3a5f 100%);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    transform-origin: bottom center;
+    
+    /* Improved fan positioning - tighter spread */
+    left: calc(50% + (var(--card-index) - 2) * 15px); /* Reduced from 20px to 15px */
+    transform: translateX(-50%) rotate(calc((var(--card-index) - 2) * 6deg)); /* Reduced from 8deg to 6deg */
+    z-index: calc(10 + var(--card-index));
+}
+
+/* Responsive fan adjustments */
+@media (max-width: 768px) {
+    .fan-card {
+        /* Even tighter on mobile */
+        left: calc(50% + (var(--card-index) - 2) * 12px);
+        transform: translateX(-50%) rotate(calc((var(--card-index) - 2) * 4deg));
+        width: 50px;
+        height: 70px;
+    }
+    
+    .hand-cards-fan {
+        min-width: 300px;
+    }
+}
+
+@media (max-width: 480px) {
+    .fan-card {
+        /* Very tight on small screens */
+        left: calc(50% + (var(--card-index) - 2) * 10px);
+        transform: translateX(-50%) rotate(calc((var(--card-index) - 2) * 3deg));
+    }
+}
+/* ===================================================================
+   SIMPLIFIED DECK STRUCTURE - No Z-Index Conflicts
+   =================================================================== */
+
+/* Clean draw deck area */
+.draw-deck-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Simple deck button - no complex z-index */
+.simple-deck-button {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    width: 70px;
+    height: 90px;
+    position: relative;
+}
+
+.simple-deck-button:hover {
+    opacity: 0.8;
+}
+
+/* Non-clickable deck display for enemy */
+.simple-deck-display {
+    width: 70px;
+    height: 90px;
+    position: relative;
+}
+
+/* Simple deck stack - just 3 cards, no individual z-index */
+.deck-stack {
+    position: relative;
+    width: 70px;
+    height: 90px;
+}
+
+.deck-card {
+    position: absolute;
+    width: 70px;
+    height: 90px;
+    background: linear-gradient(145deg, #2a2a3e 0%, #1e1e2e 100%);
+    border: 2px solid #444;
+    border-radius: 8px;
+    background-image: repeating-linear-gradient(
+        45deg,
+        #2a2a3e,
+        #2a2a3e 10px,
+        #1e1e2e 10px,
+        #1e1e2e 20px
+    );
+}
+
+.deck-card:nth-child(1) { top: 0px; left: 0px; }
+.deck-card:nth-child(2) { top: -2px; left: 1px; }
+.deck-card:nth-child(3) { top: -4px; left: 2px; }
+
+/* Simple deck label - no conflicts */
+.simple-deck-label {
+    font-size: 11px;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-align: center;
+}
+
+/* Remove all the old complex deck CSS */
+.clickable-deck,
+.deck-container,
+.deck-hint,
+.draw-pile,
+.draw-card,
+.deck-label {
+    /* These classes are no longer used */
+    display: none !important;
+}
+/* ===================================================================
+   DEBUG PANEL STYLES (Add to style.css)
+   =================================================================== */
+
+/* Debug Toggle Button */
+.debug-toggle-btn {
+    background: none;
+    border: none;
+    color: #88c0ff;
+    text-decoration: none;
+    padding: 6px 10px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    border: 1px solid transparent;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.debug-toggle-btn:hover {
+    background: rgba(136, 192, 255, 0.1);
+    border-color: #88c0ff;
+}
+
+/* Debug Panel Overlay */
+.debug-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 998;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.debug-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Debug Panel (slides in from left) */
+.debug-panel {
+    position: fixed;
+    top: 0;
+    left: -600px;
+    width: 600px;
+    height: 100vh;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border-right: 2px solid #333;
+    z-index: 999;
+    transition: left 0.3s ease;
+    overflow-y: auto;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.debug-panel.active {
+    left: 0;
+}
+
+.debug-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 2px solid #333;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.debug-header h2 {
+    color: #ffc107;
+    margin: 0;
+    font-size: 20px;
+}
+
+.debug-content {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+
+.debug-section h3 {
+    color: #ffc107;
+    margin-bottom: 15px;
+    font-size: 16px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 5px;
+}
+
+/* System Status */
+.status-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+}
+
+.status-item {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+    border-left: 3px solid #444;
+}
+
+.status-value {
+    color: #fff;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+/* Game State */
+.game-state-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.state-card {
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 8px;
+    padding: 12px;
+    border-left: 3px solid #444;
+}
+
+.player-state {
+    border-left-color: #28a745;
+}
+
+.enemy-state {
+    border-left-color: #dc3545;
+}
+
+.state-header {
+    color: #00d4ff;
+    font-weight: bold;
+    font-size: 12px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+}
+
+.state-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.stat-line {
+    color: #ddd;
+    font-size: 11px;
+}
+
+.hand-status {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 10px;
+    border-radius: 6px;
+}
+
+.hand-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #aaa;
+}
+
+/* Reset Controls */
+.reset-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.debug-btn {
+    padding: 10px 12px;
+    border: none;
+    border-radius: 6px;
+    background: linear-gradient(145deg, #6c757d 0%, #495057 100%);
+    color: white;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.debug-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+.reset-health {
+    background: linear-gradient(145deg, #dc3545 0%, #a71e2a 100%);
+}
+
+.reset-hands {
+    background: linear-gradient(145deg, #28a745 0%, #1e7e34 100%);
+}
+
+.clear-log {
+    background: linear-gradient(145deg, #17a2b8 0%, #117a8b 100%);
+}
+
+.reset-all {
+    background: linear-gradient(145deg, #ffc107 0%, #d39e00 100%);
+    color: #000;
+    grid-column: span 2;
+}
+
+/* Action Log */
+.action-log {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 10px;
+    height: 120px;
+    overflow-y: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+}
+
+.log-entry {
+    color: #ddd;
+    padding: 2px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.log-entry:last-child {
+    border-bottom: none;
+}
+
+/* Technical Info */
+.tech-info {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tech-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    font-size: 11px;
+}
+
+.tech-label {
+    color: #aaa;
+}
+
+.tech-value {
+    color: #00d4ff;
+    font-family: 'Courier New', monospace;
+}
+
+/* Scrollbar for Debug Panel */
+.debug-panel::-webkit-scrollbar {
+    width: 6px;
+}
+
+.debug-panel::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.debug-panel::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+}
+
+.debug-panel::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+}

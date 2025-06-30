@@ -5,7 +5,7 @@
 require '../auth.php';
 
 // Get current build information
-$build = require '../builds.php';
+$build = require '../build-data.php';  // FIXED: Updated to use build-data.php
 
 // Get current game configuration
 $gameConfig = [
@@ -27,122 +27,293 @@ if (file_exists('../data/cards.json')) {
 $playerMech = $_SESSION['playerMech'] ?? ['HP' => 100, 'ATK' => 30, 'DEF' => 15];
 $enemyMech = $_SESSION['enemyMech'] ?? ['HP' => 100, 'ATK' => 25, 'DEF' => 10];
 
-// Generate AI context document
-$aiContext = generateAIContext($build, $gameConfig, $cardCount, $playerMech, $enemyMech);
+// Get hand status
+$playerHandCount = count($_SESSION['player_hand'] ?? []);
 
-function generateAIContext($build, $gameConfig, $cardCount, $playerMech, $enemyMech) {
+// Generate AI context document
+$aiContext = generateAIContext($build, $gameConfig, $cardCount, $playerMech, $enemyMech, $playerHandCount);
+
+function generateAIContext($build, $gameConfig, $cardCount, $playerMech, $enemyMech, $playerHandCount) {
     $timestamp = date('Y-m-d H:i:s');
     $version = $build['version'];
     
-    return "# NRD Sandbox - AI Context Document {$version}
-## COMPLETE PROJECT STATE FOR AI HANDOFF
-Generated: {$timestamp}
+    return "# NRD Sandbox - Complete AI Context Handoff {$version}
+**Generated:** {$timestamp} | **For:** Next Claude Session
+**Project Status:** Stable, Ready for Feature Development
 
-### 🎯 PROJECT OVERVIEW
-**Project Name:** NRD Sandbox
-**Core Purpose:** PHP-based web tool for prototyping and balancing tactical card battle games
-**Current Version:** {$version} - {$build['build_name']}
-**Development Status:** {$build['notes']}
+## 🎯 **WHAT THIS IS**
+A PHP-based web tool for prototyping tactical card battle games. Think \"card game development sandbox\" - not a finished game, but a tool for testing game mechanics, card balance, and UI concepts.
 
-### ✅ COMPLETED PHASES (WORKING & TESTED)
-- **Phase 1:** JSON card integration - Real cards display in battlefield hand
-- **Phase 2:** Card detail modal system - Click cards for full information view  
-- **Phase 3A:** Game rules configuration - Hand size, deck size, turn system controls
-- **Major Refactor:** Clean /config/ directory system with organized pages
-- **Authentication:** Login/logout system fully functional
-- **Card Creator:** Create cards with live preview, save to JSON storage
-- **Mech Configuration:** Player/Enemy HP/ATK/DEF settings with presets
+## ⚡ **IMMEDIATE CONTEXT (What works RIGHT NOW)**
 
-### 🏗️ CURRENT TECHNICAL STATE
-**File Structure:**
+### **Authentication System** ✅
+- Login: `admin/password123` or `tester/testpass` (see `users.php`)
+- Files: `auth.php`, `login.php`, `logout.php`
+- Session-based, works perfectly
+
+### **Main Battlefield Interface** ✅ 
+- File: `index.php` (main game interface)
+- Features: Player/Enemy mechs, health bars, fan-style card layout
+- Combat: Basic attack/defend buttons (currently form-based, NEEDS AJAX conversion)
+- Cards: Displays real cards from JSON, clickable for details modal
+- Equipment: Working weapon/armor card system with equipping
+
+### **Card Creator System** ✅
+- Slide-in panel from right side
+- Live preview as you type
+- Saves to `data/cards.json`
+- CRUD operations work perfectly
+- Pattern: AJAX-based, smooth UX
+
+### **Debug Panel System** ✅ **NEW!**
+- Slide-in panel from left side (opposite of card creator)
+- Toggle with 🐛 Debug button in navigation
+- Shows: System status, game state, mech HP, hand counts
+- Reset functions: Mech health, card hands, game log, everything
+- Action log with last 10 game events
+- Technical info: version, session ID, equipment status
+
+### **Configuration System** ✅
+- Location: `/config/` directory
+- Dashboard: `config/index.php`
+- Mech Stats: `config/mechs.php` 
+- Game Rules: `config/rules.php`
+- AI Context: `config/ai-context.php` (this page)
+- Shared Functions: `config/shared.php`
+
+## 📁 **FILE STRUCTURE (What each file does)**
+
 ```
 NRDSandbox/
-├── auth.php, login.php, logout.php, users.php (authentication)
-├── index.php (main battlefield interface)
-├── style.css (comprehensive styling system)
-├── card-manager.php (JSON card storage system)
-├── builds.php (build data), build-info.php (build display)
-├── config/ (organized configuration system)
-│   ├── index.php (configuration dashboard)
-│   ├── shared.php (shared functions)
-│   ├── mechs.php (mech stats configuration)
-│   ├── rules.php (game rules configuration)
-│   └── ai-context.php (this AI handoff system)
-├── data/cards.json (persistent card storage)
-└── push.sh (deployment script)
+├── index.php              # Main battlefield interface
+├── auth.php               # Authentication logic  
+├── login.php              # Login page
+├── logout.php             # Logout functionality
+├── users.php              # User credentials array
+├── style.css              # ALL styling (includes debug panel CSS)
+├── card-manager.php       # Card CRUD operations (JSON-based)
+├── build-data.php         # Build information data (CLEANED UP)
+├── build-info.php         # Build information display
+├── push.sh                # Git deployment script
+├── config/
+│   ├── index.php          # Configuration dashboard
+│   ├── shared.php         # Shared config functions
+│   ├── mechs.php          # Mech stat configuration
+│   ├── rules.php          # Game rules configuration
+│   └── ai-context.php     # AI handoff generator (this file)
+├── data/
+│   └── cards.json         # Persistent card storage
+└── docs/                  # Documentation (suggested)
 ```
 
-**Technology Stack:**
-- PHP 8.0+ with PSR standards compliance
-- JSON file storage for cards and configuration
-- PHP sessions for game state management
-- Responsive CSS with mobile warnings
-- JavaScript for interactive elements
+## 🎮 **CURRENT GAME STATE**
 
-### 📊 CURRENT GAME STATE
-**Cards Created:** {$cardCount} cards in data/cards.json
-**Game Rules Configuration:**
-- Starting Hand Size: {$gameConfig['hand_size']} cards
-- Maximum Hand Size: {$gameConfig['max_hand_size']} cards  
+### **Cards in System:**
+- **Count:** {$cardCount} cards in `data/cards.json`
+- **Types:** Spell, Weapon, Armor, Creature, Support
+- **Sample card structure:**
+```json
+{
+  \"id\": \"card_123456\",
+  \"name\": \"Lightning Bolt\", 
+  \"cost\": 3,
+  \"type\": \"spell\",
+  \"damage\": 5,
+  \"description\": \"Deal 5 damage\",
+  \"rarity\": \"common\",
+  \"created_at\": \"2025-06-27 13:17:44\",
+  \"created_by\": \"admin\"
+}
+```
+
+### **Game Rules:**
+- Starting Hand: {$gameConfig['hand_size']} cards
+- Max Hand: {$gameConfig['max_hand_size']} cards
 - Deck Size: {$gameConfig['deck_size']} cards
-- Cards Drawn Per Turn: {$gameConfig['cards_drawn_per_turn']}
+- Draw Per Turn: {$gameConfig['cards_drawn_per_turn']}
 - Starting Player: {$gameConfig['starting_player']}
 
-**Mech Configuration:**
-- Player Mech: HP {$playerMech['HP']}, ATK {$playerMech['ATK']}, DEF {$playerMech['DEF']}
-- Enemy Mech: HP {$enemyMech['HP']}, ATK {$enemyMech['ATK']}, DEF {$enemyMech['DEF']}
+### **Mech Configuration:**
+- Player: HP {$playerMech['HP']}, ATK {$playerMech['ATK']}, DEF {$playerMech['DEF']}
+- Enemy: HP {$enemyMech['HP']}, ATK {$enemyMech['ATK']}, DEF {$enemyMech['DEF']}
 
-### 🌐 DEVELOPMENT ENVIRONMENT RESOURCES
-**Local Development (Primary):**
-- Platform: Mac with Visual Studio Code
-- Location: /Volumes/Samples/NRDSandbox/
-- Testing: http://localhost/NRDSandbox/
-- Status: Most current version with active development
+### **Current Hand Status:**
+- Player Hand: {$playerHandCount} cards
+- Card Library: {$cardCount} available cards
 
-**Live Production:**
-- URL: newretrodawn.dev/NRDSandbox
-- Hosting: DreamHost with PHP/MySQL support
-- Database: phpMyAdmin available (currently using JSON storage)
-- Deployment: Manual upload when stable builds ready
+## 🔧 **HOW THINGS WORK (Code Patterns)**
 
-**Version Control:**
-- Repository: GitHub (private/public - user will specify)
-- Deployment Script: ./push.sh available for commits
-- Workflow: Local development → GitHub → Manual production deployment
+### **AJAX Pattern (Used in Card Creator & Debug Panel):**
+```javascript
+// Send request
+fetch('card-manager.php', {
+    method: 'POST',
+    body: formData
+})
+.then(response => response.json())
+.then(data => {
+    if (data.success) {
+        // Update UI without page reload
+    }
+});
+```
 
-### 📁 AVAILABLE RESOURCES FOR AI ASSISTANCE
-**Complete File Access:** User has full access to all project files and can provide:
-- Any specific PHP, CSS, or JavaScript files upon request
-- Complete database of created cards (JSON format)
-- Configuration files and session data
-- Build history and changelog information
-- Error logs and debugging information
+### **Form Pattern (Used in Combat - NEEDS CONVERSION):**
+```php
+if (\$_POST['damage']) {
+    // Update game state
+    \$_SESSION['playerMech'] = \$playerMech;
+    header('Location: ' . \$_SERVER['PHP_SELF']);
+    exit;
+}
+```
 
-**Code Standards:** Project follows PSR standards, clean documentation, and organized structure
+### **JSON Data Pattern:**
+```php
+// Load cards
+\$data = json_decode(file_get_contents('data/cards.json'), true);
+// Save cards  
+file_put_contents('data/cards.json', json_encode(\$data, JSON_PRETTY_PRINT));
+```
 
-### 🚀 NEXT DEVELOPMENT PHASE
-**Current Priority:** Card Management System (Phase 4)
-**Planned Features:**
-- Deck Builder Interface (assign cards to player/enemy decks)
-- Deck Composition Rules (control card type distribution)
-- Scenario-Specific Pools (different card sets for testing)
-- Deck Validation and Rarity Balancing
+### **Debug System Pattern (NEW):**
+```javascript
+// Toggle debug panel (slides from left)
+function toggleDebugPanel() {
+    const panel = document.getElementById('debugPanel');
+    const overlay = document.getElementById('debugOverlay');
+    panel.classList.toggle('active');
+    overlay.classList.toggle('active');
+}
+```
 
-### 🔧 DEVELOPMENT WORKFLOW NOTES
-- Focus on functionality over design (tool for game developers)
-- Test locally before deployment suggestions
-- Update build information with each completed phase
-- Maintain clean, documented code for team collaboration
-- Desktop-first approach (mobile not priority for development tool)
+## 🚀 **NEXT LOGICAL STEPS (Priority Order)**
 
-### ⚡ IMMEDIATE CONTEXT FOR NEW AI
-**User Workflow:** User frequently needs to restart Claude chats due to context limits
-**Resource Availability:** User can provide any project files, database exports, or specific code sections as needed
-**Current Session:** User has working local environment and can test changes immediately
-**Deployment Status:** Latest stable builds pushed to production when ready
+### **1. Convert Combat to AJAX** (Immediate - Ready to implement)
+- File: `index.php` 
+- Convert form-based combat buttons to AJAX
+- Follow card creator/debug panel pattern
+- Remove `window.location.reload()`
+- Status: Debug system in place, perfect for testing
+
+### **2. Deck Building System** (Next Phase)
+- Assign cards to player/enemy decks
+- Deck composition rules
+- Scenario-specific card pools
+
+### **3. Card Effects System** (Future)
+- Implement card abilities
+- Target selection
+- Effect resolution
+
+## 🧪 **HOW TO TEST THINGS**
+
+### **Authentication:**
+```
+1. Go to /login.php
+2. Use: admin/password123
+3. Should redirect to index.php
+```
+
+### **Debug Panel:**
+```
+1. Click \"🐛 Debug\" button in top navigation
+2. Panel should slide in from left
+3. Should show system status, game state, reset controls
+4. Test reset functions (mech health, card hands, etc.)
+5. Check action log for game events
+```
+
+### **Card Creator:**
+```
+1. Click \"🃏 Card Creator\" button
+2. Fill out card form
+3. Should see live preview update
+4. Click \"Save Card\" - should save to JSON
+5. Check card library shows new card
+```
+
+### **Mech Configuration:**
+```
+1. Go to /config/mechs.php  
+2. Change HP values
+3. Click save
+4. Return to main game - should see new HP values
+```
+
+### **Combat System:**
+```
+1. Click \"Attack Enemy\" button
+2. Should reduce enemy HP by 10
+3. Currently triggers page reload (NEEDS AJAX)
+4. Check debug panel for updated HP values
+```
+
+## 🐛 **KNOWN ISSUES & NEXT PRIORITIES**
+
+1. **Combat buttons cause page reload** (form-based, not AJAX) - READY TO FIX
+2. **No card effects implemented** (cards are just data)
+3. **No actual deck building** (all cards accessible in hand)
+4. **Mobile warning** but no mobile optimization
+
+## 💾 **SESSION DATA STRUCTURE**
+```php
+\$_SESSION = [
+    'username' => 'admin',
+    'playerMech' => ['HP' => 100, 'ATK' => 30, 'DEF' => 15, 'MAX_HP' => 100],
+    'enemyMech' => ['HP' => 100, 'ATK' => 25, 'DEF' => 10, 'MAX_HP' => 100],
+    'player_hand' => [/* array of card objects */],
+    'playerEquipment' => ['weapon' => null, 'armor' => null],
+    'enemyEquipment' => ['weapon' => {...}, 'armor' => {...}],
+    'log' => ['array of game events']
+];
+```
+
+## 🎨 **STYLING NOTES**
+- Single CSS file: `style.css`
+- Uses CSS custom properties (variables)
+- Responsive grid layout
+- Dark theme with blue accents
+- Card animations and hover effects
+- **NEW:** Debug panel styles included (left-side slide-in)
+
+## 🔄 **DEVELOPMENT WORKFLOW**
+1. **Local:** Mac with VS Code at `/Volumes/Samples/NRDSandbox/`
+2. **Testing:** http://localhost/NRDSandbox/
+3. **Version Control:** Git with `push.sh` script
+4. **Deployment:** Manual upload to newretrodawn.dev/NRDSandbox
+5. **Database:** JSON files (not MySQL yet)
+
+## 📝 **CODE STANDARDS**
+- PSR-4 autoloading where possible
+- Input sanitization with `htmlspecialchars()`
+- Error handling with try-catch
+- Consistent function naming
+- Inline documentation for complex logic
+
+## 🧹 **RECENT CLEANUP COMPLETED**
+- **Fixed:** Removed duplicate `builds.php` file, now using `build-data.php`
+- **Fixed:** All config files updated to use correct build data file
+- **Added:** Complete debug panel system with reset functions
+- **Cleaned:** Navigation bar - single debug button instead of duplicates
+- **Organized:** All form processing into logical sections
+- **Tested:** All major systems working properly
 
 ---
-**AI INSTRUCTION:** This project has solid foundations. User can provide any specific files or clarification needed. Focus on building requested features while maintaining code quality and updating build information appropriately.";
+
+## 🆘 **IF SOMETHING BREAKS**
+1. **Cards not saving:** Check `data/` directory permissions
+2. **Login fails:** Check `users.php` credentials  
+3. **Page doesn't load:** Check PHP syntax errors
+4. **Config not working:** Check `config/shared.php` functions
+5. **CSS broken:** Check `style.css` path
+6. **Debug panel not showing:** Check if debug CSS is in `style.css`
+
+---
+
+**💡 TIP FOR AI:** This is a development tool, not a polished game. Focus on functionality over aesthetics. User can test changes immediately on localhost. The debug panel is perfect for testing new features!
+
+**🎯 IMMEDIATE WIN:** Convert combat actions to AJAX following the card creator pattern. Debug panel is ready for testing the results.";
 }
 ?>
 
@@ -202,9 +373,24 @@ NRDSandbox/
                                 <span class="stat-value"><?= $cardCount ?> cards</span>
                             </div>
                             <div class="stat-item">
+                                <span class="stat-label">Player Hand:</span>
+                                <span class="stat-value"><?= $playerHandCount ?> cards</span>
+                            </div>
+                            <div class="stat-item">
                                 <span class="stat-label">Generated:</span>
                                 <span class="stat-value"><?= date('Y-m-d H:i:s') ?></span>
                             </div>
+                        </div>
+                        
+                        <div class="recent-updates">
+                            <h4>🔥 Recent Updates Include:</h4>
+                            <ul>
+                                <li>✅ <strong>Debug Panel System</strong> - Left-side slide panel with reset functions</li>
+                                <li>✅ <strong>Dependency Cleanup</strong> - Fixed all config file build references</li>
+                                <li>✅ <strong>Navigation Cleanup</strong> - Single debug button, organized layout</li>
+                                <li>✅ <strong>Reset Functions</strong> - Mech health, card hands, game log, everything</li>
+                                <li>🎯 <strong>Ready for AJAX</strong> - Combat conversion is next priority</li>
+                            </ul>
                         </div>
                     </div>
                 </div>
@@ -262,6 +448,18 @@ NRDSandbox/
                         <p>JSON + PHP Sessions<br>
                         <code>data/cards.json</code></p>
                     </div>
+                    
+                    <div class="resource-item">
+                        <h4>🐛 Debug System</h4>
+                        <p>Left-side panel<br>
+                        <code>Reset functions & logs</code></p>
+                    </div>
+                    
+                    <div class="resource-item">
+                        <h4>🎯 Next Priority</h4>
+                        <p>Combat AJAX conversion<br>
+                        <code>Follow card creator pattern</code></p>
+                    </div>
                 </div>
             </div>
         </section>
@@ -274,7 +472,7 @@ NRDSandbox/
     <footer class="game-footer">
         <div class="build-info">
             AI Context System | Build <?= htmlspecialchars($build['version']) ?> | 
-            Auto-generated project handoff documentation
+            Auto-generated project handoff documentation with debug system info
         </div>
     </footer>
 
@@ -332,9 +530,9 @@ document.getElementById('aiContextText').addEventListener('click', function() {
 
 .context-stats {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 15px;
-    margin-top: 15px;
+    margin: 15px 0;
 }
 
 .stat-item {
@@ -355,13 +553,37 @@ document.getElementById('aiContextText').addEventListener('click', function() {
     font-weight: bold;
 }
 
+.recent-updates {
+    margin-top: 20px;
+    padding: 15px;
+    background: rgba(40, 167, 69, 0.1);
+    border-left: 4px solid #28a745;
+    border-radius: 6px;
+}
+
+.recent-updates h4 {
+    color: #28a745;
+    margin-bottom: 10px;
+}
+
+.recent-updates ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.recent-updates li {
+    color: #ddd;
+    margin-bottom: 5px;
+    font-size: 14px;
+}
+
 .ai-context-container {
     padding: 20px;
 }
 
 .ai-context-text {
     width: 100%;
-    height: 500px;
+    height: 600px;
     background: rgba(0, 0, 0, 0.5);
     border: 1px solid #444;
     border-radius: 6px;
@@ -390,7 +612,7 @@ document.getElementById('aiContextText').addEventListener('click', function() {
 
 .resource-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 20px;
     padding: 20px;
 }

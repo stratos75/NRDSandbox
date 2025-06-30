@@ -1,32 +1,120 @@
 {
     "cards": [
         {
-            "id": "card_685e99f8551fb_1751030264",
-            "name": "Test Card 01",
-            "cost": 3,
-            "type": "spell",
-            "damage": 5,
-            "description": "",
-            "rarity": "uncommon",
-            "created_at": "2025-06-27 13:17:44",
-            "created_by": "admin"
+            "id": "weapon_001",
+            "name": "Plasma Rifle",
+            "cost": 2,
+            "type": "weapon",
+            "damage": 15,
+            "description": "Standard issue energy weapon. Reliable and efficient.",
+            "rarity": "common",
+            "created_at": "2025-06-29 18:00:00",
+            "created_by": "system"
         },
         {
-            "id": "card_685f2cdb65f64_1751067867",
-            "name": "Test Card 2",
+            "id": "weapon_002", 
+            "name": "Ion Cannon",
+            "cost": 4,
+            "type": "weapon",
+            "damage": 22,
+            "description": "Heavy artillery weapon. High damage output.",
+            "rarity": "rare",
+            "created_at": "2025-06-29 18:01:00",
+            "created_by": "system"
+        },
+        {
+            "id": "weapon_003",
+            "name": "Pulse Blade",
+            "cost": 1,
+            "type": "weapon", 
+            "damage": 8,
+            "description": "Quick melee weapon. Low cost, moderate damage.",
+            "rarity": "common",
+            "created_at": "2025-06-29 18:02:00",
+            "created_by": "system"
+        },
+        {
+            "id": "armor_001",
+            "name": "Shield Array",
+            "cost": 2,
+            "type": "armor",
+            "damage": 10,
+            "description": "Energy barrier system. Provides solid defense.",
+            "rarity": "common",
+            "created_at": "2025-06-29 18:03:00",
+            "created_by": "system"
+        },
+        {
+            "id": "armor_002",
+            "name": "Reactive Plating", 
             "cost": 3,
+            "type": "armor",
+            "damage": 8,
+            "description": "Advanced armor with damage reflection capability.",
+            "rarity": "uncommon",
+            "created_at": "2025-06-29 18:04:00",
+            "created_by": "system"
+        },
+        {
+            "id": "armor_003",
+            "name": "Titanium Hull",
+            "cost": 4,
+            "type": "armor",
+            "damage": 15,
+            "description": "Heavy defensive plating. Maximum protection.",
+            "rarity": "rare",
+            "created_at": "2025-06-29 18:05:00",
+            "created_by": "system"
+        },
+        {
+            "id": "spell_001",
+            "name": "Lightning Bolt",
+            "cost": 3,
+            "type": "spell",
+            "damage": 12,
+            "description": "Instant damage spell. Quick and effective.",
+            "rarity": "common",
+            "created_at": "2025-06-29 18:06:00",
+            "created_by": "system"
+        },
+        {
+            "id": "spell_002",
+            "name": "Shield Repair",
+            "cost": 2,
+            "type": "spell", 
+            "damage": 0,
+            "description": "Restore mech HP and repair equipment.",
+            "rarity": "common",
+            "created_at": "2025-06-29 18:07:00",
+            "created_by": "system"
+        },
+        {
+            "id": "creature_001",
+            "name": "Scout Drone",
+            "cost": 1,
             "type": "creature",
-            "damage": 5,
-            "description": "Test Card 2!",
-            "rarity": "legendary",
-            "created_at": "2025-06-27 23:44:27",
-            "created_by": "admin"
+            "damage": 4,
+            "description": "Small reconnaissance unit. Provides battlefield intel.",
+            "rarity": "common",
+            "created_at": "2025-06-29 18:08:00",
+            "created_by": "system"
+        },
+        {
+            "id": "creature_002",
+            "name": "Battle Mech",
+            "cost": 5,
+            "type": "creature",
+            "damage": 18,
+            "description": "Heavy combat unit. High damage and durability.",
+            "rarity": "rare",
+            "created_at": "2025-06-29 18:09:00",
+            "created_by": "system"
         }
     ],
     "meta": {
-        "created": "2025-06-27 13:17:09",
-        "version": "1.0",
-        "total_cards": 2,
-        "last_updated": "2025-06-27 23:44:27"
+        "created": "2025-06-29 18:00:00",
+        "version": "1.1",
+        "total_cards": 10,
+        "last_updated": "2025-06-29 18:09:00"
     }
 }

@@ -6,7 +6,7 @@ require '../auth.php';
 require 'shared.php';
 
 // Get current build and settings for display
-$build = require '../builds.php';
+$build = require '../build-data.php';  // FIXED: Updated to use build-data.php
 
 // Get current configuration values for overview
 $mechConfig = [

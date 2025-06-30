@@ -1,20 +1,23 @@
 <?php
 // ===================================================================
-// NRD SANDBOX - BUILD INFORMATION DATA
+// NRD SANDBOX - BUILD DATA (Pure Data File)
 // ===================================================================
+// This file contains ONLY the build data array
+// Used by: config/index.php, build-info.php, and other files needing version info
 
 return [
-    'version' => 'v0.9.0',
-    'date'    => '2025-06-29',
-    'notes'   => 'AI Context System: Seamless chat handoff documentation for development continuity',
+    'version' => 'v0.9.1',
+    'date'    => '2025-06-30',
+    'notes'   => 'Cleanup & Stability: Code cleanup, AJAX combat conversion, comprehensive AI handoff',
     
     // Additional build metadata
-    'build_name' => 'AI Context System',
+    'build_name' => 'Stability & Testing',
     'php_required' => '7.4+',
     'features' => [
         'Authentication system',
         'Real-time mech combat with weapon/armor cards',
         'Interactive card battle system',
+        'Card Creator with JSON storage',
         'Companion pog system for mechs',
         'Configurable hand and deck sizes',
         'Equipment card mechanics (weapons/armor)',
@@ -23,31 +26,24 @@ return [
         'Health status indicators with animations',
         'Combat action logging',
         'Configurable mech stats',
-        'Face-up/face-down card display logic',
-        'JSON card storage and management',
-        'Card Creator with live preview',
-        'Card detail modal system',
-        'Game rules configuration',
-        'Clean /config/ directory organization',
-        'AI Context System for chat handoffs'
+        'Configuration dashboard system',
+        'AI context handoff system'
     ],
     
     // Changelog for this version
     'changelog' => [
-        'ADDED: AI Context System for seamless Claude chat restarts',
-        'ADDED: Auto-generated project state documentation',
-        'ADDED: Complete resource availability mapping',
-        'ADDED: One-click copy functionality for AI handoffs',
-        'IMPROVED: Development workflow continuity',
-        'IMPROVED: Project documentation system',
-        'IMPROVED: Chat restart efficiency'
+        'CLEANUP: Removed redundant files and organized structure',
+        'IMPROVED: Fixed config system dependencies',
+        'ADDED: Comprehensive AI handoff documentation',
+        'IMPROVED: Code consistency and standards compliance',
+        'PREPARED: AJAX combat conversion foundation',
+        'ENHANCED: Configuration dashboard functionality',
+        'TESTED: All core systems validated'
     ],
     
     // Previous versions for reference
     'previous_versions' => [
-        'v0.8.0' => '2025-06-29 - Configuration System Refactor: Clean /config/ directory organization',
-        'v0.7.0' => '2025-06-29 - Game Rules Configuration: Hand size, deck size, turn system controls',
-        'v0.6.0' => '2025-06-29 - Card Detail System: Interactive modal for full card information',
+        'v0.9.0' => '2025-06-29 - AI Context System: Automated project handoff documentation',
         'v0.5.3' => '2025-06-26 - Cleanup: Removed log panel, consolidated build files, focused on card system',
         'v0.5.2' => '2025-06-26 - Added JSON file storage system for persistent card data',
         'v0.5.1' => '2025-06-26 - Moved game log to dedicated right-side panel, simplified controls panel',
