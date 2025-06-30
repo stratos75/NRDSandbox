@@ -62,12 +62,12 @@ if ($enemyEquipment['weapon'] === null && $enemyEquipment['armor'] === null) {
 $gameLog = $_SESSION['log'] ?? [];
 
 // ===================================================================
-// FORM PROCESSING
+// FORM PROCESSING (NON-COMBAT ACTIONS ONLY - COMBAT NOW USES AJAX)
 // ===================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // ===================================================================
-    // DEBUG RESET FUNCTIONS (NEW)
+    // DEBUG RESET FUNCTIONS
     // ===================================================================
     // Reset mech health to full
     if (isset($_POST['reset_mechs'])) {
@@ -135,23 +135,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Reset log
         $gameLog = [];
         $gameLog[] = "[" . date('H:i:s') . "] Debug: Complete game state reset";
-    }
-    
-    // ===================================================================
-    // COMBAT ACTIONS
-    // ===================================================================
-    // Handle damage actions
-    if (isset($_POST['damage'])) {
-        $target = $_POST['damage'];
-        $damageAmount = 10; // Base damage
-        
-        if ($target === 'enemy') {
-            $enemyMech['HP'] = max(0, $enemyMech['HP'] - $damageAmount);
-            $gameLog[] = "[" . date('H:i:s') . "] Player attacks Enemy for {$damageAmount} damage!";
-        } elseif ($target === 'player') {
-            $playerMech['HP'] = max(0, $playerMech['HP'] - $damageAmount);
-            $gameLog[] = "[" . date('H:i:s') . "] Enemy attacks Player for {$damageAmount} damage!";
-        }
     }
     
     // ===================================================================
@@ -333,7 +316,7 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
 <div class="battlefield-container">
 
     <!-- ===================================================================
-         TOP NAVIGATION BAR (CLEANED UP)
+         TOP NAVIGATION BAR
          =================================================================== -->
     <header class="top-bar">
         <div class="nav-left">
@@ -346,7 +329,7 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
             <h1 class="game-title">NRD TACTICAL SANDBOX</h1>
         </div>
         <div class="nav-right">
-            <a href="build-info.php" class="version-badge">v0.9.2</a>
+            <a href="build-info.php" class="version-badge">v0.9.3</a>
             <a href="logout.php" class="logout-link">🚪 Logout</a>
         </div>
     </header>
@@ -397,9 +380,9 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
                 <!-- Enemy Weapon Card -->
                 <?= renderEquipmentSlot($enemyEquipment['weapon'], 'weapon', 'enemy') ?>
 
-                <!-- Enemy Mech (Center) -->
+                <!-- Enemy Mech (Center) - ADDED IDs FOR AJAX -->
                 <div class="mech-area enemy-mech">
-                    <div class="mech-card <?= getMechStatusClass($enemyMech['HP'], $enemyMech['MAX_HP']) ?>">
+                    <div class="mech-card <?= getMechStatusClass($enemyMech['HP'], $enemyMech['MAX_HP']) ?>" id="enemyMechCard">
                         <?php if ($gameConfig['enable_companions']): ?>
                             <div class="companion-pog enemy-companion">
                                 <div class="pog-content">
@@ -413,13 +396,13 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
                     </div>
                     
                     <div class="mech-hp-circle">
-                        <span class="hp-value"><?= $enemyMech['HP'] ?></span>
+                        <span class="hp-value" id="enemyHPValue"><?= $enemyMech['HP'] ?></span>
                     </div>
                     
                     <div class="mech-info">
                         <div class="mech-name">Enemy Mech</div>
                         <div class="mech-stats">
-                            <div class="stat">HP: <?= $enemyMech['HP'] ?>/<?= $enemyMech['MAX_HP'] ?></div>
+                            <div class="stat">HP: <span id="enemyHPDisplay"><?= $enemyMech['HP'] ?></span>/<?= $enemyMech['MAX_HP'] ?></div>
                             <div class="stat">ATK: <?= $enemyMech['ATK'] ?></div>
                             <div class="stat">DEF: <?= $enemyMech['DEF'] ?></div>
                         </div>
@@ -463,9 +446,9 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
                 <!-- Player Weapon Card -->
                 <?= renderEquipmentSlot($playerEquipment['weapon'], 'weapon', 'player') ?>
 
-                <!-- Player Mech (Center) -->
+                <!-- Player Mech (Center) - ADDED IDs FOR AJAX -->
                 <div class="mech-area player-mech">
-                    <div class="mech-card <?= getMechStatusClass($playerMech['HP'], $playerMech['MAX_HP']) ?>">
+                    <div class="mech-card <?= getMechStatusClass($playerMech['HP'], $playerMech['MAX_HP']) ?>" id="playerMechCard">
                         <?php if ($gameConfig['enable_companions']): ?>
                             <div class="companion-pog player-companion">
                                 <div class="pog-content">
@@ -479,13 +462,13 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
                     </div>
                     
                     <div class="mech-hp-circle">
-                        <span class="hp-value"><?= $playerMech['HP'] ?></span>
+                        <span class="hp-value" id="playerHPValue"><?= $playerMech['HP'] ?></span>
                     </div>
                     
                     <div class="mech-info">
                         <div class="mech-name">Your Mech</div>
                         <div class="mech-stats">
-                            <div class="stat">HP: <?= $playerMech['HP'] ?>/<?= $playerMech['MAX_HP'] ?></div>
+                            <div class="stat">HP: <span id="playerHPDisplay"><?= $playerMech['HP'] ?></span>/<?= $playerMech['MAX_HP'] ?></div>
                             <div class="stat">ATK: <?= $playerMech['ATK'] ?></div>
                             <div class="stat">DEF: <?= $playerMech['DEF'] ?></div>
                         </div>
@@ -545,22 +528,22 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
     </main>
 
     <!-- ===================================================================
-         GAME CONTROLS PANEL
+         GAME CONTROLS PANEL (CONVERTED TO AJAX)
          =================================================================== -->
     <section class="controls-panel">
         <div class="control-group">
             <h3>Combat Actions</h3>
-            <form method="post" class="action-buttons">
-                <button type="submit" name="damage" value="enemy" class="action-btn attack-btn">
+            <div class="action-buttons">
+                <button type="button" onclick="performCombatAction('attack_enemy')" class="action-btn attack-btn">
                     ⚔️ Attack Enemy
                 </button>
-                <button type="submit" name="damage" value="player" class="action-btn defend-btn">
+                <button type="button" onclick="performCombatAction('enemy_attack')" class="action-btn defend-btn">
                     🛡️ Enemy Attacks
                 </button>
-                <button type="submit" name="reset_mechs" value="1" class="action-btn reset-btn">
+                <button type="button" onclick="performCombatAction('reset_mechs')" class="action-btn reset-btn">
                     🔄 Reset Mechs
                 </button>
-            </form>
+            </div>
         </div>
     </section>
 
@@ -569,7 +552,7 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
          =================================================================== -->
     <footer class="game-footer">
         <div class="build-info">
-            NRD Tactical Sandbox | Build v0.9.2 | Stable Debug System & Reset Functions
+            NRD Tactical Sandbox | Build v0.9.3 | AJAX Combat System + Debug Panel Restored
         </div>
     </footer>
 
@@ -605,7 +588,7 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
                 <div class="state-card player-state">
                     <div class="state-header">Player Mech</div>
                     <div class="state-stats">
-                        <div class="stat-line">HP: <?= $playerMech['HP'] ?>/<?= $playerMech['MAX_HP'] ?></div>
+                        <div class="stat-line">HP: <span id="debugPlayerHP"><?= $playerMech['HP'] ?></span>/<?= $playerMech['MAX_HP'] ?></div>
                         <div class="stat-line">ATK: <?= $playerMech['ATK'] ?></div>
                         <div class="stat-line">DEF: <?= $playerMech['DEF'] ?></div>
                     </div>
@@ -613,7 +596,7 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
                 <div class="state-card enemy-state">
                     <div class="state-header">Enemy Mech</div>
                     <div class="state-stats">
-                        <div class="stat-line">HP: <?= $enemyMech['HP'] ?>/<?= $enemyMech['MAX_HP'] ?></div>
+                        <div class="stat-line">HP: <span id="debugEnemyHP"><?= $enemyMech['HP'] ?></span>/<?= $enemyMech['MAX_HP'] ?></div>
                         <div class="stat-line">ATK: <?= $enemyMech['ATK'] ?></div>
                         <div class="stat-line">DEF: <?= $enemyMech['DEF'] ?></div>
                     </div>
@@ -657,7 +640,7 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
         <!-- Action Log -->
         <div class="debug-section">
             <h3>📝 Action Log</h3>
-            <div class="action-log">
+            <div class="action-log" id="debugActionLog">
                 <?php if (!empty($gameLog)): ?>
                     <?php foreach (array_slice($gameLog, -10) as $logEntry): ?>
                         <div class="log-entry"><?= htmlspecialchars($logEntry) ?></div>
@@ -674,7 +657,7 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
             <div class="tech-info">
                 <div class="tech-item">
                     <span class="tech-label">Version:</span>
-                    <span class="tech-value">v0.9.2</span>
+                    <span class="tech-value">v0.9.3</span>
                 </div>
                 <div class="tech-item">
                     <span class="tech-label">PHP Session ID:</span>
@@ -686,6 +669,10 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
                         W:<?= $playerEquipment['weapon'] ? '✓' : '✗' ?> 
                         A:<?= $playerEquipment['armor'] ? '✓' : '✗' ?>
                     </span>
+                </div>
+                <div class="tech-item">
+                    <span class="tech-label">Combat System:</span>
+                    <span class="tech-value">AJAX v2</span>
                 </div>
             </div>
         </div>
@@ -892,6 +879,143 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
 <div id="cardCreatorOverlay" class="card-creator-overlay" onclick="toggleCardCreator()"></div>
 
 <script>
+// ===================================================================
+// COMBAT SYSTEM AJAX FUNCTIONS (RESTORED)
+// ===================================================================
+function performCombatAction(action) {
+    // Disable buttons during request to prevent double-clicks
+    const buttons = document.querySelectorAll('.action-btn');
+    buttons.forEach(btn => btn.disabled = true);
+    
+    // Prepare form data
+    const formData = new FormData();
+    formData.append('action', action);
+    
+    // Send AJAX request to combat manager
+    fetch('combat-manager.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update UI with new combat state
+            updateCombatUI(data.data);
+            
+            // Add log entry to debug panel if open
+            addLogEntry(data.data.logEntry);
+            
+            // Show brief success message
+            showCombatMessage(data.message, 'success');
+        } else {
+            // Show error message
+            showCombatMessage('Error: ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Combat action error:', error);
+        showCombatMessage('Network error during combat action', 'error');
+    })
+    .finally(() => {
+        // Re-enable buttons
+        buttons.forEach(btn => btn.disabled = false);
+    });
+}
+
+function updateCombatUI(combatData) {
+    const { playerMech, enemyMech } = combatData;
+    
+    // Update Player HP displays
+    const playerHPValue = document.getElementById('playerHPValue');
+    const playerHPDisplay = document.getElementById('playerHPDisplay');
+    const debugPlayerHP = document.getElementById('debugPlayerHP');
+    if (playerHPValue) playerHPValue.textContent = playerMech.HP;
+    if (playerHPDisplay) playerHPDisplay.textContent = playerMech.HP;
+    if (debugPlayerHP) debugPlayerHP.textContent = playerMech.HP;
+    
+    // Update Enemy HP displays
+    const enemyHPValue = document.getElementById('enemyHPValue');
+    const enemyHPDisplay = document.getElementById('enemyHPDisplay');
+    const debugEnemyHP = document.getElementById('debugEnemyHP');
+    if (enemyHPValue) enemyHPValue.textContent = enemyMech.HP;
+    if (enemyHPDisplay) enemyHPDisplay.textContent = enemyMech.HP;
+    if (debugEnemyHP) debugEnemyHP.textContent = enemyMech.HP;
+    
+    // Update mech card status classes
+    updateMechStatusClass('playerMechCard', playerMech.HP, playerMech.MAX_HP);
+    updateMechStatusClass('enemyMechCard', enemyMech.HP, enemyMech.MAX_HP);
+}
+
+function updateMechStatusClass(mechCardId, currentHP, maxHP) {
+    const mechCard = document.getElementById(mechCardId);
+    if (!mechCard) return;
+    
+    // Calculate health percentage
+    const percent = (currentHP / maxHP) * 100;
+    
+    // Remove existing status classes
+    mechCard.classList.remove('healthy', 'damaged', 'critical');
+    
+    // Add appropriate status class
+    if (percent > 60) {
+        mechCard.classList.add('healthy');
+    } else if (percent > 30) {
+        mechCard.classList.add('damaged');
+    } else {
+        mechCard.classList.add('critical');
+    }
+}
+
+function showCombatMessage(message, type) {
+    // Create temporary message element
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `combat-message ${type}`;
+    messageDiv.textContent = message;
+    messageDiv.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        padding: 10px 20px;
+        border-radius: 5px;
+        color: white;
+        font-weight: bold;
+        z-index: 9999;
+        pointer-events: none;
+        background: ${type === 'success' ? '#28a745' : '#dc3545'};
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    `;
+    
+    document.body.appendChild(messageDiv);
+    
+    // Remove message after 2 seconds
+    setTimeout(() => {
+        if (messageDiv.parentNode) {
+            messageDiv.parentNode.removeChild(messageDiv);
+        }
+    }, 2000);
+}
+
+function addLogEntry(logEntry) {
+    // Add to debug panel log if it exists
+    const actionLog = document.getElementById('debugActionLog');
+    if (actionLog && logEntry) {
+        const logDiv = document.createElement('div');
+        logDiv.className = 'log-entry';
+        logDiv.textContent = logEntry;
+        actionLog.appendChild(logDiv);
+        
+        // Keep only last 10 entries
+        const entries = actionLog.querySelectorAll('.log-entry');
+        if (entries.length > 10) {
+            actionLog.removeChild(entries[0]);
+        }
+        
+        // Scroll to bottom
+        actionLog.scrollTop = actionLog.scrollHeight;
+    }
+}
+
 // ===================================================================
 // CARD MANAGEMENT JAVASCRIPT
 // ===================================================================
