@@ -13,33 +13,165 @@ $gameRules = [
 ];
 
 // ===================================================================
-// CARD LIBRARY & HAND MANAGEMENT
+// IMPROVED CARD LIBRARY & HAND MANAGEMENT
 // ===================================================================
-// Load permanent card library from JSON (never modified by gameplay)
+// Initialize arrays and debug info
 $cardLibrary = [];
 $debugInfo = [];
 
-$debugInfo[] = "Cards JSON exists: " . (file_exists('data/cards.json') ? 'YES' : 'NO');
+// Define the expected path
+$cardsJsonPath = 'data/cards.json';
 
-if (file_exists('data/cards.json')) {
-    $jsonContent = file_get_contents('data/cards.json');
-    $cardData = json_decode($jsonContent, true);
-    if ($cardData === null) {
-        $debugInfo[] = "JSON ERROR: " . json_last_error_msg();
+// Enhanced file existence and readability check
+$debugInfo[] = "Looking for cards file at: {$cardsJsonPath}";
+$debugInfo[] = "Current working directory: " . getcwd();
+$debugInfo[] = "Cards JSON exists: " . (file_exists($cardsJsonPath) ? 'YES' : 'NO');
+
+if (file_exists($cardsJsonPath)) {
+    // Check if file is readable
+    if (!is_readable($cardsJsonPath)) {
+        $debugInfo[] = "ERROR: File exists but is not readable. Check permissions.";
     } else {
-        $cardLibrary = $cardData['cards'] ?? [];
-        $debugInfo[] = "Cards loaded: " . count($cardLibrary);
+        // Read file content
+        $jsonContent = file_get_contents($cardsJsonPath);
+        
+        if ($jsonContent === false) {
+            $debugInfo[] = "ERROR: Failed to read file content";
+        } elseif (empty($jsonContent)) {
+            $debugInfo[] = "ERROR: File is empty";
+        } else {
+            $debugInfo[] = "File read successfully. Content length: " . strlen($jsonContent) . " characters";
+            
+            // Try to decode JSON
+            $cardData = json_decode($jsonContent, true);
+            
+            if ($cardData === null) {
+                $jsonError = json_last_error_msg();
+                $debugInfo[] = "JSON ERROR: {$jsonError}";
+                
+                // Show first part of content for debugging
+                $preview = substr($jsonContent, 0, 100);
+                $debugInfo[] = "File preview: " . htmlspecialchars($preview) . "...";
+            } else {
+                $debugInfo[] = "JSON decoded successfully";
+                
+                // Check if the expected structure exists
+                if (!isset($cardData['cards'])) {
+                    $debugInfo[] = "ERROR: JSON missing 'cards' key. Available keys: " . implode(', ', array_keys($cardData));
+                } elseif (!is_array($cardData['cards'])) {
+                    $debugInfo[] = "ERROR: 'cards' is not an array";
+                } else {
+                    $cardLibrary = $cardData['cards'];
+                    $debugInfo[] = "SUCCESS: Loaded " . count($cardLibrary) . " cards";
+                    
+                    // Validate card structure
+                    $validCards = 0;
+                    $invalidCards = 0;
+                    foreach ($cardLibrary as $index => $card) {
+                        $requiredFields = ['id', 'name', 'type', 'cost'];
+                        $hasAllFields = true;
+                        
+                        foreach ($requiredFields as $field) {
+                            if (!isset($card[$field])) {
+                                $hasAllFields = false;
+                                break;
+                            }
+                        }
+                        
+                        if ($hasAllFields) {
+                            $validCards++;
+                        } else {
+                            $invalidCards++;
+                            $debugInfo[] = "WARNING: Card at index {$index} missing required fields";
+                        }
+                    }
+                    
+                    $debugInfo[] = "Card validation: {$validCards} valid, {$invalidCards} invalid";
+                }
+            }
+        }
     }
 } else {
-    $debugInfo[] = "ERROR: data/cards.json missing!";
+    $debugInfo[] = "ERROR: {$cardsJsonPath} file does not exist";
+    
+    // Try to create default file
+    $debugInfo[] = "Attempting to create default cards file...";
+    
+    if (!is_dir('data')) {
+        if (mkdir('data', 0755, true)) {
+            $debugInfo[] = "Created data/ directory";
+        } else {
+            $debugInfo[] = "ERROR: Failed to create data/ directory";
+        }
+    }
+    
+    $defaultCards = [
+        'cards' => [
+            [
+                'id' => 'weapon_001',
+                'name' => 'Plasma Rifle',
+                'cost' => 2,
+                'type' => 'weapon',
+                'damage' => 15,
+                'description' => 'Standard issue energy weapon. Reliable and efficient.',
+                'rarity' => 'common',
+                'created_at' => date('Y-m-d H:i:s'),
+                'created_by' => 'system'
+            ],
+            [
+                'id' => 'armor_001',
+                'name' => 'Shield Array',
+                'cost' => 2,
+                'type' => 'armor',
+                'damage' => 10,
+                'description' => 'Energy barrier system. Provides solid defense.',
+                'rarity' => 'common',
+                'created_at' => date('Y-m-d H:i:s'),
+                'created_by' => 'system'
+            ],
+            [
+                'id' => 'spell_001',
+                'name' => 'Lightning Bolt',
+                'cost' => 3,
+                'type' => 'spell',
+                'damage' => 12,
+                'description' => 'Instant damage spell. Quick and effective.',
+                'rarity' => 'common',
+                'created_at' => date('Y-m-d H:i:s'),
+                'created_by' => 'system'
+            ]
+        ],
+        'meta' => [
+            'created' => date('Y-m-d H:i:s'),
+            'version' => '1.1',
+            'total_cards' => 3,
+            'last_updated' => date('Y-m-d H:i:s')
+        ]
+    ];
+    
+    $defaultJson = json_encode($defaultCards, JSON_PRETTY_PRINT);
+    
+    if (file_put_contents($cardsJsonPath, $defaultJson)) {
+        $debugInfo[] = "SUCCESS: Created default cards.json file";
+        $cardLibrary = $defaultCards['cards'];
+    } else {
+        $debugInfo[] = "ERROR: Failed to create default cards.json file";
+    }
 }
 
+// ===================================================================
+// ENHANCED PLAYER HAND INITIALIZATION
+// ===================================================================
 // Initialize player hand from session (separate from library)
 if (!isset($_SESSION['player_hand'])) {
+    // Start with empty hand - cards will be drawn from deck
     $_SESSION['player_hand'] = [];
+    $debugInfo[] = "Initialized empty player hand";
+} else {
+    $debugInfo[] = "Loaded existing player hand with " . count($_SESSION['player_hand']) . " cards";
 }
+
 $playerHand = $_SESSION['player_hand'] ?? [];
-$debugInfo[] = "Hand size: " . count($playerHand);
 
 // Initialize basic mech data
 $playerMech = $_SESSION['playerMech'] ?? ['HP' => 100, 'ATK' => 30, 'DEF' => 15, 'MAX_HP' => 100, 'companion' => 'Pilot-Alpha'];
@@ -217,7 +349,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     // ===================================================================
-    // HANDLE EQUIPMENT UNEQUIPPING (NEW)
+    // HANDLE EQUIPMENT UNEQUIPPING
     // ===================================================================
     // Handle equipment unequipping
     if (isset($_POST['unequip_item'])) {
@@ -296,12 +428,75 @@ function safeHtmlOutput($value, $default = 'Unknown') {
     return htmlspecialchars($value);
 }
 
+/**
+ * Safely load and validate cards from JSON file
+ * @param string $path Path to the JSON file
+ * @return array Array of cards or empty array on failure
+ */
+function loadCardsFromJson($path) {
+    if (!file_exists($path) || !is_readable($path)) {
+        return [];
+    }
+    
+    $content = file_get_contents($path);
+    if ($content === false || empty($content)) {
+        return [];
+    }
+    
+    $data = json_decode($content, true);
+    if ($data === null || !isset($data['cards']) || !is_array($data['cards'])) {
+        return [];
+    }
+    
+    return $data['cards'];
+}
+
+/**
+ * Safely save cards to JSON file
+ * @param string $path Path to the JSON file
+ * @param array $cards Array of cards to save
+ * @return bool Success status
+ */
+function saveCardsToJson($path, $cards) {
+    $data = [
+        'cards' => $cards,
+        'meta' => [
+            'created' => date('Y-m-d H:i:s'),
+            'version' => '1.1',
+            'total_cards' => count($cards),
+            'last_updated' => date('Y-m-d H:i:s')
+        ]
+    ];
+    
+    $json = json_encode($data, JSON_PRETTY_PRINT);
+    if ($json === false) {
+        return false;
+    }
+    
+    return file_put_contents($path, $json) !== false;
+}
+
+/**
+ * Validate card structure
+ * @param array $card Card data to validate
+ * @return bool Whether card has all required fields
+ */
+function validateCard($card) {
+    $requiredFields = ['id', 'name', 'type', 'cost'];
+    foreach ($requiredFields as $field) {
+        if (!isset($card[$field])) {
+            return false;
+        }
+    }
+    return true;
+}
+
 // ===================================================================
 // EQUIPMENT DISPLAY HELPER
 // ===================================================================
 function renderEquipmentSlot($equipment, $slotType, $owner) {
     if ($equipment === null) {
-        // Empty slot - no changes for now
+        // Empty slot
         $slotLabel = ucfirst($slotType);
         $placeholderText = "Equip {$slotLabel} Here";
         $slotClass = "empty-equipment-slot";
@@ -374,7 +569,7 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
             <h1 class="game-title">NRD TACTICAL SANDBOX</h1>
         </div>
         <div class="nav-right">
-            <a href="config/" class="version-badge" title="Open Control Dashboard"><?= htmlspecialchars($build['version'] ?? 'v0.9.3') ?></a>
+            <a href="config/" class="version-badge" title="Open Control Dashboard">v0.9.3+</a>
             <a href="logout.php" class="logout-link">🚪 Logout</a>
         </div>
     </header>
@@ -586,7 +781,7 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
          =================================================================== -->
     <footer class="game-footer">
         <div class="build-info">
-            NRD Tactical Sandbox | Build v0.9.3 | AJAX Combat System + Debug Panel Restored
+            NRD Tactical Sandbox | Build v0.9.3+ | Enhanced JSON System + Debug Panel
         </div>
     </footer>
 
@@ -691,7 +886,7 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
             <div class="tech-info">
                 <div class="tech-item">
                     <span class="tech-label">Version:</span>
-                    <span class="tech-value">v0.9.3</span>
+                    <span class="tech-value">v0.9.3+</span>
                 </div>
                 <div class="tech-item">
                     <span class="tech-label">PHP Session ID:</span>
@@ -1244,7 +1439,7 @@ function saveCard() {
     
     // Prepare form data for submission
     const formData = new FormData();
-    formData.append('action', 'save_card');
+    formData.append('action', 'create_card');
     formData.append('name', cardData.name);
     formData.append('cost', cardData.cost);
     formData.append('type', cardData.type);

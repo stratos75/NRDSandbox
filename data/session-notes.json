@@ -1,0 +1,7 @@
+{
+    "current_focus": "Stable system for creating cards, writing ti the json file and over all card functionality",
+    "next_priority": "stability with current features",
+    "recent_changes": "Consolidating or configuration pieces to one central page contained in config\/index.php",
+    "known_issues": "The JSON file containing the cards is not being read correctly (cards.json)",
+    "updated_at": "2025-06-30 21:21:11"
+}

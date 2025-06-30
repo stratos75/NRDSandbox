@@ -796,7 +796,7 @@ function saveCard() {
     
     // Prepare form data
     const formData = new FormData();
-    formData.append('action', 'save_card');
+    formData.append('action', 'create_card'); // Changed from 'save_card'
     formData.append('name', cardData.name);
     formData.append('cost', cardData.cost);
     formData.append('type', cardData.type);
@@ -831,6 +831,10 @@ function saveCard() {
 }
 
 function loadCardLibrary() {
+    console.log('🔍 NEW DEBUG VERSION RUNNING');
+    console.log('🔍 Current URL:', window.location.href);
+    console.log('🔍 Fetching from: ../card-manager.php');
+    
     const formData = new FormData();
     formData.append('action', 'get_all_cards');
     
@@ -838,53 +842,74 @@ function loadCardLibrary() {
         method: 'POST',
         body: formData
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            displayCardLibrary(data.data);
-            updateCardCount(data.data.length);
-        } else {
-            console.error('Error loading cards:', data.message);
-            document.getElementById('cardLibrary').innerHTML = '<div style="text-align: center; color: #dc3545; padding: 20px;">Error loading cards: ' + data.message + '</div>';
-        }
+    .then(response => {
+        console.log('🔍 Response status:', response.status);
+        console.log('🔍 Response OK:', response.ok);
+        return response.text();
+    })
+    .then(text => {
+        console.log('🔍 Raw response:', text);
+        document.getElementById('cardLibrary').innerHTML = `<pre>${text}</pre>`;
     })
     .catch(error => {
-        console.error('Error loading cards:', error);
-        document.getElementById('cardLibrary').innerHTML = '<div style="text-align: center; color: #dc3545; padding: 20px;">Network error loading cards</div>';
+        console.error('🔍 Fetch error:', error);
+        document.getElementById('cardLibrary').innerHTML = `<div style="color: red;">Fetch Error: ${error.message}</div>`;
     });
 }
 
 function displayCardLibrary(cards) {
-    const libraryContainer = document.getElementById('cardLibrary');
+    console.log('🔍 displayCardLibrary called with:', cards);
+    console.log('🔍 Type of cards:', typeof cards);
+    console.log('🔍 Is array:', Array.isArray(cards));
     
-    if (cards.length === 0) {
-        libraryContainer.innerHTML = '<div style="text-align: center; color: #888; font-style: italic; padding: 20px;">No cards created yet</div>';
+    const container = document.getElementById('cardLibrary');
+    
+    // Handle different response formats
+    if (!cards) {
+        container.innerHTML = '<div style="color: #666; padding: 20px;">No cards data received</div>';
         return;
     }
     
-    let html = '';
-    cards.forEach(card => {
-        const typeColors = {
-            'spell': '#4dabf7',
-            'weapon': '#dc3545', 
-            'armor': '#28a745',
-            'creature': '#9c27b0',
-            'support': '#ff9800'
-        };
-        
+    // If cards is not an array, try to extract it
+    let cardArray = cards;
+    if (!Array.isArray(cards)) {
+        if (cards.cards && Array.isArray(cards.cards)) {
+            cardArray = cards.cards;
+        } else if (cards.data && Array.isArray(cards.data)) {
+            cardArray = cards.data;
+        } else {
+            console.error('🔍 Cards is not an array and no array found in data:', cards);
+            container.innerHTML = '<div style="color: red; padding: 20px;">Invalid cards data format</div>';
+            return;
+        }
+    }
+    
+    if (cardArray.length === 0) {
+        container.innerHTML = '<div style="color: #666; padding: 20px;">No cards found</div>';
+        return;
+    }
+    
+    // Generate HTML for cards
+    let html = '<div class="card-grid">';
+    cardArray.forEach((card, index) => {
         html += `
-            <div style="background: rgba(0, 0, 0, 0.4); border-left: 3px solid ${typeColors[card.type] || '#666'}; border-radius: 4px; margin: 6px 0; padding: 8px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                    <span style="font-weight: bold; color: #fff; font-size: 12px;">${card.name}</span>
-                    <span style="background: #ffc107; color: #000; padding: 2px 6px; border-radius: 50%; font-size: 10px; font-weight: bold;">${card.cost}</span>
+            <div class="card-item">
+                <h4>${card.name || 'Unnamed Card'}</h4>
+                <p><strong>Type:</strong> ${card.type || 'Unknown'}</p>
+                <p><strong>Cost:</strong> ${card.cost || 0}</p>
+                <p><strong>Damage:</strong> ${card.damage || 0}</p>
+                <p class="card-description">${card.description || 'No description'}</p>
+                <div class="card-actions">
+                    <button onclick="editCard('${card.id}')" class="btn btn-sm">Edit</button>
+                    <button onclick="deleteCard('${card.id}')" class="btn btn-sm btn-danger">Delete</button>
                 </div>
-                <div style="font-size: 9px; color: rgba(255, 255, 255, 0.7); margin-bottom: 2px;">${card.type.toUpperCase()}${card.damage > 0 ? ' | 💥 ' + card.damage : ''}</div>
-                <div style="font-size: 10px; color: #ddd; line-height: 1.2;">${card.description}</div>
             </div>
         `;
     });
+    html += '</div>';
     
-    libraryContainer.innerHTML = html;
+    container.innerHTML = html;
+    console.log('🔍 Successfully displayed', cardArray.length, 'cards');
 }
 
 function updateCardCount(count) {
