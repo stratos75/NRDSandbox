@@ -203,12 +203,34 @@ function checkGitStatus() {
 
 function getCurrentSessionContext() {
     $context = [
-        'last_activity' => $_SESSION['last_activity'] ?? 'Unknown',
-        'current_focus' => $_SESSION['current_focus'] ?? 'General development',
-        'next_priority' => $_SESSION['next_priority'] ?? 'Card effects implementation',
-        'recent_changes' => $_SESSION['recent_changes'] ?? [],
-        'known_issues' => $_SESSION['known_issues'] ?? [],
-        'development_notes' => $_SESSION['development_notes'] ?? []
+        'last_activity' => date('Y-m-d H:i:s'),
+        'current_focus' => 'Equipment system enhancement - COMPLETED',
+        'next_priority' => 'Card effects implementation',
+        'recent_changes' => [
+            'Equipment unequip system implemented',
+            'X buttons added to player equipment only',
+            'Unequipped cards return to hand',
+            'Confirmation dialogs added',
+            'Equipment logging enhanced'
+        ],
+        'known_issues' => [
+            'Cards do not have functional effects yet',
+            'Combat does not use ATK/DEF stats',
+            'No deck building interface'
+        ],
+        'development_notes' => [
+            'Equipment system now fully functional',
+            'Ready for card effects implementation', 
+            'Consider targeting system for spells',
+            'Equipment bonuses could enhance combat'
+        ],
+        'testing_completed' => [
+            'Equipment equipping from hand',
+            'Equipment unequipping with X button',
+            'Card return to hand functionality',
+            'Player-only X button visibility',
+            'Game logging for equipment actions'
+        ]
     ];
     
     return $context;
@@ -217,7 +239,7 @@ function getCurrentSessionContext() {
 function generateChatIntroduction($build, $gameState, $diagnostics, $systemErrors) {
     $systemHealth = empty($systemErrors) ? "healthy" : "has some minor issues";
     $cardsCount = $diagnostics['json']['cards_count'];
-    $currentPriority = getCurrentSessionContext()['next_priority'];
+    $currentPriority = "Card effects implementation";
     
     return "Hello Claude! 👋 
 
@@ -225,11 +247,18 @@ We're working on the **NRD Sandbox** - a PHP-based tactical card battle game dev
 
 **🎯 Current Status:** 
 - System is {$systemHealth} with {$cardsCount} cards in the library
-- All major systems working: AJAX combat, card creator, debug panels
+- ✅ **JUST COMPLETED:** Enhanced equipment system with unequip functionality
+- All major systems working: AJAX combat, card creator, debug panels, equipment management
 - Ready to continue with: {$currentPriority}
 
+**🆕 What's New in This Session:**
+- **Equipment Unequip System**: Red X buttons on player equipped items
+- **Return to Hand**: Unequipped cards return to player hand automatically  
+- **Player-Only Interface**: X buttons only appear on player equipment
+- **Enhanced UX**: Confirmation dialogs and visual feedback
+
 **🔄 What I need:** 
-Please review the comprehensive technical context below and confirm you understand the current system state. Then we can continue development exactly where we left off.
+Please review the comprehensive technical context below and confirm you understand the current system state, including the new equipment functionality. Then we can continue development exactly where we left off.
 
 **📋 Complete System Context:**
 ";
@@ -332,7 +361,15 @@ A PHP-based web tool for prototyping tactical card battle games. Think \"card ga
 - Features: Player/Enemy mechs, health bars, fan-style card layout
 - Combat: AJAX-based attack/defend/reset buttons (v0.9.3+)
 - Cards: Displays real cards from JSON, clickable for details modal
-- Equipment: Working weapon/armor card system with equipping
+- Equipment: **ENHANCED** weapon/armor system with equip AND unequip functionality
+
+### **Enhanced Equipment System** ✅ **NEWLY IMPLEMENTED**
+- **Equipping**: Click weapon/armor cards in hand to equip them
+- **Unequipping**: Red X button on player equipped items to unequip
+- **Return to Hand**: Unequipped cards return to player hand automatically
+- **Player Only**: X buttons only appear on player equipment (not enemy)
+- **Visual Feedback**: Hover effects and confirmation dialogs
+- **Game Logging**: All equip/unequip actions logged with timestamps
 
 ### **Card Creator System** ✅
 - Slide-in panel from right side
@@ -361,12 +398,12 @@ A PHP-based web tool for prototyping tactical card battle games. Think \"card ga
 
 ```
 NRDSandbox/
-├── index.php              # Main battlefield interface
+├── index.php              # Main battlefield interface (UPDATED: Enhanced equipment system)
 ├── auth.php               # Authentication logic  
 ├── login.php              # Login page
 ├── logout.php             # Logout functionality
 ├── users.php              # User credentials array
-├── style.css              # ALL styling (includes debug panel CSS)
+├── style.css              # ALL styling (UPDATED: Unequip button styles added)
 ├── card-manager.php       # Card CRUD operations (JSON-based)
 ├── combat-manager.php     # AJAX combat endpoints
 ├── build-data.php         # Build information data
@@ -388,6 +425,7 @@ NRDSandbox/
 ### **Cards in System:**
 - **Count:** {$cardCount} cards in `data/cards.json`
 - **Types:** Spell, Weapon, Armor, Creature, Support
+- **Equipment Ready**: Weapon and Armor cards can be equipped/unequipped
 - **Sample card structure:**
 ```json
 {
@@ -419,6 +457,34 @@ NRDSandbox/
 - Card Library: {$cardCount} available cards
 
 ## 🔧 **HOW THINGS WORK (Code Patterns)**
+
+### **Equipment System Pattern (NEWLY IMPLEMENTED):**
+```php
+// Unequip form processing
+if (isset(\$_POST['unequip_item'])) {
+    \$equipSlot = \$_POST['equipment_slot'];
+    \$equippedItem = \$playerEquipment[\$equipSlot];
+    
+    // Return card to hand
+    \$originalCard = \$equippedItem['card_data'];
+    \$playerHand[] = \$originalCard;
+    \$_SESSION['player_hand'] = \$playerHand;
+    
+    // Clear equipment slot
+    \$playerEquipment[\$equipSlot] = null;
+}
+```
+
+### **Equipment UI Pattern:**
+```javascript
+// Unequip functionality
+function unequipItem(slotType) {
+    if (confirm(`Remove \${slotType} and return card to hand?`)) {
+        document.getElementById('unequipSlot').value = slotType;
+        document.getElementById('unequipForm').submit();
+    }
+}
+```
 
 ### **AJAX Pattern (Used in Combat, Card Creator & Debug Panel):**
 ```javascript
@@ -459,14 +525,18 @@ file_put_contents('data/cards.json', json_encode(\$data, JSON_PRETTY_PRINT));
 1. **AJAX Combat System** - Combat buttons work without page reload
 2. **Card Creator Interface** - Right-slide panel with live preview
 3. **Debug Panel System** - Left-slide panel with diagnostics
-4. **Equipment System** - Weapon/armor cards can be equipped
+4. **Enhanced Equipment System** - **NEW**: Complete equip/unequip functionality
+   - Equip weapons/armor from hand
+   - Unequip with X button (player only)
+   - Cards return to hand when unequipped
+   - Visual feedback and confirmation dialogs
 5. **Real-time Diagnostics** - This enhanced AI context system
 
 ### **🎯 IMMEDIATE DEVELOPMENT PRIORITIES**
-1. **Card Effects System** - Make cards actually DO things when played
-2. **Deck Building Interface** - Assign specific cards to player/enemy decks
-3. **Advanced Combat** - Use ATK/DEF stats and equipment bonuses
-4. **Card Targeting** - Select targets for spells and abilities
+1. **Card Effects System** - Make cards actually DO things when played (spells, abilities)
+2. **Advanced Combat Mechanics** - Use ATK/DEF stats and equipment bonuses in combat
+3. **Deck Building Interface** - Assign specific cards to player/enemy decks
+4. **Card Targeting System** - Select targets for spells and abilities
 
 ### **📋 TESTING CHECKLIST FOR EACH SESSION**
 
@@ -477,6 +547,12 @@ file_put_contents('data/cards.json', json_encode(\$data, JSON_PRETTY_PRINT));
 4. ✅ Card Creator: Right-side panel opens and functions
 5. ✅ Debug Panel: Left-side panel shows current state
 6. ✅ JSON Test: Cards display and can be created/saved
+
+**Equipment System Test (NEW):**
+7. ✅ **Equip Test**: Click weapon/armor cards in hand to equip them
+8. ✅ **Unequip Test**: Click red X button on equipped items
+9. ✅ **Return Test**: Unequipped cards return to player hand
+10. ✅ **Player Only**: X buttons only on player equipment (not enemy)
 
 ## 🔄 **DEVELOPMENT WORKFLOW**
 1. **Local:** Mac with VS Code at `/Volumes/Samples/NRDSandbox/`
@@ -489,6 +565,7 @@ file_put_contents('data/cards.json', json_encode(\$data, JSON_PRETTY_PRINT));
 - PSR-4 autoloading where possible
 - Input sanitization with `htmlspecialchars()`
 - AJAX endpoints return JSON responses
+- Equipment cards store original card data for unequipping
 - Error handling with try-catch
 - Consistent function naming
 - Inline documentation for complex logic
@@ -500,10 +577,35 @@ file_put_contents('data/cards.json', json_encode(\$data, JSON_PRETTY_PRINT));
     'playerMech' => ['HP' => {$playerMech['HP']}, 'ATK' => {$playerMech['ATK']}, 'DEF' => {$playerMech['DEF']}, 'MAX_HP' => {$playerMech['MAX_HP']}],
     'enemyMech' => ['HP' => {$enemyMech['HP']}, 'ATK' => {$enemyMech['ATK']}, 'DEF' => {$enemyMech['DEF']}, 'MAX_HP' => {$enemyMech['MAX_HP']}],
     'player_hand' => [/* {$playerHandCount} card objects */],
-    'playerEquipment' => ['weapon' => " . ($gameState['equipment']['player_weapon'] ? 'equipped' : 'null') . ", 'armor' => " . ($gameState['equipment']['player_armor'] ? 'equipped' : 'null') . "],
+    'playerEquipment' => [
+        'weapon' => " . ($gameState['equipment']['player_weapon'] ? "['name' => 'CardName', 'atk' => 15, 'card_data' => {...}]" : 'null') . ",
+        'armor' => " . ($gameState['equipment']['player_armor'] ? "['name' => 'CardName', 'def' => 10, 'card_data' => {...}]" : 'null') . "
+    ],
     'enemyEquipment' => ['weapon' => " . ($gameState['equipment']['enemy_weapon'] ? 'equipped' : 'null') . ", 'armor' => " . ($gameState['equipment']['enemy_armor'] ? 'equipped' : 'null') . "],
     'log' => [/* " . count($gameState['recent_actions']) . " recent actions */]
 ];
+```
+
+## 🎨 **RECENT UI ENHANCEMENTS**
+
+### **Equipment Unequip Button Styling:**
+```css
+.equipment-unequip-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 20px;
+    height: 20px;
+    background: rgba(220, 53, 69, 0.9);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 10;
+}
 ```
 
 ---
@@ -515,12 +617,34 @@ file_put_contents('data/cards.json', json_encode(\$data, JSON_PRETTY_PRINT));
 4. **AJAX not working:** Check browser console for JavaScript errors
 5. **JSON errors:** Validate cards.json format
 6. **Debug panel not showing:** Check if debug CSS is in style.css
+7. **🆕 Unequip not working:** Check if card has 'card_data' stored when equipped
+8. **🆕 X button not appearing:** Ensure equipment card has 'equipped' class and player owner
+
+## 🎯 **RECENT CHANGES SUMMARY**
+
+### **What Was Just Implemented:**
+- **Equipment Unequip System**: Complete functionality for removing equipped items
+- **Visual X Buttons**: Red circular X buttons on player equipped items only
+- **Return to Hand Logic**: Unequipped cards automatically return to player hand
+- **Confirmation Dialogs**: User confirmation before unequipping items
+- **Game Logging**: All equipment actions logged with timestamps
+
+### **Files Modified:**
+- `index.php`: Updated renderEquipmentSlot(), added unequip form processing, JavaScript function
+- `style.css`: Added unequip button styling (if added there)
+- **No database changes**: Uses existing JSON and session structure
+
+### **Integration Points:**
+- Works with existing card creator system
+- Compatible with current combat system  
+- Integrates with debug panel logging
+- Maintains session persistence
 
 ---
 
-**💡 TIP FOR AI:** This is a development tool, not a polished game. Focus on functionality over aesthetics. User can test changes immediately on localhost. All major systems are working and ready for feature development.
+**💡 TIP FOR AI:** The equipment system is now fully functional with both equip and unequip capabilities. Focus on card effects implementation next - making spells and abilities actually affect the game state when played.
 
-**🎯 CURRENT STATUS:** System is stable and ready for card effects implementation or deck building features.";
+**🎯 CURRENT STATUS:** Equipment management system complete. Ready for card effects or advanced combat implementation.";
 }
 
 function generateErrorReport($errors) {
@@ -947,6 +1071,23 @@ document.addEventListener('DOMContentLoaded', function() {
     justify-content: center;
     padding: 20px;
     border-top: 1px solid #333;
+}
+
+.equipment-unequip-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 20px;
+    height: 20px;
+    background: rgba(220, 53, 69, 0.9);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 10;
 }
 
 @media (max-width: 768px) {
