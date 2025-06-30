@@ -216,6 +216,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     
+    // ===================================================================
+    // HANDLE EQUIPMENT UNEQUIPPING (NEW)
+    // ===================================================================
+    // Handle equipment unequipping
+    if (isset($_POST['unequip_item'])) {
+        $equipSlot = $_POST['equipment_slot']; // 'weapon' or 'armor'
+        
+        // Check if player has something equipped in this slot
+        if (isset($playerEquipment[$equipSlot]) && $playerEquipment[$equipSlot] !== null) {
+            $equippedItem = $playerEquipment[$equipSlot];
+            
+            // Check if we have the original card data
+            if (isset($equippedItem['card_data'])) {
+                $originalCard = $equippedItem['card_data'];
+                
+                // Add card back to player hand
+                $playerHand[] = $originalCard;
+                $_SESSION['player_hand'] = $playerHand;
+                
+                // Remove from equipment slot
+                $playerEquipment[$equipSlot] = null;
+                $_SESSION['playerEquipment'] = $playerEquipment;
+                
+                $gameLog[] = "[" . date('H:i:s') . "] Unequipped {$originalCard['name']} from {$equipSlot} slot!";
+            } else {
+                $gameLog[] = "[" . date('H:i:s') . "] Error: Could not unequip {$equipSlot} - missing card data!";
+            }
+        } else {
+            $gameLog[] = "[" . date('H:i:s') . "] Error: No {$equipSlot} equipped to unequip!";
+        }
+    }
+    
     // Handle card clicks
     if (isset($_POST['card_click'])) {
         $cardInfo = htmlspecialchars($_POST['card_click']);
@@ -269,7 +301,7 @@ function safeHtmlOutput($value, $default = 'Unknown') {
 // ===================================================================
 function renderEquipmentSlot($equipment, $slotType, $owner) {
     if ($equipment === null) {
-        // Empty slot
+        // Empty slot - no changes for now
         $slotLabel = ucfirst($slotType);
         $placeholderText = "Equip {$slotLabel} Here";
         $slotClass = "empty-equipment-slot";
@@ -288,6 +320,19 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
         $statValue = $slotType === 'weapon' ? "+{$equipment['atk']}" : "+{$equipment['def']}";
         $statLabel = $slotType === 'weapon' ? 'ATK' : 'DEF';
         
+        // Add X button ONLY for player equipment
+        $unequipButton = '';
+        if ($owner === 'player') {
+            $unequipButton = "
+                <button type='button' 
+                        onclick='unequipItem(\"{$slotType}\")' 
+                        class='equipment-unequip-btn' 
+                        title='Unequip {$equipment['name']}'>
+                    ✕
+                </button>
+            ";
+        }
+        
         return "
             <div class='equipment-area'>
                 <form method='post'>
@@ -295,6 +340,7 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
                         <div class='card-type'>{$slotType}</div>
                         <div class='card-name'>" . htmlspecialchars($equipment['name']) . "</div>
                         <div class='card-stats'>{$statLabel}: {$statValue}</div>
+                        {$unequipButton}
                     </button>
                 </form>
             </div>
@@ -695,6 +741,11 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
     <input type="hidden" name="card_index" id="deleteCardIndex">
 </form>
 
+<form id="unequipForm" method="post" style="display: none;">
+    <input type="hidden" name="unequip_item" value="1">
+    <input type="hidden" name="equipment_slot" id="unequipSlot">
+</form>
+
 <!-- ===================================================================
      CARD DETAIL MODAL
      =================================================================== -->
@@ -1013,6 +1064,20 @@ function addLogEntry(logEntry) {
         
         // Scroll to bottom
         actionLog.scrollTop = actionLog.scrollHeight;
+    }
+}
+
+// ===================================================================
+// UNEQUIP FUNCTIONALITY
+// ===================================================================
+function unequipItem(slotType) {
+    // Confirm unequip action
+    if (confirm(`Remove ${slotType} and return card to hand?`)) {
+        // Set the form values
+        document.getElementById('unequipSlot').value = slotType;
+        
+        // Submit the form
+        document.getElementById('unequipForm').submit();
     }
 }
 

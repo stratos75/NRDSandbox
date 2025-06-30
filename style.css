@@ -2553,3 +2553,35 @@ body {
 .debug-panel::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.5);
 }
+/* ===================================================================
+   UNEQUIP BUTTON STYLING
+   =================================================================== */
+.equipment-unequip-btn {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    font-size: 10px;
+    cursor: pointer;
+    z-index: 10;
+}
+
+.equipment-unequip-btn:hover {
+    background: rgba(220, 53, 69, 1);
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.4);
+}
+
+.equipment-unequip-btn:active {
+    transform: scale(0.95);
+}
+
+/* Ensure equipment cards have relative positioning for absolute button */
+.equipment-card.equipped {
+    position: relative;
+}
