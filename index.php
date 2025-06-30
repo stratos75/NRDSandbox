@@ -362,11 +362,10 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
 <div class="battlefield-container">
 
     <!-- ===================================================================
-         TOP NAVIGATION BAR
+         TOP NAVIGATION BAR (UPDATED - Clean Navigation)
          =================================================================== -->
     <header class="top-bar">
         <div class="nav-left">
-            <a href="config/" class="config-link">⚙️ Configure</a>
             <button type="button" class="config-link debug-toggle-btn" onclick="toggleDebugPanel()">🐛 Debug</button>
             <button type="button" class="config-link card-creator-btn" onclick="toggleCardCreator()">🃏 Card Creator</button>
             <span class="user-info">👤 <?= htmlspecialchars($_SESSION['username'] ?? 'Unknown') ?></span>
@@ -375,21 +374,10 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
             <h1 class="game-title">NRD TACTICAL SANDBOX</h1>
         </div>
         <div class="nav-right">
-            <a href="build-info.php" class="version-badge">v0.9.3</a>
+            <a href="config/" class="version-badge" title="Open Control Dashboard"><?= htmlspecialchars($build['version'] ?? 'v0.9.3') ?></a>
             <a href="logout.php" class="logout-link">🚪 Logout</a>
         </div>
     </header>
-
-    <!-- Game Rules Summary Bar -->
-    <div class="rules-summary-bar">
-        <div class="rules-summary-content">
-            <span class="rules-item">📋 Hand: <?= $gameRules['starting_hand_size'] ?>/<?= $gameRules['max_hand_size'] ?></span>
-            <span class="rules-item">📚 Deck: <?= $gameRules['deck_size'] ?> cards</span>
-            <span class="rules-item">🎯 Draw: <?= $gameRules['cards_drawn_per_turn'] ?>/turn</span>
-            <span class="rules-item">🎮 Start: <?= ucfirst($gameRules['starting_player']) ?></span>
-            <a href="config/rules.php" class="rules-config-link">⚙️ Configure Rules</a>
-        </div>
-    </div>
 
     <!-- ===================================================================
          MAIN BATTLEFIELD LAYOUT
