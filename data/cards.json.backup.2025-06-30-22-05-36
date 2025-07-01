@@ -8,18 +8,18 @@
             "damage": 15,
             "description": "Standard issue energy weapon. Reliable and efficient.",
             "rarity": "common",
-            "created_at": "2025-06-30 22:05:36",
+            "created_at": "2025-06-30 21:50:00",
             "created_by": "system"
         },
         {
-            "id": "weapon_002",
+            "id": "weapon_002", 
             "name": "Ion Cannon",
             "cost": 4,
             "type": "weapon",
             "damage": 22,
             "description": "Heavy artillery weapon. High damage output.",
             "rarity": "rare",
-            "created_at": "2025-06-30 22:05:36",
+            "created_at": "2025-06-30 21:50:00",
             "created_by": "system"
         },
         {
@@ -30,18 +30,18 @@
             "damage": 10,
             "description": "Energy barrier system. Provides solid defense.",
             "rarity": "common",
-            "created_at": "2025-06-30 22:05:36",
+            "created_at": "2025-06-30 21:50:00",
             "created_by": "system"
         },
         {
             "id": "armor_002",
-            "name": "Reactive Plating",
+            "name": "Reactive Plating", 
             "cost": 3,
             "type": "armor",
             "damage": 8,
             "description": "Advanced armor with damage reflection capability.",
             "rarity": "uncommon",
-            "created_at": "2025-06-30 22:05:36",
+            "created_at": "2025-06-30 21:50:00",
             "created_by": "system"
         },
         {
@@ -52,37 +52,25 @@
             "damage": 12,
             "description": "Instant damage spell. Quick and effective.",
             "rarity": "common",
-            "created_at": "2025-06-30 22:05:36",
+            "created_at": "2025-06-30 21:50:00",
             "created_by": "system"
         },
         {
             "id": "spell_002",
             "name": "Shield Repair",
             "cost": 2,
-            "type": "spell",
+            "type": "spell", 
             "damage": 0,
             "description": "Restore mech HP and repair equipment.",
             "rarity": "common",
-            "created_at": "2025-06-30 22:05:36",
+            "created_at": "2025-06-30 21:50:00",
             "created_by": "system"
-        },
-        {
-            "name": "Test 000",
-            "cost": 3,
-            "type": "spell",
-            "damage": 5,
-            "description": "Test 000",
-            "rarity": "common",
-            "id": "card_1751321183_8549",
-            "created_at": "2025-06-30 22:06:23",
-            "created_by": "admin"
         }
     ],
     "meta": {
-        "created": "2025-06-30 22:05:36",
+        "created": "2025-06-30 21:50:00",
         "version": "1.1",
-        "total_cards": 7,
-        "last_updated": "2025-06-30 22:06:23",
-        "fixed_by_script": true
+        "total_cards": 6,
+        "last_updated": "2025-06-30 21:50:00"
     }
 }

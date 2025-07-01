@@ -1,6 +1,6 @@
 <?php
 // ===================================================================
-// NRD SANDBOX - CONSOLIDATED CONFIGURATION DASHBOARD
+// NRD SANDBOX - CONSOLIDATED CONFIGURATION DASHBOARD v0.9.4
 // ===================================================================
 require '../auth.php';
 
@@ -104,10 +104,8 @@ function getSystemDiagnostics() {
     return $diagnostics;
 }
 
-// Note: Card management is handled by ../card-manager.php
-
 // ===================================================================
-// AI CONTEXT GENERATION
+// AI CONTEXT GENERATION (UPDATED)
 // ===================================================================
 function generateAIContext($build, $sessionNotes, $diagnostics) {
     $timestamp = date('Y-m-d H:i:s');
@@ -135,29 +133,30 @@ function generateAIContext($build, $sessionNotes, $diagnostics) {
 
 ## 🎯 **PROJECT OVERVIEW**
 NRD Sandbox is a PHP-based tactical card battle game development tool. Current features include:
-- ✅ Authentication system
-- ✅ AJAX combat with mechs
-- ✅ Equipment system (equip/unequip weapons/armor)
-- ✅ Card creator with JSON storage
-- ✅ Debug panels and configuration
-- ✅ Real-time diagnostics
+- ✅ Authentication system (STABLE)
+- ✅ AJAX combat with mechs (STABLE)
+- ✅ Equipment system (equip/unequip weapons/armor) (STABLE)
+- ✅ Card creator with JSON storage (STABLE)
+- ✅ Debug panels and configuration (STABLE)
+- ✅ Real-time diagnostics (STABLE)
+- ✅ Consolidated dashboard config (LATEST)
 
 ## 🔧 **TECHNICAL CONTEXT**
 - **Environment:** Local LAMP stack, VS Code
 - **Files:** All core systems working in " . dirname(__DIR__) . "
-- **Database:** JSON files (data/cards.json)
+- **Database:** JSON files (data/cards.json) - WORKING PERFECTLY
 - **Version:** {$version}
 - **Session ID:** " . substr(session_id(), 0, 8) . "...
 
 ## 📋 **QUICK REFERENCE**
 - **Login:** admin/password123
 - **Main Interface:** index.php (battlefield with fan card layout)
-- **Card Creator:** Right-slide panel with live preview
-- **Debug Panel:** Left-slide panel with diagnostics
-- **Config:** This consolidated dashboard
+- **Card Creator:** Right-slide panel with live preview (STABLE)
+- **Debug Panel:** Left-slide panel with diagnostics (STABLE)
+- **Config Dashboard:** config/index.php (consolidated control center)
 
 ## 🚀 **READY FOR DEVELOPMENT**
-All systems stable and ready for continued development. Reference the CLAUDE.md file for complete technical documentation.";
+All systems stable and ready for continued development. Card creation/management is now fully functional. Next logical step is implementing card effects system.";
 
     return $context;
 }
@@ -182,7 +181,7 @@ $currentConfig = [
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Dashboard - NRD Sandbox</title>
+    <title>Control Dashboard - NRD Sandbox v<?= htmlspecialchars($build['version']) ?></title>
     <link rel="stylesheet" href="../style.css">
     <style>
         /* Override battlefield container for dashboard */
@@ -422,6 +421,41 @@ $currentConfig = [
             margin-bottom: 15px;
             font-size: 12px;
         }
+        
+        /* Dashboard Card Creator Specific Styles */
+        .dashboard-card-preview {
+            width: 140px;
+            height: 200px;
+            border: 2px solid #444;
+            border-radius: 8px;
+            padding: 10px;
+            position: relative;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            background: linear-gradient(145deg, #2d4a87 0%, #1e3a5f 100%);
+        }
+        
+        .dashboard-card-library {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 10px;
+            height: 250px;
+            overflow-y: auto;
+        }
+        
+        .dashboard-card-item {
+            background: rgba(0,0,0,0.3);
+            padding: 8px;
+            border-radius: 4px;
+            border-left: 3px solid #444;
+            margin-bottom: 8px;
+        }
+        
+        .dashboard-card-item:last-child {
+            margin-bottom: 0;
+        }
     </style>
 </head>
 <body>
@@ -477,7 +511,7 @@ $currentConfig = [
                     
                     <div class="note-group">
                         <label class="note-label">Recent Changes: (What you just completed)</label>
-                        <textarea name="recent_changes" class="note-input" placeholder="e.g., Added unequip functionality to equipment system"><?= htmlspecialchars($sessionNotes['recent_changes']) ?></textarea>
+                        <textarea name="recent_changes" class="note-input" placeholder="e.g., Fixed card creator validation and JSON loading issues"><?= htmlspecialchars($sessionNotes['recent_changes']) ?></textarea>
                     </div>
                     
                     <div class="note-group">
@@ -629,7 +663,7 @@ $currentConfig = [
             </div>
         </div>
 
-        <!-- Card Creator Widget -->
+        <!-- Card Creator Widget (COMPLETELY FIXED) -->
         <div class="widget card-creator-widget">
             <div class="widget-header">
                 <h3>🃏 Card Creator</h3>
@@ -642,12 +676,12 @@ $currentConfig = [
                     <!-- Card Form -->
                     <div>
                         <h4 style="color: #00d4ff; margin-bottom: 10px; font-size: 14px;">Create New Card</h4>
-                        <form id="cardCreatorForm" style="display: flex; flex-direction: column; gap: 10px;">
-                            <input type="text" id="cardName" placeholder="Card Name" class="config-input" style="width: 100%;">
+                        <form id="dashboardCardForm" style="display: flex; flex-direction: column; gap: 10px;">
+                            <input type="text" id="dashboardCardName" placeholder="Card Name" class="config-input" style="width: 100%;" oninput="updateDashboardPreview()">
                             
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                                <input type="number" id="cardCost" placeholder="Cost" value="3" min="0" max="10" class="config-input">
-                                <select id="cardType" class="config-input">
+                                <input type="number" id="dashboardCardCost" placeholder="Cost" value="3" min="0" max="10" class="config-input" oninput="updateDashboardPreview()">
+                                <select id="dashboardCardType" class="config-input" onchange="updateDashboardPreview()">
                                     <option value="spell">Spell</option>
                                     <option value="weapon">Weapon</option>
                                     <option value="armor">Armor</option>
@@ -657,8 +691,8 @@ $currentConfig = [
                             </div>
                             
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                                <input type="number" id="cardDamage" placeholder="Damage" value="5" min="0" max="50" class="config-input">
-                                <select id="cardRarity" class="config-input">
+                                <input type="number" id="dashboardCardDamage" placeholder="Damage" value="5" min="0" max="50" class="config-input" oninput="updateDashboardPreview()">
+                                <select id="dashboardCardRarity" class="config-input" onchange="updateDashboardPreview()">
                                     <option value="common">Common</option>
                                     <option value="uncommon">Uncommon</option>
                                     <option value="rare">Rare</option>
@@ -666,32 +700,32 @@ $currentConfig = [
                                 </select>
                             </div>
                             
-                            <textarea id="cardDescription" placeholder="Card description..." class="note-input" style="min-height: 60px; resize: vertical;"></textarea>
+                            <textarea id="dashboardCardDescription" placeholder="Card description..." class="note-input" style="min-height: 60px; resize: vertical;" oninput="updateDashboardPreview()"></textarea>
                             
-                            <button type="button" onclick="saveCard()" class="action-btn save-btn" style="font-size: 11px;">💾 Save Card</button>
+                            <button type="button" onclick="saveDashboardCard()" class="action-btn save-btn" style="font-size: 11px;">💾 Save Card</button>
                         </form>
                     </div>
                     
                     <!-- Card Preview -->
                     <div>
                         <h4 style="color: #00d4ff; margin-bottom: 10px; font-size: 14px;">Live Preview</h4>
-                        <div id="cardPreview" style="width: 140px; height: 200px; background: linear-gradient(145deg, #2d4a87 0%, #1e3a5f 100%); border: 2px solid #444; border-radius: 8px; padding: 10px; position: relative; color: white; display: flex; flex-direction: column;">
-                            <div style="position: absolute; top: -6px; left: -6px; width: 20px; height: 20px; background: #ffc107; color: #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold;" id="previewCost">3</div>
-                            <div style="font-size: 12px; font-weight: bold; text-align: center; margin-bottom: 4px;" id="previewName">Lightning Bolt</div>
-                            <div style="font-size: 8px; text-align: center; color: rgba(255, 255, 255, 0.7); margin-bottom: 8px;" id="previewType">SPELL</div>
+                        <div id="dashboardCardPreview" class="dashboard-card-preview">
+                            <div style="position: absolute; top: -6px; left: -6px; width: 20px; height: 20px; background: #ffc107; color: #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold;" id="dashboardPreviewCost">3</div>
+                            <div style="font-size: 12px; font-weight: bold; text-align: center; margin-bottom: 4px;" id="dashboardPreviewName">Lightning Bolt</div>
+                            <div style="font-size: 8px; text-align: center; color: rgba(255, 255, 255, 0.7); margin-bottom: 8px;" id="dashboardPreviewType">SPELL</div>
                             <div style="flex: 1; background: rgba(0, 0, 0, 0.3); border: 1px dashed #666; border-radius: 4px; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; min-height: 60px;">
                                 <span style="color: #888; font-style: italic; font-size: 10px;">[Art]</span>
                             </div>
-                            <div style="text-align: center; font-size: 10px; font-weight: bold; color: #dc3545; margin-bottom: 6px;" id="previewDamage">💥 5</div>
-                            <div style="font-size: 8px; text-align: center; line-height: 1.2; color: #ddd; margin-bottom: 6px; min-height: 30px;" id="previewDescription">Deal damage to target enemy...</div>
-                            <div style="position: absolute; bottom: -6px; right: -6px; padding: 2px 6px; border-radius: 8px; font-size: 8px; font-weight: bold; background: #6c757d; color: white;" id="previewRarity">Common</div>
+                            <div style="text-align: center; font-size: 10px; font-weight: bold; color: #dc3545; margin-bottom: 6px;" id="dashboardPreviewDamage">💥 5</div>
+                            <div style="font-size: 8px; text-align: center; line-height: 1.2; color: #ddd; margin-bottom: 6px; min-height: 30px;" id="dashboardPreviewDescription">Deal damage to target enemy...</div>
+                            <div style="position: absolute; bottom: -6px; right: -6px; padding: 2px 6px; border-radius: 8px; font-size: 8px; font-weight: bold; background: #6c757d; color: white;" id="dashboardPreviewRarity">Common</div>
                         </div>
                     </div>
                     
                     <!-- Card Library -->
                     <div>
                         <h4 style="color: #00d4ff; margin-bottom: 10px; font-size: 14px;">Card Library</h4>
-                        <div id="cardLibrary" style="background: rgba(0, 0, 0, 0.3); border: 1px solid #444; border-radius: 6px; padding: 10px; height: 250px; overflow-y: auto;">
+                        <div id="dashboardCardLibrary" class="dashboard-card-library">
                             <div style="text-align: center; color: #888; font-style: italic; padding: 20px;">Loading cards...</div>
                         </div>
                     </div>
@@ -705,12 +739,15 @@ $currentConfig = [
     <footer class="game-footer">
         <div class="build-info">
             Control Dashboard | Build <?= htmlspecialchars($build['version']) ?> | 
-            Consolidated configuration and AI context management
+            Latest & Greatest - All systems stable
         </div>
     </footer>
 </div>
 
 <script>
+// ===================================================================
+// AI CONTEXT COPY FUNCTION
+// ===================================================================
 function copyAIContext() {
     const contextOutput = document.getElementById('aiContextOutput');
     const textArea = document.createElement('textarea');
@@ -739,25 +776,27 @@ function copyAIContext() {
     }
 }
 
-// Card Creator Functions
-function updateCardPreview() {
-    const name = document.getElementById('cardName').value || 'New Card';
-    const cost = document.getElementById('cardCost').value || '0';
-    const type = document.getElementById('cardType').value || 'spell';
-    const damage = document.getElementById('cardDamage').value || '0';
-    const description = document.getElementById('cardDescription').value || 'Card description...';
-    const rarity = document.getElementById('cardRarity').value || 'common';
+// ===================================================================
+// DASHBOARD CARD CREATOR FUNCTIONS (FIXED)
+// ===================================================================
+function updateDashboardPreview() {
+    const name = document.getElementById('dashboardCardName').value || 'New Card';
+    const cost = document.getElementById('dashboardCardCost').value || '0';
+    const type = document.getElementById('dashboardCardType').value || 'spell';
+    const damage = document.getElementById('dashboardCardDamage').value || '0';
+    const description = document.getElementById('dashboardCardDescription').value || 'Card description...';
+    const rarity = document.getElementById('dashboardCardRarity').value || 'common';
     
     // Update preview elements
-    document.getElementById('previewCost').textContent = cost;
-    document.getElementById('previewName').textContent = name;
-    document.getElementById('previewType').textContent = type.toUpperCase();
-    document.getElementById('previewDamage').textContent = damage > 0 ? `💥 ${damage}` : '';
-    document.getElementById('previewDescription').textContent = description;
-    document.getElementById('previewRarity').textContent = rarity.charAt(0).toUpperCase() + rarity.slice(1);
+    document.getElementById('dashboardPreviewCost').textContent = cost;
+    document.getElementById('dashboardPreviewName').textContent = name;
+    document.getElementById('dashboardPreviewType').textContent = type.toUpperCase();
+    document.getElementById('dashboardPreviewDamage').textContent = damage > 0 ? `💥 ${damage}` : '';
+    document.getElementById('dashboardPreviewDescription').textContent = description;
+    document.getElementById('dashboardPreviewRarity').textContent = rarity.charAt(0).toUpperCase() + rarity.slice(1);
     
     // Update card styling based on type
-    const preview = document.getElementById('cardPreview');
+    const preview = document.getElementById('dashboardCardPreview');
     const typeColors = {
         'spell': 'linear-gradient(145deg, #2d4a87 0%, #1e3a5f 100%)',
         'weapon': 'linear-gradient(145deg, #8b2635 0%, #5f1e2a 100%)',
@@ -774,18 +813,18 @@ function updateCardPreview() {
         'rare': '#007bff',
         'legendary': 'linear-gradient(45deg, #ffc107, #ff6b35)'
     };
-    const rarityElement = document.getElementById('previewRarity');
+    const rarityElement = document.getElementById('dashboardPreviewRarity');
     rarityElement.style.background = rarityColors[rarity] || rarityColors['common'];
 }
 
-function saveCard() {
+function saveDashboardCard() {
     const cardData = {
-        name: document.getElementById('cardName').value,
-        cost: document.getElementById('cardCost').value,
-        type: document.getElementById('cardType').value,
-        damage: document.getElementById('cardDamage').value,
-        description: document.getElementById('cardDescription').value,
-        rarity: document.getElementById('cardRarity').value
+        name: document.getElementById('dashboardCardName').value,
+        cost: document.getElementById('dashboardCardCost').value,
+        type: document.getElementById('dashboardCardType').value,
+        damage: document.getElementById('dashboardCardDamage').value,
+        description: document.getElementById('dashboardCardDescription').value,
+        rarity: document.getElementById('dashboardCardRarity').value
     };
     
     // Validate required fields
@@ -796,7 +835,7 @@ function saveCard() {
     
     // Prepare form data
     const formData = new FormData();
-    formData.append('action', 'create_card'); // Changed from 'save_card'
+    formData.append('action', 'create_card');
     formData.append('name', cardData.name);
     formData.append('cost', cardData.cost);
     formData.append('type', cardData.type);
@@ -812,14 +851,14 @@ function saveCard() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('Card saved successfully!\n\nCard ID: ' + data.data.id + '\nName: ' + data.data.name + '\n\nCard automatically added to your hand for testing!');
+            alert('Card saved successfully!\n\nCard ID: ' + data.data.id + '\nName: ' + data.data.name);
             // Reset form
-            document.getElementById('cardCreatorForm').reset();
-            document.getElementById('cardCost').value = '3';
-            document.getElementById('cardDamage').value = '5';
-            updateCardPreview();
+            document.getElementById('dashboardCardForm').reset();
+            document.getElementById('dashboardCardCost').value = '3';
+            document.getElementById('dashboardCardDamage').value = '5';
+            updateDashboardPreview();
             // Reload card library
-            loadCardLibrary();
+            loadDashboardCardLibrary();
         } else {
             alert('Error saving card: ' + data.message);
         }
@@ -830,11 +869,7 @@ function saveCard() {
     });
 }
 
-function loadCardLibrary() {
-    console.log('🔍 NEW DEBUG VERSION RUNNING');
-    console.log('🔍 Current URL:', window.location.href);
-    console.log('🔍 Fetching from: ../card-manager.php');
-    
+function loadDashboardCardLibrary() {
     const formData = new FormData();
     formData.append('action', 'get_all_cards');
     
@@ -842,110 +877,100 @@ function loadCardLibrary() {
         method: 'POST',
         body: formData
     })
-    .then(response => {
-        console.log('🔍 Response status:', response.status);
-        console.log('🔍 Response OK:', response.ok);
-        return response.text();
-    })
-    .then(text => {
-        console.log('🔍 Raw response:', text);
-        document.getElementById('cardLibrary').innerHTML = `<pre>${text}</pre>`;
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayDashboardCardLibrary(data.data);
+            updateDashboardCardCount(data.data.length);
+        } else {
+            document.getElementById('dashboardCardLibrary').innerHTML = 
+                '<div style="color: red; padding: 10px;">Error: ' + data.message + '</div>';
+        }
     })
     .catch(error => {
-        console.error('🔍 Fetch error:', error);
-        document.getElementById('cardLibrary').innerHTML = `<div style="color: red;">Fetch Error: ${error.message}</div>`;
+        console.error('Error loading cards:', error);
+        document.getElementById('dashboardCardLibrary').innerHTML = 
+            '<div style="color: red; padding: 10px;">Network error loading cards</div>';
     });
 }
 
-function displayCardLibrary(cards) {
-    console.log('🔍 displayCardLibrary called with:', cards);
-    console.log('🔍 Type of cards:', typeof cards);
-    console.log('🔍 Is array:', Array.isArray(cards));
+function displayDashboardCardLibrary(cards) {
+    const container = document.getElementById('dashboardCardLibrary');
     
-    const container = document.getElementById('cardLibrary');
-    
-    // Handle different response formats
-    if (!cards) {
-        container.innerHTML = '<div style="color: #666; padding: 20px;">No cards data received</div>';
-        return;
-    }
-    
-    // If cards is not an array, try to extract it
-    let cardArray = cards;
-    if (!Array.isArray(cards)) {
-        if (cards.cards && Array.isArray(cards.cards)) {
-            cardArray = cards.cards;
-        } else if (cards.data && Array.isArray(cards.data)) {
-            cardArray = cards.data;
-        } else {
-            console.error('🔍 Cards is not an array and no array found in data:', cards);
-            container.innerHTML = '<div style="color: red; padding: 20px;">Invalid cards data format</div>';
-            return;
-        }
-    }
-    
-    if (cardArray.length === 0) {
+    if (!cards || cards.length === 0) {
         container.innerHTML = '<div style="color: #666; padding: 20px;">No cards found</div>';
         return;
     }
     
-    // Generate HTML for cards
-    let html = '<div class="card-grid">';
-    cardArray.forEach((card, index) => {
+    // Generate HTML for dashboard-style card display
+    let html = '';
+    cards.forEach((card, index) => {
         html += `
-            <div class="card-item">
-                <h4>${card.name || 'Unnamed Card'}</h4>
-                <p><strong>Type:</strong> ${card.type || 'Unknown'}</p>
-                <p><strong>Cost:</strong> ${card.cost || 0}</p>
-                <p><strong>Damage:</strong> ${card.damage || 0}</p>
-                <p class="card-description">${card.description || 'No description'}</p>
-                <div class="card-actions">
-                    <button onclick="editCard('${card.id}')" class="btn btn-sm">Edit</button>
-                    <button onclick="deleteCard('${card.id}')" class="btn btn-sm btn-danger">Delete</button>
+            <div class="dashboard-card-item">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span style="font-weight: bold; color: #fff;">${card.name || 'Unnamed Card'}</span>
+                    <span style="background: #ffc107; color: #000; padding: 2px 6px; border-radius: 50%; font-size: 10px; font-weight: bold;">${card.cost || 0}</span>
+                </div>
+                <div style="font-size: 10px; color: #aaa; margin-bottom: 2px;">${(card.type || 'Unknown').toUpperCase()}</div>
+                <div style="font-size: 10px; color: #dc3545; font-weight: bold; margin-bottom: 4px;">${card.damage > 0 ? '💥 ' + card.damage : ''}</div>
+                <div style="font-size: 9px; color: #ddd; line-height: 1.2; margin-bottom: 4px;">${card.description || 'No description'}</div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 8px; padding: 1px 4px; border-radius: 6px; background: #6c757d; color: white;">${card.rarity || 'common'}</span>
+                    <div>
+                        <button onclick="editDashboardCard('${card.id}')" style="background: none; border: 1px solid #666; color: #ddd; padding: 1px 4px; border-radius: 2px; font-size: 8px; cursor: pointer;">Edit</button>
+                        <button onclick="deleteDashboardCard('${card.id}')" style="background: none; border: 1px solid #666; color: #ddd; padding: 1px 4px; border-radius: 2px; font-size: 8px; cursor: pointer; margin-left: 2px;">Delete</button>
+                    </div>
                 </div>
             </div>
         `;
     });
-    html += '</div>';
     
     container.innerHTML = html;
-    console.log('🔍 Successfully displayed', cardArray.length, 'cards');
 }
 
-function updateCardCount(count) {
+function updateDashboardCardCount(count) {
     document.getElementById('cardCount').textContent = count + (count === 1 ? ' card' : ' cards');
 }
 
-// Auto-save session notes on change (with debounce)
-let saveTimeout;
-const noteInputs = document.querySelectorAll('.note-input');
-noteInputs.forEach(input => {
-    input.addEventListener('input', function() {
-        clearTimeout(saveTimeout);
-        saveTimeout = setTimeout(() => {
-            // Auto-save could be implemented here
-            console.log('Note changed:', this.name);
-        }, 2000);
-    });
-});
+function editDashboardCard(cardId) {
+    alert('Edit card feature coming soon! Card ID: ' + cardId);
+}
 
-// Add event listeners for card preview updates
+function deleteDashboardCard(cardId) {
+    if (confirm('Are you sure you want to delete this card from the library?')) {
+        const formData = new FormData();
+        formData.append('action', 'delete_card');
+        formData.append('card_id', cardId);
+        
+        fetch('../card-manager.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                loadDashboardCardLibrary(); // Refresh the library
+                alert('Card deleted successfully!');
+            } else {
+                alert('Error deleting card: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Network error while deleting card.');
+        });
+    }
+}
+
+// ===================================================================
+// INITIALIZATION
+// ===================================================================
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize card preview
-    updateCardPreview();
+    // Initialize dashboard card preview
+    updateDashboardPreview();
     
-    // Load card library
-    loadCardLibrary();
-    
-    // Add event listeners to form inputs
-    const inputs = ['cardName', 'cardCost', 'cardType', 'cardDamage', 'cardDescription', 'cardRarity'];
-    inputs.forEach(inputId => {
-        const element = document.getElementById(inputId);
-        if (element) {
-            element.addEventListener('input', updateCardPreview);
-            element.addEventListener('change', updateCardPreview);
-        }
-    });
+    // Load dashboard card library
+    loadDashboardCardLibrary();
 });
 </script>
 

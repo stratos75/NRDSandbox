@@ -1476,24 +1476,65 @@ function saveCard() {
 
 function loadCardLibrary() {
     // Load saved cards from server
+    const formData = new FormData();
+    formData.append('action', 'get_all_cards');
+    
     fetch('card-manager.php', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: 'action=get_all_cards'
+        body: formData
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
             displayCardLibrary(data.data);
             updateCardCount(data.data.length);
+        } else {
+            document.getElementById('cardLibrary').innerHTML = 
+                '<div class="library-error">Error: ' + data.message + '</div>';
         }
     })
     .catch(error => {
         console.error('Error loading cards:', error);
-        document.getElementById('cardLibrary').innerHTML = '<div class="library-error">Error loading cards</div>';
+        document.getElementById('cardLibrary').innerHTML = 
+            '<div class="library-error">Network error loading cards</div>';
     });
+}
+
+function displayCardLibrary(cards) {
+    const libraryContainer = document.getElementById('cardLibrary');
+    
+    if (!cards || cards.length === 0) {
+        libraryContainer.innerHTML = '<div class="library-empty">No cards created yet. Create your first card above!</div>';
+        return;
+    }
+    
+    let html = '';
+    cards.forEach(card => {
+        html += `
+            <div class="library-card ${card.type}-card" data-card-id="${card.id}">
+                <div class="library-card-header">
+                    <span class="library-card-name">${card.name}</span>
+                    <span class="library-card-cost">${card.cost}</span>
+                </div>
+                <div class="library-card-type">${card.type.toUpperCase()}</div>
+                <div class="library-card-damage">${card.damage > 0 ? '💥 ' + card.damage : ''}</div>
+                <div class="library-card-description">${card.description}</div>
+                <div class="library-card-footer">
+                    <span class="library-card-rarity ${card.rarity}-rarity">${card.rarity}</span>
+                    <div class="library-card-actions">
+                        <button onclick="editCard('${card.id}')" class="edit-btn">✏️</button>
+                        <button onclick="deleteLibraryCard('${card.id}')" class="delete-btn">🗑️</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    libraryContainer.innerHTML = html;
+}
+
+function updateCardCount(count) {
+    document.getElementById('cardCount').textContent = count + (count === 1 ? ' card' : ' cards');
 }
 
 function displayCardLibrary(cards) {
@@ -1572,6 +1613,730 @@ document.addEventListener('DOMContentLoaded', function() {
     updateCardPreview();
     loadCardLibrary(); // Load existing cards when page loads
 });
+/// ===================================================================
+// CARD ZOOM MODAL SYSTEM - Add this to your <script> section in index.php
+// ===================================================================
+
+// Card Zoom Modal Management
+const CardZoom = {
+    activeModal: null,
+    isOpen: false,
+
+    // Initialize zoom system
+    init() {
+        this.bindEvents();
+        console.log('🔍 Card Zoom system initialized');
+    },
+
+    // Bind click events for card zoom
+    bindEvents() {
+        // Handle hand card clicks for zoom (but not equipment cards)
+        document.addEventListener('click', (e) => {
+            const card = e.target.closest('.hand-card[data-card]');
+            if (card && !this.isEquipmentCard(card)) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.showZoomModal(card);
+            }
+        });
+
+        // Handle equipment card clicks (equipped items)
+        document.addEventListener('click', (e) => {
+            const equipment = e.target.closest('.equipment-card.equipped');
+            if (equipment && !e.target.closest('.equipment-unequip-btn')) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.showEquipmentZoom(equipment);
+            }
+        });
+
+        // Handle keyboard events
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && this.isOpen) {
+                this.closeZoomModal();
+            }
+        });
+
+        // Prevent zoom when clicking action buttons
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('.card-delete-btn, .equipment-unequip-btn, .action-btn')) {
+                e.stopPropagation();
+            }
+        });
+    },
+
+    // Check if card is equipment type (should use equipment action instead of zoom)
+    isEquipmentCard(cardElement) {
+        try {
+            const cardData = JSON.parse(cardElement.getAttribute('data-card'));
+            return cardData.type === 'weapon' || cardData.type === 'armor';
+        } catch (e) {
+            return false;
+        }
+    },
+
+    // Show zoom modal for hand cards
+    showZoomModal(cardElement) {
+        if (this.isOpen) return;
+
+        try {
+            const cardData = JSON.parse(cardElement.getAttribute('data-card'));
+            this.createZoomModal(cardData);
+            this.isOpen = true;
+        } catch (e) {
+            console.error('Error parsing card data for zoom:', e);
+        }
+    },
+
+    // Show zoom modal for equipped items
+    showEquipmentZoom(equipmentElement) {
+        if (this.isOpen) return;
+
+        // Extract equipment data from DOM
+        const name = equipmentElement.querySelector('.card-name').textContent;
+        const stats = equipmentElement.querySelector('.card-stats').textContent;
+        const type = equipmentElement.classList.contains('weapon-card') ? 'weapon' : 'armor';
+        
+        const equipmentData = {
+            id: 'equipped_' + type,
+            name: name,
+            type: type,
+            cost: '?',
+            damage: stats.match(/\d+/) ? parseInt(stats.match(/\d+/)[0]) : 0,
+            description: `Currently equipped ${type}. Providing combat bonuses.`,
+            rarity: 'equipped',
+            created_at: 'Equipment',
+            created_by: 'Player'
+        };
+
+        this.createZoomModal(equipmentData, true);
+        this.isOpen = true;
+    },
+
+    // Create and show the zoom modal
+    createZoomModal(cardData, isEquipment = false) {
+        // Remove existing modal if any
+        this.closeZoomModal();
+
+        // Create modal overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'card-zoom-overlay';
+        overlay.innerHTML = this.generateZoomHTML(cardData, isEquipment);
+
+        // Add click handler to overlay (close when clicking outside card)
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                this.closeZoomModal();
+            }
+        });
+
+        // Add to DOM
+        document.body.appendChild(overlay);
+        this.activeModal = overlay;
+
+        // Bind close button
+        const closeBtn = overlay.querySelector('.card-zoom-close');
+        closeBtn.addEventListener('click', () => {
+            this.closeZoomModal();
+        });
+
+        // Show with animation
+        setTimeout(() => {
+            overlay.classList.add('active');
+        }, 10);
+
+        // Add flip effect to card
+        const container = overlay.querySelector('.card-zoom-container');
+        setTimeout(() => {
+            container.classList.add('flipping');
+        }, 200);
+    },
+
+    // Generate zoom modal HTML
+    generateZoomHTML(cardData, isEquipment = false) {
+        const typeIcon = this.getTypeIcon(cardData.type);
+        const actionHint = isEquipment ? 
+            'Currently equipped • Providing combat bonuses' : 
+            this.getActionHint(cardData.type);
+
+        return `
+            <div class="card-zoom-container">
+                <div class="card-zoom-large ${cardData.type}-card">
+                    <button class="card-zoom-close" title="Close (ESC)">✕</button>
+                    
+                    <div class="zoom-cost">${cardData.cost}</div>
+                    
+                    <div class="zoom-header">
+                        <div class="zoom-name">${this.escapeHtml(cardData.name)}</div>
+                        <div class="zoom-type">${typeIcon} ${cardData.type.toUpperCase()}</div>
+                    </div>
+                    
+                    <div class="zoom-art">
+                        <div class="zoom-art-placeholder">
+                            ${typeIcon}<br>
+                            <small>Card Artwork</small>
+                        </div>
+                    </div>
+                    
+                    <div class="zoom-stats">
+                        <div class="zoom-stat damage">
+                            <div class="zoom-stat-label">Damage</div>
+                            <div class="zoom-stat-value">${cardData.damage || 0}</div>
+                        </div>
+                        <div class="zoom-stat rarity">
+                            <div class="zoom-stat-label">Rarity</div>
+                            <div class="zoom-stat-value">${this.capitalizeFirst(cardData.rarity || 'common')}</div>
+                        </div>
+                        <div class="zoom-stat type">
+                            <div class="zoom-stat-label">Type</div>
+                            <div class="zoom-stat-value">${this.capitalizeFirst(cardData.type)}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="zoom-description">
+                        ${this.escapeHtml(cardData.description || 'No description available.')}
+                    </div>
+                    
+                    <div class="zoom-rarity ${cardData.rarity || 'common'}">
+                        ${this.capitalizeFirst(cardData.rarity || 'common')}
+                    </div>
+                    
+                    <div class="card-zoom-hint">
+                        ${actionHint}
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
+    // Close zoom modal
+    closeZoomModal() {
+        if (this.activeModal) {
+            this.activeModal.classList.remove('active');
+            
+            setTimeout(() => {
+                if (this.activeModal && this.activeModal.parentNode) {
+                    this.activeModal.parentNode.removeChild(this.activeModal);
+                }
+                this.activeModal = null;
+                this.isOpen = false;
+            }, 300);
+        }
+    },
+
+    // Get type icon
+    getTypeIcon(type) {
+        const icons = {
+            'spell': '✨',
+            'weapon': '⚔️', 
+            'armor': '🛡️',
+            'creature': '👾',
+            'support': '🔧'
+        };
+        return icons[type] || '❓';
+    },
+
+    // Get action hint based on card type
+    getActionHint(type) {
+        switch (type) {
+            case 'weapon':
+            case 'armor':
+                return 'Click to equip this ' + type;
+            case 'spell':
+                return 'Click to cast this spell';
+            case 'creature':
+                return 'Click to summon this creature';
+            case 'support':
+                return 'Click to activate this support';
+            default:
+                return 'Click outside to close';
+        }
+    },
+
+    // Utility functions
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    },
+
+    capitalizeFirst(str) {
+        return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+};
+
+// Enhanced click handler that works with existing system
+function handleCardClick(cardIndex, cardType) {
+    // Check if this is a weapon or armor card
+    if (cardType === 'weapon' || cardType === 'armor') {
+        // Try to equip the card (existing functionality)
+        equipCard(cardIndex, cardType);
+    } else {
+        // For non-equipment cards, we now have options:
+        // - Single click: Show zoom modal (new)
+        // - Double click: Show details modal (existing)
+        // For now, let's use zoom for all non-equipment cards
+        
+        const cardElement = document.querySelector(`[data-card][style*="--card-index: ${cardIndex}"]`);
+        if (cardElement) {
+            CardZoom.showZoomModal(cardElement);
+        }
+    }
+}
+
+// Initialize zoom system when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    CardZoom.init();
+});
+
+// Also initialize if the script loads after DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+        CardZoom.init();
+    });
+} else {
+    CardZoom.init();
+}
+// ===================================================================
+// REFINED DRAG VISUAL FEEDBACK - Replace previous drag JavaScript
+// ===================================================================
+
+// Enhanced Drag Visual Feedback System
+const DragVisuals = {
+    isDragging: false,
+    draggedElement: null,
+    startPos: { x: 0, y: 0 },
+    currentPos: { x: 0, y: 0 },
+    originalTransform: '',
+    originalZIndex: '',
+    
+    // Initialize drag visual system
+    init() {
+        this.bindDragEvents();
+        console.log('🎨 Enhanced Drag Visual Feedback initialized');
+    },
+    
+    // Bind enhanced drag events
+    bindDragEvents() {
+        // Mouse events
+        document.addEventListener('mousedown', (e) => this.handleDragStart(e));
+        document.addEventListener('mousemove', (e) => this.handleDragMove(e));
+        document.addEventListener('mouseup', (e) => this.handleDragEnd(e));
+        
+        // Touch events for mobile
+        document.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
+        document.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
+        document.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+        
+        // Prevent default drag behavior
+        document.addEventListener('dragstart', (e) => {
+            if (e.target.closest('.hand-card, .equipment-card')) {
+                e.preventDefault();
+            }
+        });
+        
+        // Prevent context menu during drag
+        document.addEventListener('contextmenu', (e) => {
+            if (this.isDragging) {
+                e.preventDefault();
+            }
+        });
+    },
+    
+    // Handle drag start
+    handleDragStart(e) {
+        const card = e.target.closest('.hand-card[data-card], .equipment-card.equipped');
+        
+        // Don't start drag on buttons or if zoom modal is open
+        if (!card || 
+            e.target.closest('.card-delete-btn, .equipment-unequip-btn, .action-btn') || 
+            CardZoom.isOpen ||
+            e.button === 2) {
+            return;
+        }
+        
+        this.startDrag(card, e.clientX, e.clientY);
+        e.preventDefault(); // Prevent text selection
+    },
+    
+    // Handle touch start
+    handleTouchStart(e) {
+        const touch = e.touches[0];
+        const card = e.target.closest('.hand-card[data-card], .equipment-card.equipped');
+        
+        if (!card || CardZoom.isOpen) return;
+        
+        this.startDrag(card, touch.clientX, touch.clientY);
+        e.preventDefault();
+    },
+    
+    // Start drag visual feedback
+    startDrag(element, x, y) {
+        this.draggedElement = element;
+        this.startPos = { x, y };
+        this.currentPos = { x, y };
+        this.isDragging = false;
+        
+        // Store original styling
+        this.originalTransform = element.style.transform || '';
+        this.originalZIndex = element.style.zIndex || '';
+        
+        // Add starting animation class
+        element.classList.add('drag-starting');
+        
+        console.log('🎨 Drag start on:', this.getCardName());
+    },
+    
+    // Handle drag move
+    handleDragMove(e) {
+        if (!this.draggedElement) return;
+        
+        this.updateDragPosition(e.clientX, e.clientY);
+        e.preventDefault();
+    },
+    
+    // Handle touch move
+    handleTouchMove(e) {
+        if (!this.draggedElement) return;
+        
+        const touch = e.touches[0];
+        this.updateDragPosition(touch.clientX, touch.clientY);
+        e.preventDefault();
+    },
+    
+    // Update drag position with smooth movement
+    updateDragPosition(x, y) {
+        this.currentPos = { x, y };
+        
+        const deltaX = x - this.startPos.x;
+        const deltaY = y - this.startPos.y;
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        // Start actual dragging after moving 10 pixels
+        if (!this.isDragging && distance > 10) {
+            this.isDragging = true;
+            this.activateDragMode();
+        }
+        
+        if (this.isDragging) {
+            this.updateCardPosition(deltaX, deltaY);
+        }
+    },
+    
+    // Activate drag mode
+    activateDragMode() {
+        const element = this.draggedElement;
+        
+        // Remove starting class and add dragging
+        element.classList.remove('drag-starting');
+        element.classList.add('dragging');
+        
+        // Get current position to maintain smooth transition
+        const rect = element.getBoundingClientRect();
+        const elementCenterX = rect.left + rect.width / 2;
+        const elementCenterY = rect.top + rect.height / 2;
+        
+        // Switch to fixed positioning for smooth dragging
+        element.style.position = 'fixed';
+        element.style.left = elementCenterX + 'px';
+        element.style.top = elementCenterY + 'px';
+        element.style.transform = 'translate(-50%, -50%) scale(1.15) rotate(5deg)';
+        element.style.zIndex = '1000';
+        element.style.pointerEvents = 'none';
+        
+        // Show drop zone hints
+        this.showDropZoneHints();
+        document.body.style.cursor = 'grabbing';
+        
+        console.log('🎨 Drag mode activated for:', this.getCardName());
+    },
+    
+    // Update card position during drag
+    updateCardPosition(deltaX, deltaY) {
+        const element = this.draggedElement;
+        
+        // Calculate new position
+        const rect = element.getBoundingClientRect();
+        const newX = this.startPos.x + deltaX;
+        const newY = this.startPos.y + deltaY;
+        
+        // Calculate rotation based on movement direction
+        const rotation = Math.min(15, Math.max(-15, deltaX * 0.15));
+        
+        // Update position smoothly
+        element.style.left = newX + 'px';
+        element.style.top = newY + 'px';
+        element.style.transform = `translate(-50%, -50%) scale(1.15) rotate(${rotation}deg)`;
+        
+        // Add some sway effect for polish
+        const sway = Math.sin(Date.now() * 0.01) * 2;
+        element.style.transform += ` rotateX(${sway}deg)`;
+    },
+    
+    // Handle drag end
+    handleDragEnd(e) {
+        if (this.draggedElement) {
+            this.endDrag(e.clientX, e.clientY);
+        }
+    },
+    
+    // Handle touch end
+    handleTouchEnd(e) {
+        if (this.draggedElement) {
+            const touch = e.changedTouches[0] || e.touches[0] || this.currentPos;
+            this.endDrag(touch.clientX || this.currentPos.x, touch.clientY || this.currentPos.y);
+        }
+    },
+    
+    // End drag and return to original state
+    endDrag(x, y) {
+        if (!this.draggedElement) return;
+        
+        const element = this.draggedElement;
+        const wasActuallyDragging = this.isDragging;
+        
+        // Clean up drag state
+        this.hideDropZoneHints();
+        document.body.style.cursor = '';
+        
+        if (wasActuallyDragging) {
+            console.log('🎨 Ending drag for:', this.getCardName());
+            
+            // Check if dropped on valid target
+            const dropTarget = this.getDropTarget(x, y);
+            if (dropTarget) {
+                this.handleDropAttempt(dropTarget);
+            }
+            
+            // Return card to original position
+            this.returnCardToOriginalPosition();
+        } else {
+            // Was just a click - handle click action
+            this.handleCardClick();
+            this.resetCardState();
+        }
+        
+        // Reset drag state
+        this.isDragging = false;
+        this.draggedElement = null;
+        this.startPos = { x: 0, y: 0 };
+        this.currentPos = { x: 0, y: 0 };
+    },
+    
+    // Return card to original position with animation
+    returnCardToOriginalPosition() {
+        const element = this.draggedElement;
+        
+        // Add return animation class
+        element.classList.remove('dragging');
+        element.classList.add('drag-ending');
+        
+        // Reset to original positioning
+        element.style.position = '';
+        element.style.left = '';
+        element.style.top = '';
+        element.style.transform = this.originalTransform;
+        element.style.zIndex = this.originalZIndex;
+        element.style.pointerEvents = '';
+        
+        // Clean up after animation
+        setTimeout(() => {
+            this.resetCardState();
+        }, 400);
+    },
+    
+    // Reset card to normal state
+    resetCardState() {
+        if (this.draggedElement) {
+            const element = this.draggedElement;
+            element.classList.remove('drag-starting', 'dragging', 'drag-ending');
+            element.style.position = '';
+            element.style.left = '';
+            element.style.top = '';
+            element.style.transform = this.originalTransform;
+            element.style.zIndex = this.originalZIndex;
+            element.style.pointerEvents = '';
+        }
+    },
+    
+    // Handle card click (for non-drag interactions)
+    handleCardClick() {
+        console.log('👆 Click detected on:', this.getCardName());
+        
+        // Delay slightly to allow for visual feedback
+        setTimeout(() => {
+            if (this.draggedElement.hasAttribute('data-card')) {
+                CardZoom.showZoomModal(this.draggedElement);
+            } else {
+                CardZoom.showEquipmentZoom(this.draggedElement);
+            }
+        }, 50);
+    },
+    
+    // Get card name for logging
+    getCardName() {
+        if (!this.draggedElement) return 'Unknown';
+        
+        try {
+            if (this.draggedElement.hasAttribute('data-card')) {
+                const cardData = JSON.parse(this.draggedElement.getAttribute('data-card'));
+                return cardData.name;
+            } else {
+                return this.draggedElement.querySelector('.card-name')?.textContent || 'Equipment';
+            }
+        } catch (e) {
+            return 'Unknown Card';
+        }
+    },
+    
+    // Show visual hints for potential drop zones
+    showDropZoneHints() {
+        const battlefield = document.querySelector('.battlefield-layout');
+        if (battlefield) {
+            battlefield.classList.add('drop-zone-active');
+        }
+        
+        const zones = document.querySelectorAll('.combat-zone');
+        zones.forEach(zone => {
+            zone.classList.add('potential-drop-zone');
+        });
+    },
+    
+    // Hide drop zone hints
+    hideDropZoneHints() {
+        const battlefield = document.querySelector('.battlefield-layout');
+        if (battlefield) {
+            battlefield.classList.remove('drop-zone-active');
+        }
+        
+        const zones = document.querySelectorAll('.combat-zone');
+        zones.forEach(zone => {
+            zone.classList.remove('potential-drop-zone');
+        });
+    },
+    
+    // Get drop target at position
+    getDropTarget(x, y) {
+        // Temporarily hide the dragged element to get element below
+        const element = this.draggedElement;
+        const originalDisplay = element.style.display;
+        element.style.display = 'none';
+        
+        const elementBelow = document.elementFromPoint(x, y);
+        const dropZone = elementBelow?.closest('.combat-zone, .battlefield-layout, .mech-area');
+        
+        // Restore element visibility
+        element.style.display = originalDisplay;
+        
+        return dropZone;
+    },
+    
+    // Handle drop attempt (placeholder for future functionality)
+    handleDropAttempt(dropTarget) {
+        console.log('🎯 Drop attempted on:', dropTarget.className);
+        
+        // Show drop effect
+        this.showDropEffect(dropTarget);
+        
+        // For now, always return to hand
+        // Future phases will implement actual drop logic
+    },
+    
+    // Show drop effect animation
+    showDropEffect(target) {
+        const effect = document.createElement('div');
+        effect.style.cssText = `
+            position: fixed;
+            width: 60px;
+            height: 60px;
+            border: 3px solid #00d4ff;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1001;
+            left: ${this.currentPos.x - 30}px;
+            top: ${this.currentPos.y - 30}px;
+            animation: drop-ripple 0.6s ease-out forwards;
+        `;
+        
+        document.body.appendChild(effect);
+        
+        setTimeout(() => {
+            if (effect.parentNode) {
+                effect.parentNode.removeChild(effect);
+            }
+        }, 600);
+    }
+};
+
+// Add improved drop effect CSS
+const enhancedDropCSS = `
+@keyframes drop-ripple {
+    0% { 
+        transform: scale(0.3);
+        opacity: 1;
+        border-width: 4px;
+    }
+    50% {
+        transform: scale(1);
+        opacity: 0.7;
+        border-width: 2px;
+    }
+    100% { 
+        transform: scale(2);
+        opacity: 0;
+        border-width: 1px;
+    }
+}
+
+.potential-drop-zone {
+    background: radial-gradient(circle, rgba(0, 212, 255, 0.15) 0%, transparent 70%) !important;
+    transition: background 0.3s ease;
+    box-shadow: inset 0 0 20px rgba(0, 212, 255, 0.1);
+}
+
+.drop-zone-active {
+    background: radial-gradient(circle, rgba(0, 212, 255, 0.08) 0%, transparent 70%);
+}
+
+/* Enhanced dragging state */
+.hand-card.dragging {
+    cursor: grabbing !important;
+    opacity: 0.95;
+    box-shadow: 
+        0 25px 50px rgba(0, 0, 0, 0.8),
+        0 0 40px rgba(0, 212, 255, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    filter: brightness(1.1);
+}
+
+.equipment-card.dragging {
+    cursor: grabbing !important;
+    opacity: 0.95;
+    box-shadow: 
+        0 20px 40px rgba(0, 0, 0, 0.7),
+        0 0 30px rgba(0, 212, 255, 0.3);
+    filter: brightness(1.1);
+}
+`;
+
+// Inject enhanced CSS
+const enhancedStyleSheet = document.createElement('style');
+enhancedStyleSheet.textContent = enhancedDropCSS;
+document.head.appendChild(enhancedStyleSheet);
+
+// Initialize enhanced drag visuals when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    DragVisuals.init();
+});
+
+// Also initialize if the script loads after DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+        DragVisuals.init();
+    });
+} else {
+    DragVisuals.init();
+}
 </script>
 
 </body>

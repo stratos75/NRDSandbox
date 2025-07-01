@@ -2585,3 +2585,610 @@ body {
 .equipment-card.equipped {
     position: relative;
 }
+/* ===================================================================
+   CARD ZOOM MODAL SYSTEM - Add this to the end of your style.css
+   =================================================================== */
+
+/* Zoom Modal Overlay */
+.card-zoom-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 2000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.card-zoom-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Zoomed Card Container */
+.card-zoom-container {
+    position: relative;
+    transform: scale(0.5) rotateY(180deg);
+    transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    perspective: 1000px;
+}
+
+.card-zoom-overlay.active .card-zoom-container {
+    transform: scale(1) rotateY(0deg);
+}
+
+/* Large Card Display */
+.card-zoom-large {
+    width: 350px;
+    height: 500px;
+    background: linear-gradient(145deg, #2d4a87 0%, #1e3a5f 100%);
+    border: 3px solid #00d4ff;
+    border-radius: 20px;
+    padding: 25px;
+    position: relative;
+    box-shadow: 
+        0 20px 40px rgba(0, 0, 0, 0.8),
+        0 0 30px rgba(0, 212, 255, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    transform-style: preserve-3d;
+}
+
+/* Close Button */
+.card-zoom-close {
+    position: absolute;
+    top: -15px;
+    right: -15px;
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(145deg, #dc3545 0%, #a71e2a 100%);
+    border: 3px solid #fff;
+    border-radius: 50%;
+    color: white;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    z-index: 10;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.card-zoom-close:hover {
+    transform: scale(1.1) rotate(90deg);
+    background: linear-gradient(145deg, #e74c5c 0%, #c0392b 100%);
+    box-shadow: 0 6px 16px rgba(220, 53, 69, 0.4);
+}
+
+/* Cost Badge */
+.zoom-cost {
+    position: absolute;
+    top: -12px;
+    left: -12px;
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(145deg, #ffc107 0%, #d39e00 100%);
+    color: #000;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: bold;
+    border: 4px solid #fff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    z-index: 5;
+}
+
+/* Card Header */
+.zoom-header {
+    text-align: center;
+    margin-bottom: 15px;
+    position: relative;
+    z-index: 2;
+}
+
+.zoom-name {
+    font-size: 24px;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+    line-height: 1.2;
+    margin-bottom: 8px;
+}
+
+.zoom-type {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.8);
+    letter-spacing: 2px;
+    font-weight: bold;
+    padding: 4px 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 15px;
+    display: inline-block;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Card Art Area */
+.zoom-art {
+    flex: 1;
+    background: 
+        radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+        linear-gradient(135deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.4) 100%);
+    border: 2px dashed rgba(255, 255, 255, 0.3);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 15px;
+    min-height: 180px;
+    position: relative;
+    overflow: hidden;
+}
+
+.zoom-art::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 10px,
+            rgba(255, 255, 255, 0.02) 10px,
+            rgba(255, 255, 255, 0.02) 20px
+        );
+    pointer-events: none;
+}
+
+.zoom-art-placeholder {
+    color: rgba(255, 255, 255, 0.4);
+    font-style: italic;
+    font-size: 18px;
+    text-align: center;
+    z-index: 1;
+    position: relative;
+}
+
+/* Stats Section */
+.zoom-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 15px;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.zoom-stat {
+    text-align: center;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    border-left: 3px solid #444;
+}
+
+.zoom-stat.damage {
+    border-left-color: #dc3545;
+}
+
+.zoom-stat.rarity {
+    border-left-color: #ffc107;
+}
+
+.zoom-stat.type {
+    border-left-color: #00d4ff;
+}
+
+.zoom-stat-label {
+    font-size: 10px;
+    color: #aaa;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+}
+
+.zoom-stat-value {
+    font-size: 16px;
+    font-weight: bold;
+    color: #fff;
+}
+
+/* Description */
+.zoom-description {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 15px;
+    font-style: italic;
+    line-height: 1.4;
+    color: #ddd;
+    text-align: center;
+    margin-bottom: 15px;
+    position: relative;
+}
+
+.zoom-description::before {
+    content: '"';
+    font-size: 40px;
+    color: rgba(0, 212, 255, 0.3);
+    position: absolute;
+    top: 5px;
+    left: 10px;
+    font-family: serif;
+}
+
+.zoom-description::after {
+    content: '"';
+    font-size: 40px;
+    color: rgba(0, 212, 255, 0.3);
+    position: absolute;
+    bottom: 5px;
+    right: 10px;
+    font-family: serif;
+}
+
+/* Rarity Badge */
+.zoom-rarity {
+    position: absolute;
+    bottom: -12px;
+    right: -12px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    border: 3px solid #fff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    z-index: 5;
+}
+
+.zoom-rarity.common { background: linear-gradient(45deg, #6c757d, #495057); color: white; }
+.zoom-rarity.uncommon { background: linear-gradient(45deg, #28a745, #1e7e34); color: white; }
+.zoom-rarity.rare { background: linear-gradient(45deg, #007bff, #0056b3); color: white; }
+.zoom-rarity.legendary { 
+    background: linear-gradient(45deg, #ffc107, #ff6b35, #e83e8c, #6f42c1);
+    color: white;
+    animation: legendary-glow 2s infinite;
+    background-size: 200% 200%;
+}
+
+@keyframes legendary-glow {
+    0%, 100% { 
+        background-position: 0% 50%;
+        box-shadow: 0 4px 12px rgba(255, 193, 7, 0.6);
+    }
+    50% { 
+        background-position: 100% 50%;
+        box-shadow: 0 4px 20px rgba(255, 107, 53, 0.8);
+    }
+}
+
+/* Card Type Specific Styling */
+.card-zoom-large.spell-card {
+    background: linear-gradient(145deg, #2d4a87 0%, #1e3a5f 100%);
+    border-color: #4dabf7;
+}
+
+.card-zoom-large.weapon-card {
+    background: linear-gradient(145deg, #8b2635 0%, #5f1e2a 100%);
+    border-color: #dc3545;
+}
+
+.card-zoom-large.armor-card {
+    background: linear-gradient(145deg, #2d6b35 0%, #1e4a25 100%);
+    border-color: #28a745;
+}
+
+.card-zoom-large.creature-card {
+    background: linear-gradient(145deg, #7d4a87 0%, #5f1e3a 100%);
+    border-color: #9c27b0;
+}
+
+.card-zoom-large.support-card {
+    background: linear-gradient(145deg, #87652d 0%, #5f4a1e 100%);
+    border-color: #ff9800;
+}
+
+/* Click Hint */
+.card-zoom-hint {
+    position: absolute;
+    bottom: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: #00d4ff;
+    padding: 6px 12px;
+    border-radius: 15px;
+    font-size: 11px;
+    font-weight: bold;
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    animation: pulse-hint 2s infinite;
+}
+
+@keyframes pulse-hint {
+    0%, 100% { opacity: 0.7; transform: translateX(-50%) scale(1); }
+    50% { opacity: 1; transform: translateX(-50%) scale(1.05); }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .card-zoom-large {
+        width: 280px;
+        height: 400px;
+        padding: 20px;
+    }
+    
+    .zoom-name {
+        font-size: 20px;
+    }
+    
+    .zoom-cost {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+    }
+    
+    .zoom-stats {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+}
+
+/* Animation for card flip effect */
+.card-zoom-container.flipping {
+    animation: cardFlip 0.6s ease-in-out;
+}
+
+@keyframes cardFlip {
+    0% { transform: scale(1) rotateY(0deg); }
+    50% { transform: scale(0.8) rotateY(90deg); }
+    100% { transform: scale(1) rotateY(0deg); }
+}
+/* ===================================================================
+   PHASE 2: DRAG VISUAL FEEDBACK - Add this to the end of your style.css
+   =================================================================== */
+
+/* Make cards feel draggable */
+.hand-card[data-card] {
+    cursor: grab;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform-origin: bottom center;
+}
+
+.hand-card[data-card]:active {
+    cursor: grabbing;
+}
+
+/* Enhanced hover effects for draggable cards */
+.hand-card[data-card]:hover {
+    transform: translateX(-50%) rotate(calc((var(--card-index) - 2) * 6deg)) translateY(-12px) scale(1.08);
+    box-shadow: 
+        0 12px 25px rgba(0, 0, 0, 0.6),
+        0 0 20px rgba(0, 212, 255, 0.2);
+    z-index: 30 !important;
+}
+
+/* Dragging state */
+.hand-card.dragging {
+    cursor: grabbing !important;
+    transform: translateX(-50%) scale(1.15) rotate(8deg) !important;
+    z-index: 1000 !important;
+    opacity: 0.9;
+    box-shadow: 
+        0 20px 40px rgba(0, 0, 0, 0.8),
+        0 0 30px rgba(0, 212, 255, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    transition: all 0.2s ease-out;
+}
+
+/* Ghost/trail effect while dragging */
+.hand-card.dragging::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, rgba(0, 212, 255, 0.1), rgba(255, 255, 255, 0.05));
+    border-radius: inherit;
+    pointer-events: none;
+    animation: drag-glow 1s infinite;
+}
+
+@keyframes drag-glow {
+    0%, 100% { opacity: 0.3; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.02); }
+}
+
+/* Equipment cards also get drag feedback */
+.equipment-card.equipped {
+    cursor: grab;
+    transition: all 0.3s ease;
+}
+
+.equipment-card.equipped:hover {
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 
+        0 8px 20px rgba(0, 0, 0, 0.5),
+        0 0 15px rgba(0, 212, 255, 0.2);
+}
+
+.equipment-card.dragging {
+    cursor: grabbing !important;
+    transform: scale(1.1) rotate(5deg) !important;
+    z-index: 1000 !important;
+    opacity: 0.9;
+    box-shadow: 
+        0 15px 30px rgba(0, 0, 0, 0.7),
+        0 0 25px rgba(0, 212, 255, 0.3);
+}
+
+/* Visual hint for draggable items */
+.hand-card[data-card]::after {
+    content: '⟨⟩';
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    font-size: 8px;
+    color: rgba(0, 212, 255, 0.4);
+    font-weight: bold;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.hand-card[data-card]:hover::after {
+    opacity: 0.7;
+}
+
+/* Drag start animation */
+.hand-card.drag-starting {
+    animation: drag-start 0.3s ease-out;
+}
+
+@keyframes drag-start {
+    0% { transform: translateX(-50%) rotate(calc((var(--card-index) - 2) * 6deg)) scale(1); }
+    50% { transform: translateX(-50%) rotate(calc((var(--card-index) - 2) * 6deg)) scale(1.1) translateY(-5px); }
+    100% { transform: translateX(-50%) scale(1.15) rotate(8deg); }
+}
+
+/* Drag end animation */
+.hand-card.drag-ending {
+    animation: drag-end 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes drag-end {
+    0% { transform: translateX(-50%) scale(1.15) rotate(8deg); }
+    50% { transform: translateX(-50%) scale(0.95) rotate(-2deg); }
+    100% { transform: translateX(-50%) rotate(calc((var(--card-index) - 2) * 6deg)) scale(1); }
+}
+
+/* Potential drop zone hint (for future phases) */
+.hand-card.dragging ~ .battlefield-layout {
+    background: radial-gradient(circle, rgba(0, 212, 255, 0.05) 0%, transparent 70%);
+    transition: background 0.3s ease;
+}
+
+/* Improved card interaction states */
+.hand-card[data-card] {
+    position: relative;
+    overflow: visible;
+}
+
+/* Subtle interaction feedback for non-dragging actions */
+.hand-card[data-card]:focus {
+    outline: 2px solid rgba(0, 212, 255, 0.6);
+    outline-offset: 2px;
+}
+
+/* Disable drag on certain elements */
+.card-delete-btn,
+.equipment-unequip-btn,
+.action-btn {
+    cursor: pointer !important;
+    -webkit-user-drag: none;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+/* Mobile touch improvements */
+@media (hover: none) and (pointer: coarse) {
+    .hand-card[data-card] {
+        cursor: default;
+    }
+    
+    .hand-card[data-card]:hover::after {
+        opacity: 0;
+    }
+    
+    /* Touch-specific drag feedback */
+    .hand-card.touch-dragging {
+        transform: translateX(-50%) scale(1.1) rotate(5deg) !important;
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.7);
+    }
+}
+
+/* Prevent text selection during drag */
+.dragging * {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    pointer-events: none;
+}
+
+/* Enhanced equipment card drag states */
+.equipment-card.equipped.dragging::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, 
+        rgba(0, 212, 255, 0.2), 
+        rgba(255, 255, 255, 0.1), 
+        rgba(0, 212, 255, 0.2));
+    border-radius: inherit;
+    pointer-events: none;
+    animation: equipment-drag-glow 0.8s infinite;
+}
+
+@keyframes equipment-drag-glow {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.8; }
+}
+/* ===================================================================
+   DELETE BUTTON DRAG FIX - Add this to your style.css
+   =================================================================== */
+
+/* Hide delete button while dragging */
+.hand-card.dragging .card-delete-btn {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+/* Also hide unequip button while dragging equipment */
+.equipment-card.dragging .equipment-unequip-btn {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+/* Optional: Hide delete button during drag start animation too */
+.hand-card.drag-starting .card-delete-btn {
+    opacity: 0.5;
+    transition: opacity 0.3s ease;
+}
+
+/* Ensure delete button is visible in normal state */
+.hand-card .card-delete-btn {
+    opacity: 1;
+    transition: opacity 0.2s ease;
+}
+
+.equipment-card .equipment-unequip-btn {
+    opacity: 1;
+    transition: opacity 0.2s ease;
+}
