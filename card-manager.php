@@ -3,7 +3,18 @@
 // NRD SANDBOX - ENHANCED CARD MANAGEMENT SYSTEM (JSON FILE STORAGE)
 // ===================================================================
 
-require 'auth.php';
+// Check authentication for AJAX requests
+session_start();
+
+if (!isset($_SESSION['username'])) {
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => false,
+        'message' => 'Authentication required. Please log in.',
+        'error_type' => 'auth_required'
+    ]);
+    exit;
+}
 
 // Enhanced CardManager class with robust JSON handling
 class CardManager {
@@ -20,6 +31,11 @@ class CardManager {
         // Create data directory if it doesn't exist
         if (!file_exists(dirname($this->dataFile))) {
             mkdir(dirname($this->dataFile), 0755, true);
+        }
+        
+        // Create images directory if it doesn't exist
+        if (!file_exists('data/images')) {
+            mkdir('data/images', 0755, true);
         }
         
         // Create or validate the JSON file
@@ -104,16 +120,104 @@ class CardManager {
     }
     
     /**
-     * Safely write cards data to file
+     * Safely write cards data to file with locking and backup
      */
     private function writeCardsFile($data) {
+        // Validate data structure before writing
+        if (!$this->validateDataStructure($data)) {
+            throw new Exception('Invalid data structure - write aborted');
+        }
+        
+        // Create backup before writing
+        $this->createBackup();
+        
         $json = json_encode($data, JSON_PRETTY_PRINT);
         if ($json === false) {
             throw new Exception('Failed to encode JSON data');
         }
         
-        if (file_put_contents($this->dataFile, $json) === false) {
-            throw new Exception('Failed to write cards file');
+        // Write with file locking to prevent corruption
+        $lockFile = $this->dataFile . '.lock';
+        $lockHandle = fopen($lockFile, 'w');
+        
+        if (!$lockHandle || !flock($lockHandle, LOCK_EX)) {
+            throw new Exception('Could not acquire file lock');
+        }
+        
+        try {
+            // Atomic write using temporary file
+            $tempFile = $this->dataFile . '.tmp';
+            if (file_put_contents($tempFile, $json) === false) {
+                throw new Exception('Failed to write temporary file');
+            }
+            
+            // Atomic rename
+            if (!rename($tempFile, $this->dataFile)) {
+                unlink($tempFile);
+                throw new Exception('Failed to replace cards file');
+            }
+            
+        } finally {
+            flock($lockHandle, LOCK_UN);
+            fclose($lockHandle);
+            unlink($lockFile);
+        }
+    }
+    
+    /**
+     * Validate data structure integrity
+     */
+    private function validateDataStructure($data) {
+        if (!is_array($data)) return false;
+        if (!isset($data['cards']) || !is_array($data['cards'])) return false;
+        if (!isset($data['meta']) || !is_array($data['meta'])) return false;
+        
+        // Validate each card has required fields
+        foreach ($data['cards'] as $card) {
+            $required = ['id', 'name', 'type', 'cost'];
+            foreach ($required as $field) {
+                if (!isset($card[$field])) return false;
+            }
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Create backup of current cards file
+     */
+    private function createBackup() {
+        if (!file_exists($this->dataFile)) return;
+        
+        $backupDir = 'data/backups';
+        if (!file_exists($backupDir)) {
+            mkdir($backupDir, 0755, true);
+        }
+        
+        $timestamp = date('Y-m-d-H-i-s');
+        $backupFile = $backupDir . '/cards.json.backup.' . $timestamp;
+        
+        copy($this->dataFile, $backupFile);
+        
+        // Keep only last 10 backups
+        $this->cleanupOldBackups($backupDir);
+    }
+    
+    /**
+     * Clean up old backup files
+     */
+    private function cleanupOldBackups($backupDir) {
+        $backups = glob($backupDir . '/cards.json.backup.*');
+        if (count($backups) > 10) {
+            // Sort by modification time and remove oldest
+            usort($backups, function($a, $b) {
+                return filemtime($a) - filemtime($b);
+            });
+            
+            $toDelete = array_slice($backups, 0, count($backups) - 10);
+            foreach ($toDelete as $file) {
+                unlink($file);
+            }
         }
     }
     
@@ -146,15 +250,30 @@ class CardManager {
     }
     
     /**
+     * Generate standardized card ID
+     */
+    private function generateCardId() {
+        return 'card_' . date('Ymd_His') . '_' . sprintf('%04d', rand(0, 9999));
+    }
+    
+    /**
      * Save a new card
      */
-    public function saveCard($cardData) {
+    public function saveCard($cardData, $imageData = null) {
         $data = $this->getFullData();
         
-        // Generate unique ID
-        $cardData['id'] = 'card_' . time() . '_' . rand(1000, 9999);
+        // Generate standardized unique ID
+        $cardData['id'] = $this->generateCardId();
         $cardData['created_at'] = date('Y-m-d H:i:s');
         $cardData['created_by'] = $_SESSION['username'] ?? 'unknown';
+        
+        // Handle image upload if provided
+        if ($imageData) {
+            $imagePath = $this->saveCardImage($cardData['id'], $imageData);
+            if ($imagePath) {
+                $cardData['image'] = $imagePath;
+            }
+        }
         
         // Add to cards array
         $data['cards'][] = $cardData;
@@ -169,16 +288,89 @@ class CardManager {
     }
     
     /**
+     * Save card image from base64 data
+     */
+    private function saveCardImage($cardId, $imageData) {
+        try {
+            // Decode base64 image data
+            if (strpos($imageData, 'data:image/') === 0) {
+                $imageInfo = explode(',', $imageData);
+                $imageType = $imageInfo[0];
+                $imageData = $imageInfo[1];
+                
+                // Get file extension from MIME type
+                $extension = 'jpg'; // default
+                if (strpos($imageType, 'png') !== false) {
+                    $extension = 'png';
+                } elseif (strpos($imageType, 'gif') !== false) {
+                    $extension = 'gif';
+                } elseif (strpos($imageType, 'webp') !== false) {
+                    $extension = 'webp';
+                }
+                
+                $fileName = $cardId . '.' . $extension;
+                $filePath = 'data/images/' . $fileName;
+                
+                // Decode and save the image
+                $decodedData = base64_decode($imageData);
+                if ($decodedData && file_put_contents($filePath, $decodedData)) {
+                    return $filePath;
+                }
+            }
+        } catch (Exception $e) {
+            error_log('Error saving card image: ' . $e->getMessage());
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Get a specific card by ID
+     */
+    public function getCard($cardId) {
+        $data = $this->getFullData();
+        
+        foreach ($data['cards'] as $card) {
+            if ($card['id'] === $cardId) {
+                return $card;
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
      * Update an existing card
      */
-    public function updateCard($cardId, $cardData) {
+    public function updateCard($cardId, $cardData, $imageData = null) {
         $data = $this->getFullData();
         
         foreach ($data['cards'] as $key => $card) {
             if ($card['id'] === $cardId) {
+                $oldImagePath = $card['image'] ?? null;
+                
                 $cardData['id'] = $cardId;
                 $cardData['created_at'] = $card['created_at'] ?? date('Y-m-d H:i:s');
                 $cardData['updated_at'] = date('Y-m-d H:i:s');
+                
+                // Handle image update if provided
+                if ($imageData) {
+                    // Clean up old image first
+                    if ($oldImagePath) {
+                        $this->cleanupCardImage($oldImagePath);
+                    }
+                    
+                    $imagePath = $this->saveCardImage($cardId, $imageData);
+                    if ($imagePath) {
+                        $cardData['image'] = $imagePath;
+                    }
+                } else {
+                    // Preserve existing image if no new image provided
+                    if (isset($card['image'])) {
+                        $cardData['image'] = $card['image'];
+                    }
+                }
+                
                 $data['cards'][$key] = $cardData;
                 
                 // Update metadata
@@ -200,6 +392,11 @@ class CardManager {
         
         foreach ($data['cards'] as $key => $card) {
             if ($card['id'] === $cardId) {
+                // Clean up associated image
+                if (isset($card['image'])) {
+                    $this->cleanupCardImage($card['image']);
+                }
+                
                 unset($data['cards'][$key]);
                 
                 // Reindex array
@@ -215,6 +412,19 @@ class CardManager {
         }
         
         return false;
+    }
+    
+    /**
+     * Clean up card image file
+     */
+    private function cleanupCardImage($imagePath) {
+        if ($imagePath && file_exists($imagePath)) {
+            try {
+                unlink($imagePath);
+            } catch (Exception $e) {
+                error_log('Failed to delete card image: ' . $imagePath . ' - ' . $e->getMessage());
+            }
+        }
     }
     
     /**
@@ -273,7 +483,7 @@ function validate_card_data($cardData) {
         $errors[] = 'Cost must be a non-negative number';
     }
     
-    $validTypes = ['spell', 'weapon', 'armor', 'creature', 'support'];
+    $validTypes = ['weapon', 'armor', 'special attack'];
     if (!in_array($cardData['type'], $validTypes)) {
         $errors[] = 'Type must be one of: ' . implode(', ', $validTypes);
     }
@@ -282,9 +492,14 @@ function validate_card_data($cardData) {
         $errors[] = 'Damage must be a non-negative number';
     }
     
-    $validRarities = ['common', 'uncommon', 'rare', 'legendary'];
+    $validRarities = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
     if (!in_array($cardData['rarity'], $validRarities)) {
         $errors[] = 'Rarity must be one of: ' . implode(', ', $validRarities);
+    }
+    
+    $validElements = ['poison', 'fire', 'ice', 'plasma'];
+    if (!in_array($cardData['element'], $validElements)) {
+        $errors[] = 'Element must be one of: ' . implode(', ', $validElements);
     }
     
     return $errors;
@@ -297,7 +512,7 @@ header('Content-Type: application/json');
 $response = ['success' => false, 'message' => '', 'data' => null];
 
 // Handle direct browser access (GET request) - for debugging
-if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
     try {
         $cardManager = new CardManager();
         $diagnostics = $cardManager->getDiagnostics();
@@ -308,7 +523,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $response['debug'] = [
             'method' => 'GET',
             'timestamp' => date('Y-m-d H:i:s'),
-            'available_actions' => ['get_all_cards', 'create_card', 'update_card', 'delete_card', 'diagnostics']
+            'available_actions' => ['get_all_cards', 'get_card', 'create_card', 'update_card', 'delete_card', 'diagnostics']
         ];
     } catch (Exception $e) {
         $response['message'] = 'CardManager initialization failed: ' . $e->getMessage();
@@ -319,7 +534,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 }
 
 // Only handle POST requests for actual API calls
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     $response['message'] = 'Invalid request method. Use POST.';
     echo json_encode($response);
     exit;
@@ -361,16 +576,19 @@ switch ($action) {
         $cardData = [
             'name' => trim($_POST['name'] ?? ''),
             'cost' => intval($_POST['cost'] ?? 0),
-            'type' => trim($_POST['type'] ?? 'spell'),
+            'type' => trim($_POST['type'] ?? 'weapon'),
             'damage' => intval($_POST['damage'] ?? 0),
             'description' => trim($_POST['description'] ?? ''),
-            'rarity' => trim($_POST['rarity'] ?? 'common')
+            'rarity' => trim($_POST['rarity'] ?? 'common'),
+            'element' => trim($_POST['element'] ?? 'fire')
         ];
+        
+        $imageData = $_POST['image_data'] ?? null;
         
         $errors = validate_card_data($cardData);
         if (empty($errors)) {
             try {
-                $savedCard = $cardManager->saveCard($cardData);
+                $savedCard = $cardManager->saveCard($cardData, $imageData);
                 $response['success'] = true;
                 $response['message'] = 'Card created successfully';
                 $response['data'] = $savedCard;
@@ -383,21 +601,45 @@ switch ($action) {
         }
         break;
         
+    case 'get_card':
+        $cardId = $_POST['card_id'] ?? '';
+        if ($cardId) {
+            try {
+                $card = $cardManager->getCard($cardId);
+                if ($card) {
+                    $response['success'] = true;
+                    $response['message'] = 'Card retrieved successfully';
+                    $response['data'] = $card;
+                } else {
+                    $response['message'] = 'Card not found';
+                }
+            } catch (Exception $e) {
+                $response['message'] = 'Error retrieving card: ' . $e->getMessage();
+            }
+        } else {
+            $response['message'] = 'Card ID is required';
+        }
+        break;
+        
     case 'update_card':
         $cardId = $_POST['card_id'] ?? '';
         $cardData = [
             'name' => trim($_POST['name'] ?? ''),
             'cost' => intval($_POST['cost'] ?? 0),
-            'type' => trim($_POST['type'] ?? 'spell'),
+            'type' => trim($_POST['type'] ?? 'weapon'),
             'damage' => intval($_POST['damage'] ?? 0),
             'description' => trim($_POST['description'] ?? ''),
-            'rarity' => trim($_POST['rarity'] ?? 'common')
+            'rarity' => trim($_POST['rarity'] ?? 'common'),
+            'element' => trim($_POST['element'] ?? 'fire')
         ];
+        
+        // Get image data if provided
+        $imageData = $_POST['image_data'] ?? null;
         
         $errors = validate_card_data($cardData);
         if (empty($errors)) {
             try {
-                $updatedCard = $cardManager->updateCard($cardId, $cardData);
+                $updatedCard = $cardManager->updateCard($cardId, $cardData, $imageData);
                 if ($updatedCard) {
                     $response['success'] = true;
                     $response['message'] = 'Card updated successfully';

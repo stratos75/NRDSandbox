@@ -173,14 +173,34 @@ if (!isset($_SESSION['player_hand'])) {
 
 $playerHand = $_SESSION['player_hand'] ?? [];
 
-// Initialize basic mech data
-$playerMech = $_SESSION['playerMech'] ?? ['HP' => 100, 'ATK' => 30, 'DEF' => 15, 'MAX_HP' => 100, 'companion' => 'Pilot-Alpha'];
-$enemyMech = $_SESSION['enemyMech'] ?? ['HP' => 100, 'ATK' => 25, 'DEF' => 10, 'MAX_HP' => 100, 'companion' => 'AI-Core'];
+// Initialize basic mech data with image support
+$defaultPlayerMech = [
+    'HP' => 100, 
+    'ATK' => 30, 
+    'DEF' => 15, 
+    'MAX_HP' => 100, 
+    'companion' => 'Pilot-Alpha',
+    'name' => 'Player Mech',
+    'image' => null
+];
+$defaultEnemyMech = [
+    'HP' => 100, 
+    'ATK' => 25, 
+    'DEF' => 10, 
+    'MAX_HP' => 100, 
+    'companion' => 'AI-Core',
+    'name' => 'Enemy Mech',
+    'image' => null
+];
+
+// Merge session data with defaults to ensure all keys exist
+$playerMech = array_merge($defaultPlayerMech, $_SESSION['playerMech'] ?? []);
+$enemyMech = array_merge($defaultEnemyMech, $_SESSION['enemyMech'] ?? []);
 
 // ===================================================================
 // EQUIPMENT STATE TRACKING
 // ===================================================================
-$playerEquipment = $_SESSION['playerEquipment'] ?? ['weapon' => null, 'armor' => null];
+$playerEquipment = $_SESSION['playerEquipment'] ?? ['weapon' => null, 'armor' => null, 'weapon_special' => null];
 $enemyEquipment = $_SESSION['enemyEquipment'] ?? ['weapon' => null, 'armor' => null];
 
 // For enemy, pre-populate equipment (they start equipped)
@@ -237,12 +257,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Reset everything to initial state
     if (isset($_POST['reset_all'])) {
-        // Reset mech stats
-        $playerMech = ['HP' => 100, 'ATK' => 30, 'DEF' => 15, 'MAX_HP' => 100, 'companion' => 'Pilot-Alpha'];
-        $enemyMech = ['HP' => 100, 'ATK' => 25, 'DEF' => 10, 'MAX_HP' => 100, 'companion' => 'AI-Core'];
+        // Reset mech stats (preserve images)
+        $playerImage = $playerMech['image'] ?? null;
+        $enemyImage = $enemyMech['image'] ?? null;
+        $playerMech = [
+            'HP' => 100, 
+            'ATK' => 30, 
+            'DEF' => 15, 
+            'MAX_HP' => 100, 
+            'companion' => 'Pilot-Alpha',
+            'name' => 'Player Mech',
+            'image' => $playerImage
+        ];
+        $enemyMech = [
+            'HP' => 100, 
+            'ATK' => 25, 
+            'DEF' => 10, 
+            'MAX_HP' => 100, 
+            'companion' => 'AI-Core',
+            'name' => 'Enemy Mech',
+            'image' => $enemyImage
+        ];
         
         // Reset equipment
-        $playerEquipment = ['weapon' => null, 'armor' => null];
+        $playerEquipment = ['weapon' => null, 'armor' => null, 'weapon_special' => null];
         $enemyEquipment = [
             'weapon' => ['name' => 'Ion Cannon', 'atk' => 12, 'durability' => 100, 'type' => 'weapon'],
             'armor' => ['name' => 'Reactive Plating', 'def' => 8, 'durability' => 100, 'type' => 'armor']
@@ -299,8 +337,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $cardsToDraw = min($requestedCards, $availableSlots, $cardsInLibrary);
         
         if ($cardsToDraw > 0) {
-            // Draw cards from library to hand
-            $drawnCards = array_slice($cardLibrary, 0, $cardsToDraw);
+            // Shuffle library to get random cards
+            $shuffledLibrary = $cardLibrary;
+            shuffle($shuffledLibrary);
+            
+            // Draw random cards from library to hand
+            $drawnCards = array_slice($shuffledLibrary, 0, $cardsToDraw);
             $playerHand = array_merge($playerHand, $drawnCards);
             $_SESSION['player_hand'] = $playerHand;
             
@@ -320,13 +362,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Handle card equipping
     if (isset($_POST['equip_card'])) {
         $cardIndex = intval($_POST['card_index']);
-        $equipSlot = $_POST['equip_slot']; // 'weapon' or 'armor'
+        $equipSlot = $_POST['equip_slot']; // 'weapon', 'armor', or 'weapon_special'
         
         if (isset($playerHand[$cardIndex])) {
             $card = $playerHand[$cardIndex];
             
-            // Validate card type matches slot
-            if ($card['type'] === $equipSlot) {
+            // Handle special attack equipping
+            if ($card['type'] === 'special attack' && $equipSlot === 'weapon_special') {
+                // Check if weapon is equipped first
+                if ($playerEquipment['weapon'] === null) {
+                    $gameLog[] = "[" . date('H:i:s') . "] Error: Must equip weapon before special attack!";
+                } else {
+                    // Equip special attack (no element matching required)
+                    $playerEquipment['weapon_special'] = [
+                        'name' => $card['name'],
+                        'damage' => $card['damage'] ?? 0,
+                        'type' => $card['type'],
+                        'card_data' => $card
+                    ];
+                    
+                    // Remove card from hand
+                    array_splice($playerHand, $cardIndex, 1);
+                    $_SESSION['player_hand'] = $playerHand;
+                    
+                    $gameLog[] = "[" . date('H:i:s') . "] Equipped {$card['name']} special attack!";
+                }
+            }
+            // Validate card type matches slot for weapons and armor
+            elseif ($card['type'] === $equipSlot && ($card['type'] === 'weapon' || $card['type'] === 'armor')) {
                 // Equip the card
                 $playerEquipment[$equipSlot] = [
                     'name' => $card['name'],
@@ -353,10 +416,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // ===================================================================
     // Handle equipment unequipping
     if (isset($_POST['unequip_item'])) {
-        $equipSlot = $_POST['equipment_slot']; // 'weapon' or 'armor'
+        $equipSlot = $_POST['equipment_slot']; // 'weapon', 'armor', or 'weapon_special'
         
+        // Prevent unequipping weapon if special attack is attached
+        if ($equipSlot === 'weapon' && $playerEquipment['weapon_special'] !== null) {
+            $gameLog[] = "[" . date('H:i:s') . "] Error: Cannot unequip weapon while special attack is attached!";
+        }
         // Check if player has something equipped in this slot
-        if (isset($playerEquipment[$equipSlot]) && $playerEquipment[$equipSlot] !== null) {
+        elseif (isset($playerEquipment[$equipSlot]) && $playerEquipment[$equipSlot] !== null) {
             $equippedItem = $playerEquipment[$equipSlot];
             
             // Check if we have the original card data
@@ -494,7 +561,7 @@ function validateCard($card) {
 // ===================================================================
 // EQUIPMENT DISPLAY HELPER
 // ===================================================================
-function renderEquipmentSlot($equipment, $slotType, $owner) {
+function renderEquipmentSlot($equipment, $slotType, $owner, $specialAttack = null) {
     if ($equipment === null) {
         // Empty slot
         $slotLabel = ucfirst($slotType);
@@ -515,6 +582,10 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
         $statValue = $slotType === 'weapon' ? "+{$equipment['atk']}" : "+{$equipment['def']}";
         $statLabel = $slotType === 'weapon' ? 'ATK' : 'DEF';
         
+        // Get element and rarity for styling
+        $element = $equipment['card_data']['element'] ?? 'fire';
+        $rarity = $equipment['card_data']['rarity'] ?? 'common';
+        
         // Add X button ONLY for player equipment
         $unequipButton = '';
         if ($owner === 'player') {
@@ -528,10 +599,44 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
             ";
         }
         
+        // Check if this is a weapon with special attack
+        $specialAttackHtml = '';
+        if ($slotType === 'weapon' && $specialAttack !== null) {
+            $specialUnequipButton = '';
+            if ($owner === 'player') {
+                $specialUnequipButton = "
+                    <button type='button' 
+                            onclick='unequipItem(\"weapon_special\")' 
+                            class='special-unequip-btn' 
+                            title='Unequip {$specialAttack['name']}'>
+                        ✕
+                    </button>
+                ";
+            }
+            
+            $specialElement = $specialAttack['card_data']['element'] ?? 'plasma';
+            $specialAttackHtml = "
+                <div class='special-attack-card' data-slot='weapon_special' data-element='{$specialElement}'>
+                    <div class='special-card-name'>" . htmlspecialchars($specialAttack['name']) . "</div>
+                    <div class='special-card-description'>" . htmlspecialchars($specialAttack['card_data']['description'] ?? '') . "</div>
+                    {$specialUnequipButton}
+                </div>
+            ";
+        }
+        
+        // Prepare background image styling
+        $backgroundImage = '';
+        $imageClass = '';
+        if (isset($equipment['card_data']['image']) && !empty($equipment['card_data']['image']) && file_exists($equipment['card_data']['image'])) {
+            $backgroundImage = "style=\"background-image: url('" . htmlspecialchars($equipment['card_data']['image']) . "');\"";
+            $imageClass = ' has-image';
+        }
+        
         return "
-            <div class='equipment-area'>
+            <div class='equipment-area weapon-combo-area'>
+                {$specialAttackHtml}
                 <form method='post'>
-                    <button type='submit' name='equipment_click' value='{$owner} {$slotType}' class='equipment-card {$slotType}-card {$owner}-equipment equipped'>
+                    <button type='submit' name='equipment_click' value='{$owner} {$slotType}' class='equipment-card {$slotType}-card {$owner}-equipment equipped {$element}-element {$rarity}-rarity{$imageClass}' data-slot='{$slotType}' {$backgroundImage}>
                         <div class='card-type'>{$slotType}</div>
                         <div class='card-name'>" . htmlspecialchars($equipment['name']) . "</div>
                         <div class='card-stats'>{$statLabel}: {$statValue}</div>
@@ -563,6 +668,7 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
         <div class="nav-left">
             <button type="button" class="config-link debug-toggle-btn" onclick="toggleDebugPanel()">🐛 Debug</button>
             <button type="button" class="config-link card-creator-btn" onclick="toggleCardCreator()">🃏 Card Creator</button>
+            <a href="config/mechs.php" class="config-link">🤖 Mech Config</a>
             <span class="user-info">👤 <?= htmlspecialchars($_SESSION['username'] ?? 'Unknown') ?></span>
         </div>
         <div class="nav-center">
@@ -621,7 +727,14 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
                         <?php endif; ?>
                         
                         <div class="mech-faction-label">E</div>
-                        <div class="mech-body"></div>
+                        
+                        <?php if (!empty($enemyMech['image']) && file_exists($enemyMech['image'])): ?>
+                            <div class="mech-image-container">
+                                <img src="<?= htmlspecialchars($enemyMech['image']) ?>" alt="<?= htmlspecialchars($enemyMech['name'] ?? 'Enemy Mech') ?>" class="mech-image">
+                            </div>
+                        <?php else: ?>
+                            <div class="mech-body"></div>
+                        <?php endif; ?>
                     </div>
                     
                     <div class="mech-hp-circle">
@@ -629,7 +742,7 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
                     </div>
                     
                     <div class="mech-info">
-                        <div class="mech-name">Enemy Mech</div>
+                        <div class="mech-name"><?= htmlspecialchars($enemyMech['name'] ?? 'Enemy Mech') ?></div>
                         <div class="mech-stats">
                             <div class="stat">HP: <span id="enemyHPDisplay"><?= $enemyMech['HP'] ?></span>/<?= $enemyMech['MAX_HP'] ?></div>
                             <div class="stat">ATK: <?= $enemyMech['ATK'] ?></div>
@@ -673,7 +786,7 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
                 </div>
 
                 <!-- Player Weapon Card -->
-                <?= renderEquipmentSlot($playerEquipment['weapon'], 'weapon', 'player') ?>
+                <?= renderEquipmentSlot($playerEquipment['weapon'], 'weapon', 'player', $playerEquipment['weapon_special']) ?>
 
                 <!-- Player Mech (Center) - ADDED IDs FOR AJAX -->
                 <div class="mech-area player-mech">
@@ -687,7 +800,14 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
                         <?php endif; ?>
                         
                         <div class="mech-faction-label">P</div>
-                        <div class="mech-body"></div>
+                        
+                        <?php if (!empty($playerMech['image']) && file_exists($playerMech['image'])): ?>
+                            <div class="mech-image-container">
+                                <img src="<?= htmlspecialchars($playerMech['image']) ?>" alt="<?= htmlspecialchars($playerMech['name'] ?? 'Player Mech') ?>" class="mech-image">
+                            </div>
+                        <?php else: ?>
+                            <div class="mech-body"></div>
+                        <?php endif; ?>
                     </div>
                     
                     <div class="mech-hp-circle">
@@ -695,7 +815,7 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
                     </div>
                     
                     <div class="mech-info">
-                        <div class="mech-name">Your Mech</div>
+                        <div class="mech-name"><?= htmlspecialchars($playerMech['name'] ?? 'Your Mech') ?></div>
                         <div class="mech-stats">
                             <div class="stat">HP: <span id="playerHPDisplay"><?= $playerMech['HP'] ?></span>/<?= $playerMech['MAX_HP'] ?></div>
                             <div class="stat">ATK: <?= $playerMech['ATK'] ?></div>
@@ -720,27 +840,40 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
                     foreach ($playerHand as $index => $card): 
                     ?>
                         <div class="hand-card-container" style="--card-index: <?= $index ?>">
-                            <button type="button" onclick="handleCardClick(<?= $index ?>, '<?= $card['type'] ?>')" class="hand-card face-up fan-card <?= $card['type'] ?>-card" data-card='<?= htmlspecialchars(json_encode($card), ENT_QUOTES, 'UTF-8') ?>'>
+                            <?php 
+                            // Prepare background image and classes
+                            $hasImage = !empty($card['image']) && file_exists($card['image']);
+                            $backgroundStyle = '';
+                            $imageClass = '';
+                            
+                            if ($hasImage) {
+                                $backgroundStyle = 'style="background-image: url(\'' . htmlspecialchars($card['image']) . '\');"';
+                                $imageClass = ' has-image';
+                            }
+                            ?>
+                            <button type="button" onclick="handleCardClick(<?= $index ?>, '<?= $card['type'] ?>')" class="hand-card face-up fan-card <?= $card['type'] ?>-card <?= ($card['element'] ?? 'fire') ?>-element <?= ($card['rarity'] ?? 'common') ?>-rarity<?= $imageClass ?>" data-card='<?= htmlspecialchars(json_encode($card), ENT_QUOTES, 'UTF-8') ?>' draggable="true" <?= $backgroundStyle ?>>
                                 <div class="card-mini-name"><?= htmlspecialchars($card['name']) ?></div>
                                 <div class="card-mini-cost"><?= $card['cost'] ?></div>
+                                
+                                <?php if (!$hasImage): ?>
+                                    <div class="card-type-icon">
+                                        <?php
+                                        $typeIcons = [
+                                            'spell' => '✨',
+                                            'weapon' => '⚔️', 
+                                            'armor' => '🛡️',
+                                            'creature' => '👾',
+                                            'support' => '🔧',
+                                            'special attack' => '💥'
+                                        ];
+                                        echo $typeIcons[$card['type']] ?? '❓';
+                                        ?>
+                                    </div>
+                                <?php endif; ?>
+                                
                                 <?php if ($card['damage'] > 0): ?>
                                     <div class="card-mini-damage">💥<?= $card['damage'] ?></div>
                                 <?php endif; ?>
-                                <div class="card-type-icon">
-                                    <?php
-                                    $typeIcons = [
-                                        'spell' => '✨',
-                                        'weapon' => '⚔️', 
-                                        'armor' => '🛡️',
-                                        'creature' => '👾',
-                                        'support' => '🔧'
-                                    ];
-                                    echo $typeIcons[$card['type']] ?? '❓';
-                                    ?>
-                                </div>
-                                
-                                <!-- DELETE BUTTON (X) -->
-                                <button type="button" onclick="deleteCard(<?= $index ?>)" class="card-delete-btn" title="Remove card from hand">✕</button>
                             </button>
                         </div>
                     <?php endforeach; ?>
@@ -751,6 +884,12 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
                         </div>
                     <?php endif; ?>
                 </div>
+            </div>
+            
+            <!-- Trash Zone for Card Deletion -->
+            <div class="trash-zone" id="trashZone">
+                <div class="trash-icon">🗑️</div>
+                <div class="trash-label">Drag cards here to delete</div>
             </div>
         </section>
 
@@ -1029,7 +1168,7 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
             <form id="cardCreatorForm" class="card-form">
                 <div class="form-group">
                     <label for="cardName">Card Name:</label>
-                    <input type="text" id="cardName" name="cardName" placeholder="Lightning Bolt" oninput="updateCardPreview()">
+                    <input type="text" id="cardName" name="cardName" placeholder="Plasma Rifle" oninput="updateCardPreview()">
                 </div>
                 
                 <div class="form-row">
@@ -1041,11 +1180,9 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
                     <div class="form-group">
                         <label for="cardType">Type:</label>
                         <select id="cardType" name="cardType" onchange="updateCardPreview()">
-                            <option value="spell">Spell</option>
-                            <option value="weapon">Weapon</option>
-                            <option value="armor">Armor</option>
-                            <option value="creature">Creature</option>
-                            <option value="support">Support</option>
+                            <option value="weapon">⚔️ Weapon</option>
+                            <option value="armor">🛡️ Armor</option>
+                            <option value="special attack">💥 Special Attack</option>
                         </select>
                     </div>
                 </div>
@@ -1062,14 +1199,43 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
                             <option value="common">Common</option>
                             <option value="uncommon">Uncommon</option>
                             <option value="rare">Rare</option>
+                            <option value="epic">Epic</option>
                             <option value="legendary">Legendary</option>
                         </select>
                     </div>
                 </div>
                 
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="cardElement">Element:</label>
+                        <select id="cardElement" name="cardElement" onchange="updateCardPreview()">
+                            <option value="fire">🔥 Fire</option>
+                            <option value="ice">🧊 Ice</option>
+                            <option value="poison">🧪 Poison</option>
+                            <option value="plasma">⚡ Plasma</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <!-- Empty space for balanced layout -->
+                    </div>
+                </div>
+                
                 <div class="form-group">
                     <label for="cardDescription">Description:</label>
-                    <textarea id="cardDescription" name="cardDescription" placeholder="Deal damage to target enemy..." oninput="updateCardPreview()"></textarea>
+                    <textarea id="cardDescription" name="cardDescription" placeholder="High-powered energy weapon with devastating firepower..." oninput="updateCardPreview()"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="cardImage">Card Image:</label>
+                    <input type="file" id="cardImage" name="cardImage" accept="image/*" onchange="handleImageUpload(this)">
+                    <div class="image-upload-hint">
+                        Recommended: 300x400px (PNG/JPG, max 2MB)
+                    </div>
+                    <div id="imagePreview" class="image-preview" style="display: none;">
+                        <img id="previewImg" src="" alt="Card Image Preview">
+                        <button type="button" onclick="removeImage()" class="remove-image-btn">✕ Remove</button>
+                    </div>
                 </div>
                 
                 <div class="form-actions">
@@ -1083,11 +1249,14 @@ function renderEquipmentSlot($equipment, $slotType, $owner) {
         <div class="card-preview-section">
             <h3>Live Preview</h3>
             <div class="card-preview-container">
-                <div id="cardPreview" class="preview-card spell-card">
+                <div id="cardPreview" class="preview-card weapon-card fire-element common-rarity">
                     <div class="preview-cost">3</div>
-                    <div class="preview-name">Lightning Bolt</div>
-                    <div class="preview-type">SPELL</div>
-                    <div class="preview-art">[Art]</div>
+                    <div class="preview-name">New Weapon</div>
+                    <div class="preview-type">WEAPON</div>
+                    <div class="preview-art" id="previewArt">
+                        <div id="previewArtPlaceholder">[Art]</div>
+                        <img id="previewArtImage" src="" alt="Card Art" style="display: none;">
+                    </div>
                     <div class="preview-damage">💥 5</div>
                     <div class="preview-description">Deal damage to target enemy...</div>
                     <div class="preview-rarity common-rarity">Common</div>
@@ -1230,6 +1399,58 @@ function showCombatMessage(message, type) {
     }, 2000);
 }
 
+function showMessage(message, type = 'success') {
+    // Create temporary message element
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `game-message ${type}`;
+    messageDiv.textContent = message;
+    messageDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: 8px;
+        color: white;
+        font-weight: bold;
+        z-index: 9999;
+        pointer-events: none;
+        background: ${type === 'error' ? '#dc3545' : type === 'warning' ? '#ffc107' : '#28a745'};
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        border: 1px solid ${type === 'error' ? '#c82333' : type === 'warning' ? '#e0a800' : '#1e7e34'};
+        font-size: 14px;
+        max-width: 300px;
+        word-wrap: break-word;
+        animation: slideInRight 0.3s ease-out;
+    `;
+    
+    // Add CSS animation if not already added
+    if (!document.getElementById('message-animations')) {
+        const style = document.createElement('style');
+        style.id = 'message-animations';
+        style.textContent = `
+            @keyframes slideInRight {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    document.body.appendChild(messageDiv);
+    
+    // Remove message after 3 seconds
+    setTimeout(() => {
+        if (messageDiv.parentNode) {
+            messageDiv.style.animation = 'slideInRight 0.3s ease-out reverse';
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.parentNode.removeChild(messageDiv);
+                }
+            }, 300);
+        }
+    }, 3000);
+}
+
 function addLogEntry(logEntry) {
     // Add to debug panel log if it exists
     const actionLog = document.getElementById('debugActionLog');
@@ -1265,18 +1486,8 @@ function unequipItem(slotType) {
 }
 
 // ===================================================================
-// CARD MANAGEMENT JAVASCRIPT
+// CARD MANAGEMENT JAVASCRIPT - CONSOLIDATED SYSTEM
 // ===================================================================
-function handleCardClick(cardIndex, cardType) {
-    // Check if this is a weapon or armor card
-    if (cardType === 'weapon' || cardType === 'armor') {
-        // Try to equip the card
-        equipCard(cardIndex, cardType);
-    } else {
-        // Show card details for non-equipment cards
-        showCardDetails(cardIndex);
-    }
-}
 
 function equipCard(cardIndex, cardType) {
     // Set the form values
@@ -1314,54 +1525,16 @@ function toggleDebugPanel() {
 }
 
 // ===================================================================
-// CARD DETAIL MODAL FUNCTIONS
+// CARD DETAIL MODAL FUNCTIONS (LEGACY SUPPORT)
 // ===================================================================
 function showCardDetails(cardIndex) {
-    // Get the card button element
-    const cardButton = document.querySelector(`[data-card][style*="--card-index: ${cardIndex}"]`);
-    if (!cardButton) {
-        console.error('Card button not found for index:', cardIndex);
-        return;
+    // Redirect to unified CardZoom system
+    const cardElement = document.querySelector(`[data-card][style*="--card-index: ${cardIndex}"]`);
+    if (cardElement) {
+        CardZoom.showZoomModal(cardElement);
+    } else {
+        console.warn(`Card element not found for index ${cardIndex}`);
     }
-    
-    // Parse card data from data attribute
-    let cardData;
-    try {
-        cardData = JSON.parse(cardButton.getAttribute('data-card'));
-    } catch (e) {
-        console.error('Error parsing card data:', e);
-        return;
-    }
-    
-    // Update card preview
-    const preview = document.getElementById('modalCardPreview');
-    preview.className = 'modal-card-preview ' + (cardData.type || 'spell') + '-card';
-    
-    // Update preview elements
-    preview.querySelector('.modal-card-cost').textContent = cardData.cost || '0';
-    preview.querySelector('.modal-card-name').textContent = cardData.name || 'Unknown Card';
-    preview.querySelector('.modal-card-type').textContent = (cardData.type || 'unknown').toUpperCase();
-    preview.querySelector('.modal-card-damage').textContent = cardData.damage > 0 ? `💥 ${cardData.damage}` : '';
-    preview.querySelector('.modal-card-description').textContent = cardData.description || 'No description available';
-    
-    const rarityElement = preview.querySelector('.modal-card-rarity');
-    rarityElement.textContent = (cardData.rarity || 'common').charAt(0).toUpperCase() + (cardData.rarity || 'common').slice(1);
-    rarityElement.className = 'modal-card-rarity ' + (cardData.rarity || 'common') + '-rarity';
-    
-    // Update information panel
-    document.getElementById('modalCardName').textContent = cardData.name || 'Unknown';
-    document.getElementById('modalCardType').textContent = (cardData.type || 'Unknown').charAt(0).toUpperCase() + (cardData.type || 'Unknown').slice(1);
-    document.getElementById('modalCardCost').textContent = cardData.cost || '0';
-    document.getElementById('modalCardDamage').textContent = cardData.damage || '0';
-    document.getElementById('modalCardRarity').textContent = (cardData.rarity || 'Unknown').charAt(0).toUpperCase() + (cardData.rarity || 'Unknown').slice(1);
-    document.getElementById('modalCardDescription').textContent = cardData.description || 'No description available';
-    document.getElementById('modalCardCreated').textContent = cardData.created_at || 'Unknown';
-    document.getElementById('modalCardCreator').textContent = cardData.created_by || 'Unknown';
-    document.getElementById('modalCardId').textContent = cardData.id || 'Unknown';
-    
-    // Show modal
-    document.getElementById('cardDetailModal').classList.add('active');
-    document.getElementById('cardDetailOverlay').classList.add('active');
 }
 
 function closeCardDetails() {
@@ -1370,9 +1543,43 @@ function closeCardDetails() {
 }
 
 function playCard() {
-    // Log card play action
-    console.log('Playing card');
-    // TODO: Implement card play mechanics
+    // Get the current card data from the modal
+    const cardName = document.getElementById('modalCardName').textContent;
+    const cardType = document.getElementById('modalCardType').textContent.toLowerCase();
+    const cardCost = parseInt(document.getElementById('modalCardCost').textContent) || 0;
+    const cardDamage = parseInt(document.getElementById('modalCardDamage').textContent) || 0;
+    
+    console.log(`Playing card: ${cardName} (${cardType})`);
+    
+    // Implement basic card effects based on type
+    switch (cardType) {
+        case 'spell':
+            if (cardDamage > 0) {
+                // Damage spell - attack enemy
+                showMessage(`🔥 ${cardName} deals ${cardDamage} damage!`);
+                addLogEntry(`Player cast ${cardName} - ${cardDamage} damage to enemy`);
+            } else {
+                // Utility spell
+                showMessage(`✨ ${cardName} activated!`);
+                addLogEntry(`Player cast ${cardName}`);
+            }
+            break;
+            
+        case 'creature':
+            showMessage(`👾 ${cardName} summoned to the battlefield!`);
+            addLogEntry(`Player summoned ${cardName}`);
+            break;
+            
+        case 'support':
+            showMessage(`🔧 ${cardName} support activated!`);
+            addLogEntry(`Player activated ${cardName}`);
+            break;
+            
+        default:
+            showMessage(`⚡ ${cardName} played!`);
+            addLogEntry(`Player played ${cardName}`);
+    }
+    
     closeCardDetails();
 }
 
@@ -1396,10 +1603,11 @@ function updateCardPreview() {
     const preview = document.getElementById('cardPreview');
     const name = document.getElementById('cardName').value || 'New Card';
     const cost = document.getElementById('cardCost').value || '0';
-    const type = document.getElementById('cardType').value || 'spell';
+    const type = document.getElementById('cardType').value || 'weapon';
     const damage = document.getElementById('cardDamage').value || '0';
     const description = document.getElementById('cardDescription').value || 'Card description...';
     const rarity = document.getElementById('cardRarity').value || 'common';
+    const element = document.getElementById('cardElement').value || 'fire';
     
     // Update preview card
     preview.querySelector('.preview-cost').textContent = cost;
@@ -1409,15 +1617,83 @@ function updateCardPreview() {
     preview.querySelector('.preview-description').textContent = description;
     preview.querySelector('.preview-rarity').textContent = rarity.charAt(0).toUpperCase() + rarity.slice(1);
     
-    // Update card styling based on type
-    preview.className = `preview-card ${type}-card`;
+    // Update card styling based on type, element, and rarity
+    preview.className = `preview-card ${type}-card ${element}-element ${rarity}-rarity`;
     preview.querySelector('.preview-rarity').className = `preview-rarity ${rarity}-rarity`;
+}
+
+// Image upload handling functions
+let uploadedImageData = null;
+
+function handleImageUpload(input) {
+    const file = input.files[0];
+    if (!file) return;
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+        alert('Please select a valid image file (PNG, JPG, etc.)');
+        input.value = '';
+        return;
+    }
+    
+    // Validate file size (2MB max)
+    if (file.size > 2 * 1024 * 1024) {
+        alert('Image file is too large. Please select an image smaller than 2MB.');
+        input.value = '';
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const imageData = e.target.result;
+        uploadedImageData = imageData;
+        
+        // Show preview in form
+        const previewImg = document.getElementById('previewImg');
+        const imagePreview = document.getElementById('imagePreview');
+        previewImg.src = imageData;
+        imagePreview.style.display = 'block';
+        
+        // Update card preview
+        updateCardPreviewImage(imageData);
+    };
+    reader.readAsDataURL(file);
+}
+
+function updateCardPreviewImage(imageData) {
+    const previewCard = document.getElementById('cardPreview');
+    const previewArtPlaceholder = document.getElementById('previewArtPlaceholder');
+    
+    if (imageData) {
+        // Set background image and add has-image class
+        previewCard.style.backgroundImage = `url(${imageData})`;
+        previewCard.classList.add('has-image');
+        previewArtPlaceholder.style.display = 'none';
+    } else {
+        // Remove background image and has-image class
+        previewCard.style.backgroundImage = '';
+        previewCard.classList.remove('has-image');
+        previewArtPlaceholder.style.display = 'block';
+    }
+}
+
+function removeImage() {
+    uploadedImageData = null;
+    document.getElementById('cardImage').value = '';
+    document.getElementById('imagePreview').style.display = 'none';
+    updateCardPreviewImage(null);
 }
 
 function resetCardForm() {
     document.getElementById('cardCreatorForm').reset();
     document.getElementById('cardCost').value = '3';
     document.getElementById('cardDamage').value = '5';
+    
+    // Reset image upload
+    uploadedImageData = null;
+    document.getElementById('imagePreview').style.display = 'none';
+    updateCardPreviewImage(null);
+    
     updateCardPreview();
 }
 
@@ -1428,7 +1704,8 @@ function saveCard() {
         type: document.getElementById('cardType').value,
         damage: document.getElementById('cardDamage').value,
         description: document.getElementById('cardDescription').value,
-        rarity: document.getElementById('cardRarity').value
+        rarity: document.getElementById('cardRarity').value,
+        element: document.getElementById('cardElement').value
     };
     
     // Validate required fields
@@ -1439,13 +1716,30 @@ function saveCard() {
     
     // Prepare form data for submission
     const formData = new FormData();
-    formData.append('action', 'create_card');
+    
+    // Check if we're editing an existing card
+    if (window.editingCardId) {
+        formData.append('action', 'update_card');
+        formData.append('card_id', window.editingCardId);
+    } else {
+        formData.append('action', 'create_card');
+    }
+    
     formData.append('name', cardData.name);
     formData.append('cost', cardData.cost);
     formData.append('type', cardData.type);
     formData.append('damage', cardData.damage);
     formData.append('description', cardData.description);
     formData.append('rarity', cardData.rarity);
+    formData.append('element', cardData.element);
+    
+    // Add image data if available
+    if (uploadedImageData) {
+        formData.append('image_data', uploadedImageData);
+        console.log('📸 Image data attached to save request:', uploadedImageData.length, 'characters');
+    } else {
+        console.log('❌ No image data to save');
+    }
     
     // Send to server
     fetch('card-manager.php', {
@@ -1455,17 +1749,24 @@ function saveCard() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('Card saved successfully!\n\nCard ID: ' + data.data.id + '\nName: ' + data.data.name);
+            const actionText = window.editingCardId ? 'updated' : 'created';
+            showMessage(`✅ Card ${actionText} successfully: ${data.data.name}`);
+            addLogEntry(`Card ${actionText}: ${data.data.name}`);
+            
+            // Clear editing mode
+            window.editingCardId = null;
+            
             // Reset form after successful save
             resetCardForm();
-            // Update card library
+            
+            // Update card library without reloading page
             loadCardLibrary();
-            // Reload the page to show new card in library
-            setTimeout(() => {
-                window.location.reload();
-            }, 500);
+            
+            // Show success feedback
+            console.log('✅ Card saved successfully:', data.data);
         } else {
             alert('Error saving card: ' + data.message);
+            console.error('❌ Card save failed:', data);
         }
     })
     .catch(error => {
@@ -1510,11 +1811,18 @@ function displayCardLibrary(cards) {
     
     let html = '';
     cards.forEach(card => {
+        const imageContent = card.image ? 
+            `<img src="${card.image}" alt="${card.name}" class="library-card-image" loading="lazy">` :
+            `<div class="library-card-icon">${getTypeIcon(card.type)}</div>`;
+            
         html += `
             <div class="library-card ${card.type}-card" data-card-id="${card.id}">
                 <div class="library-card-header">
                     <span class="library-card-name">${card.name}</span>
                     <span class="library-card-cost">${card.cost}</span>
+                </div>
+                <div class="library-card-visual">
+                    ${imageContent}
                 </div>
                 <div class="library-card-type">${card.type.toUpperCase()}</div>
                 <div class="library-card-damage">${card.damage > 0 ? '💥 ' + card.damage : ''}</div>
@@ -1537,46 +1845,89 @@ function updateCardCount(count) {
     document.getElementById('cardCount').textContent = count + (count === 1 ? ' card' : ' cards');
 }
 
-function displayCardLibrary(cards) {
-    const libraryContainer = document.getElementById('cardLibrary');
-    
-    if (cards.length === 0) {
-        libraryContainer.innerHTML = '<div class="library-empty">No cards created yet. Create your first card above!</div>';
-        return;
-    }
-    
-    let html = '';
-    cards.forEach(card => {
-        html += `
-            <div class="library-card ${card.type}-card" data-card-id="${card.id}">
-                <div class="library-card-header">
-                    <span class="library-card-name">${card.name}</span>
-                    <span class="library-card-cost">${card.cost}</span>
-                </div>
-                <div class="library-card-type">${card.type.toUpperCase()}</div>
-                <div class="library-card-damage">${card.damage > 0 ? '💥 ' + card.damage : ''}</div>
-                <div class="library-card-description">${card.description}</div>
-                <div class="library-card-footer">
-                    <span class="library-card-rarity ${card.rarity}-rarity">${card.rarity}</span>
-                    <div class="library-card-actions">
-                        <button onclick="editCard('${card.id}')" class="edit-btn">✏️</button>
-                        <button onclick="deleteLibraryCard('${card.id}')" class="delete-btn">🗑️</button>
-                    </div>
-                </div>
-            </div>
-        `;
-    });
-    
-    libraryContainer.innerHTML = html;
+function getTypeIcon(type) {
+    const icons = {
+        'spell': '✨',
+        'weapon': '⚔️', 
+        'armor': '🛡️',
+        'creature': '👾',
+        'support': '🔧'
+    };
+    return icons[type] || '❓';
 }
 
-function updateCardCount(count) {
-    document.getElementById('cardCount').textContent = count + (count === 1 ? ' card' : ' cards');
-}
 
 function editCard(cardId) {
-    // TODO: Load card data into form for editing
-    alert('Edit card feature coming soon! Card ID: ' + cardId);
+    // Load card data from server and populate form
+    const formData = new FormData();
+    formData.append('action', 'get_card');
+    formData.append('card_id', cardId);
+    
+    fetch('card-manager.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.text();
+    })
+    .then(responseText => {
+        try {
+            const data = JSON.parse(responseText);
+            return data;
+        } catch (e) {
+            console.error('EditCard: JSON parse error:', e);
+            console.error('EditCard: Response was:', responseText.substring(0, 200));
+            throw new Error('Invalid JSON response from server');
+        }
+    })
+    .then(data => {
+        if (data.success && data.data) {
+            const card = data.data;
+            
+            // Populate form fields
+            document.getElementById('cardName').value = card.name || '';
+            document.getElementById('cardCost').value = card.cost || 0;
+            document.getElementById('cardType').value = card.type || 'weapon';
+            document.getElementById('cardDamage').value = card.damage || 0;
+            document.getElementById('cardDescription').value = card.description || '';
+            document.getElementById('cardRarity').value = card.rarity || 'common';
+            document.getElementById('cardElement').value = card.element || 'fire';
+            
+            // Set editing mode flag
+            window.editingCardId = cardId;
+            
+            // Update card preview
+            updateCardPreview();
+            
+            // Show card creator panel if not already visible
+            const panel = document.getElementById('cardCreatorPanel');
+            if (!panel.classList.contains('active')) {
+                toggleCardCreator();
+            }
+            
+            // Scroll to top of panel
+            panel.scrollTop = 0;
+            
+            // Show editing indicator
+            showMessage(`📝 Editing card: ${card.name}`);
+            addLogEntry(`Started editing card: ${card.name}`);
+            
+        } else {
+            if (data.error_type === 'auth_required') {
+                alert('Your session has expired. Please log in again.');
+                window.location.href = 'login.php';
+            } else {
+                alert('Error loading card: ' + (data.message || 'Card not found'));
+            }
+        }
+    })
+    .catch(error => {
+        console.error('EditCard error:', error.message);
+        alert('Network error while loading card for editing: ' + error.message);
+    });
 }
 
 function deleteLibraryCard(cardId) {
@@ -1630,10 +1981,10 @@ const CardZoom = {
 
     // Bind click events for card zoom
     bindEvents() {
-        // Handle hand card clicks for zoom (but not equipment cards)
+        // Handle hand card clicks for zoom (allow all card types)
         document.addEventListener('click', (e) => {
             const card = e.target.closest('.hand-card[data-card]');
-            if (card && !this.isEquipmentCard(card)) {
+            if (card) {
                 e.preventDefault();
                 e.stopPropagation();
                 this.showZoomModal(card);
@@ -1692,22 +2043,39 @@ const CardZoom = {
     showEquipmentZoom(equipmentElement) {
         if (this.isOpen) return;
 
-        // Extract equipment data from DOM
-        const name = equipmentElement.querySelector('.card-name').textContent;
-        const stats = equipmentElement.querySelector('.card-stats').textContent;
+        // Get the equipment type from the element
         const type = equipmentElement.classList.contains('weapon-card') ? 'weapon' : 'armor';
         
-        const equipmentData = {
-            id: 'equipped_' + type,
-            name: name,
-            type: type,
-            cost: '?',
-            damage: stats.match(/\d+/) ? parseInt(stats.match(/\d+/)[0]) : 0,
-            description: `Currently equipped ${type}. Providing combat bonuses.`,
-            rarity: 'equipped',
-            created_at: 'Equipment',
-            created_by: 'Player'
-        };
+        // Access the equipment data from PHP session
+        const playerEquipment = <?= json_encode($playerEquipment) ?>;
+        const equippedItem = playerEquipment[type];
+        
+        let equipmentData;
+        
+        // Check if we have the original card data stored
+        if (equippedItem && equippedItem.card_data) {
+            // Use the original card data (preserves image and all details)
+            equipmentData = {
+                ...equippedItem.card_data,
+                description: `${equippedItem.card_data.description || 'No description available.'}\n\n[Currently equipped - providing combat bonuses]`
+            };
+        } else {
+            // Fallback to basic equipment data if card_data is missing
+            const name = equipmentElement.querySelector('.card-name').textContent;
+            const stats = equipmentElement.querySelector('.card-stats').textContent;
+            
+            equipmentData = {
+                id: 'equipped_' + type,
+                name: name,
+                type: type,
+                cost: '?',
+                damage: stats.match(/\d+/) ? parseInt(stats.match(/\d+/)[0]) : 0,
+                description: `Currently equipped ${type}. Providing combat bonuses.`,
+                rarity: 'equipped',
+                created_at: 'Equipment',
+                created_by: 'Player'
+            };
+        }
 
         this.createZoomModal(equipmentData, true);
         this.isOpen = true;
@@ -1758,10 +2126,14 @@ const CardZoom = {
         const actionHint = isEquipment ? 
             'Currently equipped • Providing combat bonuses' : 
             this.getActionHint(cardData.type);
+            
+        // Debug: Log card data and image path
+        console.log('🔍 Zoom Modal - Card Data:', cardData);
+        console.log('🖼️ Image Path:', cardData.image);
 
         return `
             <div class="card-zoom-container">
-                <div class="card-zoom-large ${cardData.type}-card">
+                <div class="card-zoom-large ${cardData.type}-card ${(cardData.element || 'fire')}-element ${(cardData.rarity || 'common')}-rarity">
                     <button class="card-zoom-close" title="Close (ESC)">✕</button>
                     
                     <div class="zoom-cost">${cardData.cost}</div>
@@ -1772,10 +2144,10 @@ const CardZoom = {
                     </div>
                     
                     <div class="zoom-art">
-                        <div class="zoom-art-placeholder">
-                            ${typeIcon}<br>
-                            <small>Card Artwork</small>
-                        </div>
+                        ${cardData.image && cardData.image.length > 0 ? 
+                            `<img src="${this.escapeHtml(cardData.image)}" alt="${this.escapeHtml(cardData.name)}" class="zoom-art-image" onerror="console.error('Failed to load image:', '${this.escapeHtml(cardData.image)}'); this.style.display='none'; this.parentNode.innerHTML='<div class=\\'zoom-art-placeholder\\'>${typeIcon}<br><small>Image not found</small></div>';">` :
+                            `<div class="zoom-art-placeholder">${typeIcon}<br><small>Card Artwork</small></div>`
+                        }
                     </div>
                     
                     <div class="zoom-stats">
@@ -1804,6 +2176,13 @@ const CardZoom = {
                     <div class="card-zoom-hint">
                         ${actionHint}
                     </div>
+                    
+                    ${(cardData.type === 'weapon' || cardData.type === 'armor') && !isEquipment ? 
+                        `<div class="zoom-equip-action" onclick="CardZoom.closeZoomModal(); equipCardById('${cardData.id}');">
+                            <div class="equip-icon">${cardData.type === 'weapon' ? '⚔️' : '🛡️'}</div>
+                            <div class="equip-text">EQUIP ${cardData.type.toUpperCase()}</div>
+                        </div>` : ''
+                    }
                 </div>
             </div>
         `;
@@ -1831,7 +2210,8 @@ const CardZoom = {
             'weapon': '⚔️', 
             'armor': '🛡️',
             'creature': '👾',
-            'support': '🔧'
+            'support': '🔧',
+            'special attack': '💥'
         };
         return icons[type] || '❓';
     },
@@ -1865,478 +2245,250 @@ const CardZoom = {
     }
 };
 
-// Enhanced click handler that works with existing system
+// ===================================================================
+// UNIFIED CARD INTERACTION SYSTEM
+// ===================================================================
 function handleCardClick(cardIndex, cardType) {
-    // Check if this is a weapon or armor card
-    if (cardType === 'weapon' || cardType === 'armor') {
-        // Try to equip the card (existing functionality)
-        equipCard(cardIndex, cardType);
+    console.log(`Card clicked: Index ${cardIndex}, Type: ${cardType}`);
+    
+    // ALWAYS show zoom modal for ALL cards to view details
+    const cardElement = document.querySelector(`[data-card][style*="--card-index: ${cardIndex}"]`);
+    if (cardElement) {
+        CardZoom.showZoomModal(cardElement);
     } else {
-        // For non-equipment cards, we now have options:
-        // - Single click: Show zoom modal (new)
-        // - Double click: Show details modal (existing)
-        // For now, let's use zoom for all non-equipment cards
-        
-        const cardElement = document.querySelector(`[data-card][style*="--card-index: ${cardIndex}"]`);
-        if (cardElement) {
-            CardZoom.showZoomModal(cardElement);
-        }
+        console.warn(`Card element not found for index ${cardIndex}`);
     }
 }
 
-// Initialize zoom system when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-    CardZoom.init();
-});
+// Helper function to equip card by ID from zoom modal
+function equipCardById(cardId) {
+    // Find the card index in player hand by ID
+    const playerHand = <?= json_encode($playerHand) ?>;
+    const cardIndex = playerHand.findIndex(card => card.id === cardId);
+    
+    if (cardIndex !== -1) {
+        const card = playerHand[cardIndex];
+        equipCard(cardIndex, card.type);
+    } else {
+        console.error('Card not found in hand:', cardId);
+        showMessage('❌ Card not found in hand');
+    }
+}
 
-// Also initialize if the script loads after DOM is ready
+// Initialize zoom system when DOM is ready (consolidated)
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
         CardZoom.init();
+        initDragAndDrop();
     });
 } else {
     CardZoom.init();
+    initDragAndDrop();
 }
+
 // ===================================================================
-// REFINED DRAG VISUAL FEEDBACK - Replace previous drag JavaScript
+// DRAG AND DROP CARD DELETION SYSTEM
 // ===================================================================
-
-// Enhanced Drag Visual Feedback System
-const DragVisuals = {
-    isDragging: false,
-    draggedElement: null,
-    startPos: { x: 0, y: 0 },
-    currentPos: { x: 0, y: 0 },
-    originalTransform: '',
-    originalZIndex: '',
+function initDragAndDrop() {
+    const trashZone = document.getElementById('trashZone');
     
-    // Initialize drag visual system
-    init() {
-        this.bindDragEvents();
-        console.log('🎨 Enhanced Drag Visual Feedback initialized');
-    },
-    
-    // Bind enhanced drag events
-    bindDragEvents() {
-        // Mouse events
-        document.addEventListener('mousedown', (e) => this.handleDragStart(e));
-        document.addEventListener('mousemove', (e) => this.handleDragMove(e));
-        document.addEventListener('mouseup', (e) => this.handleDragEnd(e));
-        
-        // Touch events for mobile
-        document.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
-        document.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
-        document.addEventListener('touchend', (e) => this.handleTouchEnd(e));
-        
-        // Prevent default drag behavior
-        document.addEventListener('dragstart', (e) => {
-            if (e.target.closest('.hand-card, .equipment-card')) {
-                e.preventDefault();
-            }
-        });
-        
-        // Prevent context menu during drag
-        document.addEventListener('contextmenu', (e) => {
-            if (this.isDragging) {
-                e.preventDefault();
-            }
-        });
-    },
-    
-    // Handle drag start
-    handleDragStart(e) {
-        const card = e.target.closest('.hand-card[data-card], .equipment-card.equipped');
-        
-        // Don't start drag on buttons or if zoom modal is open
-        if (!card || 
-            e.target.closest('.card-delete-btn, .equipment-unequip-btn, .action-btn') || 
-            CardZoom.isOpen ||
-            e.button === 2) {
-            return;
-        }
-        
-        this.startDrag(card, e.clientX, e.clientY);
-        e.preventDefault(); // Prevent text selection
-    },
-    
-    // Handle touch start
-    handleTouchStart(e) {
-        const touch = e.touches[0];
-        const card = e.target.closest('.hand-card[data-card], .equipment-card.equipped');
-        
-        if (!card || CardZoom.isOpen) return;
-        
-        this.startDrag(card, touch.clientX, touch.clientY);
-        e.preventDefault();
-    },
-    
-    // Start drag visual feedback
-    startDrag(element, x, y) {
-        this.draggedElement = element;
-        this.startPos = { x, y };
-        this.currentPos = { x, y };
-        this.isDragging = false;
-        
-        // Store original styling
-        this.originalTransform = element.style.transform || '';
-        this.originalZIndex = element.style.zIndex || '';
-        
-        // Add starting animation class
-        element.classList.add('drag-starting');
-        
-        console.log('🎨 Drag start on:', this.getCardName());
-    },
-    
-    // Handle drag move
-    handleDragMove(e) {
-        if (!this.draggedElement) return;
-        
-        this.updateDragPosition(e.clientX, e.clientY);
-        e.preventDefault();
-    },
-    
-    // Handle touch move
-    handleTouchMove(e) {
-        if (!this.draggedElement) return;
-        
-        const touch = e.touches[0];
-        this.updateDragPosition(touch.clientX, touch.clientY);
-        e.preventDefault();
-    },
-    
-    // Update drag position with smooth movement
-    updateDragPosition(x, y) {
-        this.currentPos = { x, y };
-        
-        const deltaX = x - this.startPos.x;
-        const deltaY = y - this.startPos.y;
-        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-        
-        // Start actual dragging after moving 10 pixels
-        if (!this.isDragging && distance > 10) {
-            this.isDragging = true;
-            this.activateDragMode();
-        }
-        
-        if (this.isDragging) {
-            this.updateCardPosition(deltaX, deltaY);
-        }
-    },
-    
-    // Activate drag mode
-    activateDragMode() {
-        const element = this.draggedElement;
-        
-        // Remove starting class and add dragging
-        element.classList.remove('drag-starting');
-        element.classList.add('dragging');
-        
-        // Get current position to maintain smooth transition
-        const rect = element.getBoundingClientRect();
-        const elementCenterX = rect.left + rect.width / 2;
-        const elementCenterY = rect.top + rect.height / 2;
-        
-        // Switch to fixed positioning for smooth dragging
-        element.style.position = 'fixed';
-        element.style.left = elementCenterX + 'px';
-        element.style.top = elementCenterY + 'px';
-        element.style.transform = 'translate(-50%, -50%) scale(1.15) rotate(5deg)';
-        element.style.zIndex = '1000';
-        element.style.pointerEvents = 'none';
-        
-        // Show drop zone hints
-        this.showDropZoneHints();
-        document.body.style.cursor = 'grabbing';
-        
-        console.log('🎨 Drag mode activated for:', this.getCardName());
-    },
-    
-    // Update card position during drag
-    updateCardPosition(deltaX, deltaY) {
-        const element = this.draggedElement;
-        
-        // Calculate new position
-        const rect = element.getBoundingClientRect();
-        const newX = this.startPos.x + deltaX;
-        const newY = this.startPos.y + deltaY;
-        
-        // Calculate rotation based on movement direction
-        const rotation = Math.min(15, Math.max(-15, deltaX * 0.15));
-        
-        // Update position smoothly
-        element.style.left = newX + 'px';
-        element.style.top = newY + 'px';
-        element.style.transform = `translate(-50%, -50%) scale(1.15) rotate(${rotation}deg)`;
-        
-        // Add some sway effect for polish
-        const sway = Math.sin(Date.now() * 0.01) * 2;
-        element.style.transform += ` rotateX(${sway}deg)`;
-    },
-    
-    // Handle drag end
-    handleDragEnd(e) {
-        if (this.draggedElement) {
-            this.endDrag(e.clientX, e.clientY);
-        }
-    },
-    
-    // Handle touch end
-    handleTouchEnd(e) {
-        if (this.draggedElement) {
-            const touch = e.changedTouches[0] || e.touches[0] || this.currentPos;
-            this.endDrag(touch.clientX || this.currentPos.x, touch.clientY || this.currentPos.y);
-        }
-    },
-    
-    // End drag and return to original state
-    endDrag(x, y) {
-        if (!this.draggedElement) return;
-        
-        const element = this.draggedElement;
-        const wasActuallyDragging = this.isDragging;
-        
-        // Clean up drag state
-        this.hideDropZoneHints();
-        document.body.style.cursor = '';
-        
-        if (wasActuallyDragging) {
-            console.log('🎨 Ending drag for:', this.getCardName());
-            
-            // Check if dropped on valid target
-            const dropTarget = this.getDropTarget(x, y);
-            if (dropTarget) {
-                this.handleDropAttempt(dropTarget);
-            }
-            
-            // Return card to original position
-            this.returnCardToOriginalPosition();
-        } else {
-            // Was just a click - handle click action
-            this.handleCardClick();
-            this.resetCardState();
-        }
-        
-        // Reset drag state
-        this.isDragging = false;
-        this.draggedElement = null;
-        this.startPos = { x: 0, y: 0 };
-        this.currentPos = { x: 0, y: 0 };
-    },
-    
-    // Return card to original position with animation
-    returnCardToOriginalPosition() {
-        const element = this.draggedElement;
-        
-        // Add return animation class
-        element.classList.remove('dragging');
-        element.classList.add('drag-ending');
-        
-        // Reset to original positioning
-        element.style.position = '';
-        element.style.left = '';
-        element.style.top = '';
-        element.style.transform = this.originalTransform;
-        element.style.zIndex = this.originalZIndex;
-        element.style.pointerEvents = '';
-        
-        // Clean up after animation
-        setTimeout(() => {
-            this.resetCardState();
-        }, 400);
-    },
-    
-    // Reset card to normal state
-    resetCardState() {
-        if (this.draggedElement) {
-            const element = this.draggedElement;
-            element.classList.remove('drag-starting', 'dragging', 'drag-ending');
-            element.style.position = '';
-            element.style.left = '';
-            element.style.top = '';
-            element.style.transform = this.originalTransform;
-            element.style.zIndex = this.originalZIndex;
-            element.style.pointerEvents = '';
-        }
-    },
-    
-    // Handle card click (for non-drag interactions)
-    handleCardClick() {
-        console.log('👆 Click detected on:', this.getCardName());
-        
-        // Delay slightly to allow for visual feedback
-        setTimeout(() => {
-            if (this.draggedElement.hasAttribute('data-card')) {
-                CardZoom.showZoomModal(this.draggedElement);
-            } else {
-                CardZoom.showEquipmentZoom(this.draggedElement);
-            }
-        }, 50);
-    },
-    
-    // Get card name for logging
-    getCardName() {
-        if (!this.draggedElement) return 'Unknown';
-        
-        try {
-            if (this.draggedElement.hasAttribute('data-card')) {
-                const cardData = JSON.parse(this.draggedElement.getAttribute('data-card'));
-                return cardData.name;
-            } else {
-                return this.draggedElement.querySelector('.card-name')?.textContent || 'Equipment';
-            }
-        } catch (e) {
-            return 'Unknown Card';
-        }
-    },
-    
-    // Show visual hints for potential drop zones
-    showDropZoneHints() {
-        const battlefield = document.querySelector('.battlefield-layout');
-        if (battlefield) {
-            battlefield.classList.add('drop-zone-active');
-        }
-        
-        const zones = document.querySelectorAll('.combat-zone');
-        zones.forEach(zone => {
-            zone.classList.add('potential-drop-zone');
-        });
-    },
-    
-    // Hide drop zone hints
-    hideDropZoneHints() {
-        const battlefield = document.querySelector('.battlefield-layout');
-        if (battlefield) {
-            battlefield.classList.remove('drop-zone-active');
-        }
-        
-        const zones = document.querySelectorAll('.combat-zone');
-        zones.forEach(zone => {
-            zone.classList.remove('potential-drop-zone');
-        });
-    },
-    
-    // Get drop target at position
-    getDropTarget(x, y) {
-        // Temporarily hide the dragged element to get element below
-        const element = this.draggedElement;
-        const originalDisplay = element.style.display;
-        element.style.display = 'none';
-        
-        const elementBelow = document.elementFromPoint(x, y);
-        const dropZone = elementBelow?.closest('.combat-zone, .battlefield-layout, .mech-area');
-        
-        // Restore element visibility
-        element.style.display = originalDisplay;
-        
-        return dropZone;
-    },
-    
-    // Handle drop attempt (placeholder for future functionality)
-    handleDropAttempt(dropTarget) {
-        console.log('🎯 Drop attempted on:', dropTarget.className);
-        
-        // Show drop effect
-        this.showDropEffect(dropTarget);
-        
-        // For now, always return to hand
-        // Future phases will implement actual drop logic
-    },
-    
-    // Show drop effect animation
-    showDropEffect(target) {
-        const effect = document.createElement('div');
-        effect.style.cssText = `
-            position: fixed;
-            width: 60px;
-            height: 60px;
-            border: 3px solid #00d4ff;
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 1001;
-            left: ${this.currentPos.x - 30}px;
-            top: ${this.currentPos.y - 30}px;
-            animation: drop-ripple 0.6s ease-out forwards;
-        `;
-        
-        document.body.appendChild(effect);
-        
-        setTimeout(() => {
-            if (effect.parentNode) {
-                effect.parentNode.removeChild(effect);
-            }
-        }, 600);
-    }
-};
-
-// Add improved drop effect CSS
-const enhancedDropCSS = `
-@keyframes drop-ripple {
-    0% { 
-        transform: scale(0.3);
-        opacity: 1;
-        border-width: 4px;
-    }
-    50% {
-        transform: scale(1);
-        opacity: 0.7;
-        border-width: 2px;
-    }
-    100% { 
-        transform: scale(2);
-        opacity: 0;
-        border-width: 1px;
-    }
-}
-
-.potential-drop-zone {
-    background: radial-gradient(circle, rgba(0, 212, 255, 0.15) 0%, transparent 70%) !important;
-    transition: background 0.3s ease;
-    box-shadow: inset 0 0 20px rgba(0, 212, 255, 0.1);
-}
-
-.drop-zone-active {
-    background: radial-gradient(circle, rgba(0, 212, 255, 0.08) 0%, transparent 70%);
-}
-
-/* Enhanced dragging state */
-.hand-card.dragging {
-    cursor: grabbing !important;
-    opacity: 0.95;
-    box-shadow: 
-        0 25px 50px rgba(0, 0, 0, 0.8),
-        0 0 40px rgba(0, 212, 255, 0.4),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2);
-    filter: brightness(1.1);
-}
-
-.equipment-card.dragging {
-    cursor: grabbing !important;
-    opacity: 0.95;
-    box-shadow: 
-        0 20px 40px rgba(0, 0, 0, 0.7),
-        0 0 30px rgba(0, 212, 255, 0.3);
-    filter: brightness(1.1);
-}
-`;
-
-// Inject enhanced CSS
-const enhancedStyleSheet = document.createElement('style');
-enhancedStyleSheet.textContent = enhancedDropCSS;
-document.head.appendChild(enhancedStyleSheet);
-
-// Initialize enhanced drag visuals when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-    DragVisuals.init();
-});
-
-// Also initialize if the script loads after DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function() {
-        DragVisuals.init();
+    // Make hand cards draggable
+    document.querySelectorAll('.hand-card').forEach(card => {
+        card.draggable = true;
+        card.addEventListener('dragstart', handleCardDragStart);
+        card.addEventListener('dragend', handleDragEnd);
     });
-} else {
-    DragVisuals.init();
+    
+    // Set up trash zone drop handling
+    trashZone.addEventListener('dragover', handleDragOver);
+    trashZone.addEventListener('dragenter', handleDragEnter);
+    trashZone.addEventListener('dragleave', handleDragLeave);
+    trashZone.addEventListener('drop', handleTrashDrop);
+    
+    // Set up equipment slot drop handling
+    const equipmentSlots = document.querySelectorAll('.equipment-card');
+    console.log('🎯 Found', equipmentSlots.length, 'equipment slots');
+    
+    equipmentSlots.forEach((slot, index) => {
+        console.log(`🎯 Setting up slot ${index}:`, slot.getAttribute('data-slot'), slot.className);
+        slot.addEventListener('dragover', handleEquipmentDragOver);
+        slot.addEventListener('dragenter', handleEquipmentDragEnter);
+        slot.addEventListener('dragleave', handleEquipmentDragLeave);
+        slot.addEventListener('drop', handleEquipmentDrop);
+    });
 }
+
+function handleCardDragStart(e) {
+    const cardContainer = e.target.closest('.hand-card-container');
+    const cardIndex = cardContainer.style.getPropertyValue('--card-index');
+    const cardButton = e.target.closest('.hand-card');
+    
+    // Get card data to determine type
+    let cardType = 'unknown';
+    try {
+        const cardData = JSON.parse(cardButton.getAttribute('data-card'));
+        cardType = cardData.type;
+        console.log('🎮 Parsed card data:', cardData);
+    } catch (err) {
+        console.warn('Could not parse card data for drag:', err);
+        console.warn('Raw data-card attribute:', cardButton.getAttribute('data-card'));
+    }
+    
+    const dragString = `card:${cardIndex}:${cardType}`;
+    
+    // Store drag data globally for Mac compatibility
+    window.currentDragData = dragString;
+    
+    e.dataTransfer.setData('text/plain', dragString);
+    e.dataTransfer.setData('text', dragString); // Fallback for some browsers
+    e.dataTransfer.effectAllowed = 'move';
+    
+    // Add visual feedback
+    e.target.style.opacity = '0.5';
+    
+    console.log('🎮 Dragging card:', cardIndex, 'Type:', cardType, 'DragString:', dragString);
+}
+
+function handleDragEnd(e) {
+    e.target.style.opacity = '1';
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+}
+
+function handleDragEnter(e) {
+    e.preventDefault();
+    e.target.closest('.trash-zone').classList.add('drag-over');
+}
+
+function handleDragLeave(e) {
+    // Only remove class if we're actually leaving the trash zone
+    if (!e.target.closest('.trash-zone').contains(e.relatedTarget)) {
+        e.target.closest('.trash-zone').classList.remove('drag-over');
+    }
+}
+
+function handleTrashDrop(e) {
+    e.preventDefault();
+    const dragData = e.dataTransfer.getData('text/plain');
+    const trashZone = e.target.closest('.trash-zone');
+    
+    trashZone.classList.remove('drag-over');
+    
+    if (dragData.startsWith('card:')) {
+        const cardIndex = dragData.split(':')[1];
+        // Show confirmation
+        if (confirm('🗑️ Delete this card from your hand?')) {
+            deleteCard(parseInt(cardIndex));
+        }
+    }
+}
+
+// Equipment slot drag handlers
+function handleEquipmentDragOver(e) {
+    // Try to get drag data, use global fallback for Mac compatibility
+    let dragData = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text') || window.currentDragData || '';
+    console.log('🎯 DragOver - dragData:', dragData);
+    
+    if (dragData.startsWith('card:')) {
+        const [, cardIndex, cardType] = dragData.split(':');
+        const slot = e.target.closest('.equipment-card');
+        const slotType = slot ? slot.getAttribute('data-slot') : 'no-slot';
+        
+        console.log('🎯 DragOver - cardType:', cardType, 'slotType:', slotType);
+        
+        // Allow valid card types to be dropped on matching slots
+        if ((cardType === slotType && (cardType === 'weapon' || cardType === 'armor')) ||
+            (cardType === 'special attack' && slotType === 'weapon')) {
+            console.log('✅ Valid drop allowed');
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        } else {
+            console.log('❌ Invalid drop');
+        }
+    }
+}
+
+function handleEquipmentDragEnter(e) {
+    const dragData = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text') || window.currentDragData || '';
+    if (dragData.startsWith('card:')) {
+        const [, cardIndex, cardType] = dragData.split(':');
+        const slot = e.target.closest('.equipment-card');
+        const slotType = slot ? slot.getAttribute('data-slot') : 'no-slot';
+        
+        // Visual feedback for valid drops
+        if ((cardType === slotType && (cardType === 'weapon' || cardType === 'armor')) ||
+            (cardType === 'special attack' && slotType === 'weapon')) {
+            e.preventDefault();
+            slot.classList.add('valid-drop-target');
+        } else {
+            slot.classList.add('invalid-drop-target');
+        }
+    }
+}
+
+function handleEquipmentDragLeave(e) {
+    const slot = e.target.closest('.equipment-card');
+    if (slot && !slot.contains(e.relatedTarget)) {
+        slot.classList.remove('valid-drop-target', 'invalid-drop-target');
+    }
+}
+
+function handleEquipmentDrop(e) {
+    console.log('🎯 Drop event triggered!');
+    e.preventDefault();
+    const dragData = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text') || window.currentDragData || '';
+    const slot = e.target.closest('.equipment-card');
+    
+    console.log('🎯 Drop - dragData:', dragData, 'slot:', slot);
+    
+    // Remove visual feedback
+    if (slot) {
+        slot.classList.remove('valid-drop-target', 'invalid-drop-target');
+    }
+    
+    // Clear global drag data
+    window.currentDragData = null;
+    
+    if (dragData.startsWith('card:')) {
+        const [, cardIndex, cardType] = dragData.split(':');
+        const slotType = slot ? slot.getAttribute('data-slot') : 'no-slot';
+        
+        console.log(`🎯 Drop - Attempting to equip ${cardType} to ${slotType}`);
+        
+        // Handle equipment based on card and slot type
+        if (cardType === 'special attack' && slotType === 'weapon') {
+            // Special attacks go to weapon_special slot
+            console.log(`💥 Equipping special attack from index ${cardIndex} to weapon`);
+            equipCard(parseInt(cardIndex), 'weapon_special');
+        } else if (cardType === slotType && (cardType === 'weapon' || cardType === 'armor')) {
+            console.log(`⚔️ Equipping ${cardType} from index ${cardIndex} to ${slotType} slot`);
+            equipCard(parseInt(cardIndex), cardType);
+        } else {
+            console.log(`❌ Cannot equip ${cardType} to ${slotType} slot`);
+            showMessage(`❌ Cannot equip ${cardType} to ${slotType} slot`);
+        }
+    }
+}
+
+
+// Function to prevent dragging on specific elements
+function preventDrag(element) {
+    element.addEventListener('mousedown', function(e){
+        e.stopPropagation(); // Stop the drag from starting
+    });
+}
+
+// Apply to all delete buttons
+document.addEventListener('DOMContentLoaded', function() {
+    const deleteButtons = document.querySelectorAll('.card-delete-btn');
+    deleteButtons.forEach(preventDrag);
+
+    const unequipButtons = document.querySelectorAll('.equipment-unequip-btn');
+    unequipButtons.forEach(preventDrag);
+});
 </script>
 
 </body>

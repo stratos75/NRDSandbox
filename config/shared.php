@@ -34,9 +34,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             unset($_SESSION[$key]);
         }
         
-        // Clear mech data
-        unset($_SESSION['playerMech']);
-        unset($_SESSION['enemyMech']);
+        // Preserve mech images when clearing mech data
+        $playerImage = $_SESSION['playerMech']['image'] ?? null;
+        $enemyImage = $_SESSION['enemyMech']['image'] ?? null;
+        
+        // Reset mech data but preserve images
+        $_SESSION['playerMech'] = [
+            'HP' => 100, 
+            'ATK' => 30, 
+            'DEF' => 15, 
+            'MAX_HP' => 100, 
+            'companion' => 'Pilot-Alpha',
+            'name' => 'Player Mech',
+            'image' => $playerImage
+        ];
+        $_SESSION['enemyMech'] = [
+            'HP' => 100, 
+            'ATK' => 25, 
+            'DEF' => 10, 
+            'MAX_HP' => 100, 
+            'companion' => 'AI-Core',
+            'name' => 'Enemy Mech',
+            'image' => $enemyImage
+        ];
         
         $response['success'] = true;
         $response['message'] = 'All settings reset to defaults';
