@@ -57,7 +57,6 @@
             "cost": 3,
             "type": "armor",
             "damage": 0,
-            "defense": 8,
             "description": "Bio-adaptive armor that neutralizes toxins. Reduces poison damage with minor self-repair.",
             "rarity": "uncommon",
             "element": "poison",
@@ -71,7 +70,6 @@
             "cost": 4,
             "type": "armor",
             "damage": 0,
-            "defense": 12,
             "description": "High-density layers that prevent freezing and maintain internal heat. Strong cold resistance.",
             "rarity": "rare",
             "element": "ice",
@@ -85,7 +83,6 @@
             "cost": 5,
             "type": "armor",
             "damage": 0,
-            "defense": 15,
             "description": "Channels heat away from vital systems. Major fire resistance, boosts speed when overheated.",
             "rarity": "rare",
             "element": "fire",
@@ -99,7 +96,6 @@
             "cost": 6,
             "type": "armor",
             "damage": 0,
-            "defense": 18,
             "description": "Reactive plasma layer that absorbs high-energy attacks. Occasional energy shield activation.",
             "rarity": "epic",
             "element": "plasma",
@@ -122,6 +118,7 @@
             "image": "data\/images\/special_001.png"
         },
         {
+            "id": "special_002",
             "name": "Thermal Overcharge Beam",
             "cost": 3,
             "type": "special attack",
@@ -129,12 +126,11 @@
             "description": "Fires a superheated focused energy beam. Deals bonus damage to cold enemies.",
             "rarity": "common",
             "element": "fire",
-            "id": "special_002",
             "created_at": "2025-07-01 17:00:00",
-            "updated_at": "2025-07-01 22:20:57",
-            "image": "data\/images\/special_002.png"
+            "created_by": "system"
         },
         {
+            "id": "special_003",
             "name": "Cryo Lockdown Grenade",
             "cost": 3,
             "type": "special attack",
@@ -142,12 +138,11 @@
             "description": "Deploys an icy explosive that temporarily immobilizes foes. Deals bonus damage to fire enemies.",
             "rarity": "uncommon",
             "element": "ice",
-            "id": "special_003",
             "created_at": "2025-07-01 17:00:00",
-            "updated_at": "2025-07-01 22:24:45",
-            "image": "data\/images\/special_003.png"
+            "created_by": "system"
         },
         {
+            "id": "special_004",
             "name": "Quantum Phase Cutter",
             "cost": 4,
             "type": "special attack",
@@ -155,69 +150,16 @@
             "description": "A blade that slips between energy states. Deals bonus damage to plasma enemies.",
             "rarity": "rare",
             "element": "plasma",
-            "id": "special_004",
             "created_at": "2025-07-01 17:00:00",
-            "updated_at": "2025-07-01 22:27:08",
-            "image": "data\/images\/special_004.png"
-        },
-        {
-            "name": "Rotvine Reaper Blade",
-            "cost": 4,
-            "type": "weapon",
-            "damage": 18,
-            "description": "A savage sword fused with forest toxins and alien vines. Inflicts heavy poison damage over time.",
-            "rarity": "rare",
-            "element": "poison",
-            "id": "enemy_weapon_001",
-            "created_at": "2025-07-01 18:30:00",
-            "image": "data\/images\/enemy_weapon_001.png"
-        },
-        {
-            "name": "Chitin Husk Armor",
-            "cost": 5,
-            "type": "armor",
-            "damage": 0,
-            "description": "Bio-organic exoskeletal armor grown from mutated forest beetle shells. Strong resistance to poison and physical damage.",
-            "rarity": "rare",
-            "element": "poison",
-            "id": "enemy_armor_001",
-            "created_at": "2025-07-01 18:30:00",
-            "updated_at": "2025-07-02 13:17:43",
-            "image": "data\/images\/enemy_armor_001.png"
-        },
-        {
-            "name": "Venomroot Sniper",
-            "cost": 5,
-            "type": "weapon",
-            "damage": 22,
-            "description": "A long-range rifle wrapped in alien vines, firing toxin-laced rounds that weaken targets.",
-            "rarity": "epic",
-            "element": "poison",
-            "id": "enemy_weapon_002",
-            "created_at": "2025-07-01 18:30:00",
-            "updated_at": "2025-07-02 13:18:30",
-            "image": "data\/images\/enemy_weapon_002.png"
-        },
-        {
-            "name": "Toxic Spores Burst",
-            "cost": 3,
-            "type": "special attack",
-            "damage": 20,
-            "description": "Releases a cloud of virulent spores, reducing enemy defense and inflicting poison over time.",
-            "rarity": "uncommon",
-            "element": "poison",
-            "id": "enemy_special_001",
-            "created_at": "2025-07-01 18:30:00",
-            "updated_at": "2025-07-02 13:20:19",
-            "image": "data\/images\/enemy_special_001.png"
+            "created_by": "system"
         }
     ],
     "meta": {
         "created": "2025-07-01 17:00:00",
-        "version": "2.1",
-        "total_cards": 16,
-        "last_updated": "2025-07-02 13:20:19",
+        "version": "2.0",
+        "total_cards": 12,
+        "last_updated": "2025-07-01 22:20:12",
         "lore_aligned": true,
-        "description": "New Retro Dawn tactical card set - ChatGPT curated lore-specific cards with enemy equipment"
+        "description": "New Retro Dawn tactical card set - ChatGPT curated lore-specific cards"
     }
 }

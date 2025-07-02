@@ -1,5 +1,20 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('log_errors', 1);
+
 require 'auth.php';
+
+// Initialize turn-based system session variables
+if (!isset($_SESSION['currentPlayer'])) {
+    $_SESSION['currentPlayer'] = 'player';
+}
+if (!isset($_SESSION['playerEnergy'])) {
+    $_SESSION['playerEnergy'] = 5;
+}
+if (!isset($_SESSION['maxEnergy'])) {
+    $_SESSION['maxEnergy'] = 5;
+}
 
 $gameConfig = ['hand_size' => 5, 'draw_deck_size' => 20, 'enable_companions' => true];
 
@@ -745,8 +760,8 @@ function renderEquipmentSlot($equipment, $slotType, $owner, $specialAttack = nul
                         <div class="mech-name"><?= htmlspecialchars($enemyMech['name'] ?? 'Enemy Mech') ?></div>
                         <div class="mech-stats">
                             <div class="stat">HP: <span id="enemyHPDisplay"><?= $enemyMech['HP'] ?></span>/<?= $enemyMech['MAX_HP'] ?></div>
-                            <div class="stat">ATK: <?= $enemyMech['ATK'] ?></div>
-                            <div class="stat">DEF: <?= $enemyMech['DEF'] ?></div>
+                            <div class="stat">ATK: <span id="enemyATKDisplay"><?= $enemyMech['ATK'] + ($enemyEquipment['weapon']['atk'] ?? 0) ?></span></div>
+                            <div class="stat">DEF: <span id="enemyDEFDisplay"><?= $enemyMech['DEF'] + ($enemyEquipment['armor']['def'] ?? 0) ?></span></div>
                         </div>
                     </div>
                 </div>
@@ -765,9 +780,63 @@ function renderEquipmentSlot($equipment, $slotType, $owner, $specialAttack = nul
             <div class="divider-label">COMBAT ZONE</div>
         </div>
 
+        <!-- ENEMY EQUIPMENT MANAGER -->
+        <section class="enemy-equipment-manager">
+            <div class="manager-header">
+                <h3>🔧 Enemy Equipment Manager</h3>
+                <button type="button" onclick="toggleEnemyManager()" class="toggle-btn" id="enemyManagerToggle">
+                    Show ▼
+                </button>
+            </div>
+            <div class="manager-content" id="enemyManagerContent" style="display: none;">
+                <div class="equipment-assignment">
+                    <div class="assignment-slot">
+                        <label>Enemy Weapon:</label>
+                        <select id="enemyWeaponSelect" onchange="assignEnemyEquipment('weapon', this.value)">
+                            <option value="">No Weapon</option>
+                            <?php foreach ($cardLibrary as $card): ?>
+                                <?php if ($card['type'] === 'weapon'): ?>
+                                    <option value="<?= htmlspecialchars($card['id']) ?>" 
+                                            <?= ($enemyEquipment['weapon']['id'] ?? '') === $card['id'] ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($card['name']) ?> (ATK: <?= $card['damage'] ?? 0 ?>)
+                                    </option>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="assignment-slot">
+                        <label>Enemy Armor:</label>
+                        <select id="enemyArmorSelect" onchange="assignEnemyEquipment('armor', this.value)">
+                            <option value="">No Armor</option>
+                            <?php foreach ($cardLibrary as $card): ?>
+                                <?php if ($card['type'] === 'armor'): ?>
+                                    <option value="<?= htmlspecialchars($card['id']) ?>" 
+                                            <?= ($enemyEquipment['armor']['id'] ?? '') === $card['id'] ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($card['name']) ?> (DEF: <?= $card['defense'] ?? $card['damage'] ?? 0 ?>)
+                                    </option>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+                <div class="manager-actions">
+                    <button type="button" onclick="clearEnemyEquipment()" class="clear-btn">
+                        🗑️ Clear All
+                    </button>
+                    <button type="button" onclick="randomEnemyLoadout()" class="random-btn">
+                        🎲 Random Loadout
+                    </button>
+                </div>
+            </div>
+        </section>
+
         <!-- PLAYER SECTION (BOTTOM) -->
         <section class="combat-zone player-zone">
             <div class="zone-label">PLAYER TERRITORY</div>
+            
+            <div class="player-resources">
+                <div class="energy-display">⚡️ Energy: <span id="playerEnergyValue"><?= $_SESSION['playerEnergy'] ?></span> / <?= $_SESSION['maxEnergy'] ?></div>
+            </div>
             
             <div class="battlefield-layout">
                 <!-- Player Draw Deck (Far Left) -->
@@ -818,8 +887,8 @@ function renderEquipmentSlot($equipment, $slotType, $owner, $specialAttack = nul
                         <div class="mech-name"><?= htmlspecialchars($playerMech['name'] ?? 'Your Mech') ?></div>
                         <div class="mech-stats">
                             <div class="stat">HP: <span id="playerHPDisplay"><?= $playerMech['HP'] ?></span>/<?= $playerMech['MAX_HP'] ?></div>
-                            <div class="stat">ATK: <?= $playerMech['ATK'] ?></div>
-                            <div class="stat">DEF: <?= $playerMech['DEF'] ?></div>
+                            <div class="stat">ATK: <span id="playerATKDisplay"><?= $playerMech['ATK'] + ($playerEquipment['weapon']['atk'] ?? 0) ?></span></div>
+                            <div class="stat">DEF: <span id="playerDEFDisplay"><?= $playerMech['DEF'] + ($playerEquipment['armor']['def'] ?? $playerEquipment['armor']['defense'] ?? 0) ?></span></div>
                         </div>
                     </div>
                 </div>
@@ -911,18 +980,13 @@ function renderEquipmentSlot($equipment, $slotType, $owner, $specialAttack = nul
                 <button type="button" onclick="performCombatAction('reset_mechs')" class="action-btn reset-btn">
                     🔄 Reset Mechs
                 </button>
+                <button type="button" onclick="endTurn()" class="action-btn" id="endTurnBtn">
+                    ➡️ End Turn
+                </button>
             </div>
         </div>
     </section>
 
-    <!-- ===================================================================
-         FOOTER
-         =================================================================== -->
-    <footer class="game-footer">
-        <div class="build-info">
-            NRD Tactical Sandbox | Build v0.9.3+ | Enhanced JSON System + Debug Panel
-        </div>
-    </footer>
 
 </div>
 
@@ -957,16 +1021,16 @@ function renderEquipmentSlot($equipment, $slotType, $owner, $specialAttack = nul
                     <div class="state-header">Player Mech</div>
                     <div class="state-stats">
                         <div class="stat-line">HP: <span id="debugPlayerHP"><?= $playerMech['HP'] ?></span>/<?= $playerMech['MAX_HP'] ?></div>
-                        <div class="stat-line">ATK: <?= $playerMech['ATK'] ?></div>
-                        <div class="stat-line">DEF: <?= $playerMech['DEF'] ?></div>
+                        <div class="stat-line">ATK: <span id="debugPlayerATK"><?= $playerMech['ATK'] + ($playerEquipment['weapon']['atk'] ?? 0) ?></span></div>
+                        <div class="stat-line">DEF: <span id="debugPlayerDEF"><?= $playerMech['DEF'] + ($playerEquipment['armor']['def'] ?? $playerEquipment['armor']['defense'] ?? 0) ?></span></div>
                     </div>
                 </div>
                 <div class="state-card enemy-state">
                     <div class="state-header">Enemy Mech</div>
                     <div class="state-stats">
                         <div class="stat-line">HP: <span id="debugEnemyHP"><?= $enemyMech['HP'] ?></span>/<?= $enemyMech['MAX_HP'] ?></div>
-                        <div class="stat-line">ATK: <?= $enemyMech['ATK'] ?></div>
-                        <div class="stat-line">DEF: <?= $enemyMech['DEF'] ?></div>
+                        <div class="stat-line">ATK: <span id="debugEnemyATK"><?= $enemyMech['ATK'] + ($enemyEquipment['weapon']['atk'] ?? 0) ?></span></div>
+                        <div class="stat-line">DEF: <span id="debugEnemyDEF"><?= $enemyMech['DEF'] + ($enemyEquipment['armor']['def'] ?? 0) ?></span></div>
                     </div>
                 </div>
             </div>
@@ -1294,8 +1358,8 @@ function performCombatAction(action) {
     const formData = new FormData();
     formData.append('action', action);
     
-    // Send AJAX request to combat manager
-    fetch('combat-manager.php', {
+    // Send AJAX request to combat manager and return promise
+    return fetch('combat-manager.php', {
         method: 'POST',
         body: formData
     })
@@ -1310,14 +1374,18 @@ function performCombatAction(action) {
             
             // Show brief success message
             showCombatMessage(data.message, 'success');
+            
+            return data; // Return data for chaining
         } else {
             // Show error message
             showCombatMessage('Error: ' + data.message, 'error');
+            throw new Error(data.message);
         }
     })
     .catch(error => {
         console.error('Combat action error:', error);
         showCombatMessage('Network error during combat action', 'error');
+        throw error;
     })
     .finally(() => {
         // Re-enable buttons
@@ -1326,27 +1394,74 @@ function performCombatAction(action) {
 }
 
 function updateCombatUI(combatData) {
-    const { playerMech, enemyMech } = combatData;
+    const { playerMech, enemyMech, playerEnergy, playerEquipment, enemyEquipment } = combatData;
     
-    // Update Player HP displays
-    const playerHPValue = document.getElementById('playerHPValue');
-    const playerHPDisplay = document.getElementById('playerHPDisplay');
-    const debugPlayerHP = document.getElementById('debugPlayerHP');
-    if (playerHPValue) playerHPValue.textContent = playerMech.HP;
-    if (playerHPDisplay) playerHPDisplay.textContent = playerMech.HP;
-    if (debugPlayerHP) debugPlayerHP.textContent = playerMech.HP;
+    // Update Player HP displays (if playerMech data is available)
+    if (playerMech) {
+        const playerHPValue = document.getElementById('playerHPValue');
+        const playerHPDisplay = document.getElementById('playerHPDisplay');
+        const debugPlayerHP = document.getElementById('debugPlayerHP');
+        if (playerHPValue) playerHPValue.textContent = playerMech.HP;
+        if (playerHPDisplay) playerHPDisplay.textContent = playerMech.HP;
+        if (debugPlayerHP) debugPlayerHP.textContent = playerMech.HP;
+        
+        // Update mech card status class
+        updateMechStatusClass('playerMechCard', playerMech.HP, playerMech.MAX_HP);
+        
+        // Update ATK/DEF displays if equipment data is available
+        if (playerEquipment) {
+            const weaponATK = (playerEquipment.weapon && playerEquipment.weapon.atk) ? parseInt(playerEquipment.weapon.atk) : 0;
+            const armorDEF = (playerEquipment.armor && (playerEquipment.armor.def || playerEquipment.armor.defense)) ? parseInt(playerEquipment.armor.def || playerEquipment.armor.defense) : 0;
+            const totalATK = playerMech.ATK + weaponATK;
+            const totalDEF = playerMech.DEF + armorDEF;
+            
+            const playerATKDisplay = document.getElementById('playerATKDisplay');
+            const playerDEFDisplay = document.getElementById('playerDEFDisplay');
+            const debugPlayerATK = document.getElementById('debugPlayerATK');
+            const debugPlayerDEF = document.getElementById('debugPlayerDEF');
+            
+            if (playerATKDisplay) playerATKDisplay.textContent = totalATK;
+            if (playerDEFDisplay) playerDEFDisplay.textContent = totalDEF;
+            if (debugPlayerATK) debugPlayerATK.textContent = totalATK;
+            if (debugPlayerDEF) debugPlayerDEF.textContent = totalDEF;
+        }
+    }
     
-    // Update Enemy HP displays
-    const enemyHPValue = document.getElementById('enemyHPValue');
-    const enemyHPDisplay = document.getElementById('enemyHPDisplay');
-    const debugEnemyHP = document.getElementById('debugEnemyHP');
-    if (enemyHPValue) enemyHPValue.textContent = enemyMech.HP;
-    if (enemyHPDisplay) enemyHPDisplay.textContent = enemyMech.HP;
-    if (debugEnemyHP) debugEnemyHP.textContent = enemyMech.HP;
+    // Update Enemy HP displays (if enemyMech data is available)
+    if (enemyMech) {
+        const enemyHPValue = document.getElementById('enemyHPValue');
+        const enemyHPDisplay = document.getElementById('enemyHPDisplay');
+        const debugEnemyHP = document.getElementById('debugEnemyHP');
+        if (enemyHPValue) enemyHPValue.textContent = enemyMech.HP;
+        if (enemyHPDisplay) enemyHPDisplay.textContent = enemyMech.HP;
+        if (debugEnemyHP) debugEnemyHP.textContent = enemyMech.HP;
+        
+        // Update mech card status class
+        updateMechStatusClass('enemyMechCard', enemyMech.HP, enemyMech.MAX_HP);
+        
+        // Update ATK/DEF displays if equipment data is available
+        if (enemyEquipment) {
+            const weaponATK = (enemyEquipment.weapon && enemyEquipment.weapon.atk) ? parseInt(enemyEquipment.weapon.atk) : 0;
+            const armorDEF = (enemyEquipment.armor && (enemyEquipment.armor.def || enemyEquipment.armor.defense)) ? parseInt(enemyEquipment.armor.def || enemyEquipment.armor.defense) : 0;
+            const totalATK = enemyMech.ATK + weaponATK;
+            const totalDEF = enemyMech.DEF + armorDEF;
+            
+            const enemyATKDisplay = document.getElementById('enemyATKDisplay');
+            const enemyDEFDisplay = document.getElementById('enemyDEFDisplay');
+            const debugEnemyATK = document.getElementById('debugEnemyATK');
+            const debugEnemyDEF = document.getElementById('debugEnemyDEF');
+            
+            if (enemyATKDisplay) enemyATKDisplay.textContent = totalATK;
+            if (enemyDEFDisplay) enemyDEFDisplay.textContent = totalDEF;
+            if (debugEnemyATK) debugEnemyATK.textContent = totalATK;
+            if (debugEnemyDEF) debugEnemyDEF.textContent = totalDEF;
+        }
+    }
     
-    // Update mech card status classes
-    updateMechStatusClass('playerMechCard', playerMech.HP, playerMech.MAX_HP);
-    updateMechStatusClass('enemyMechCard', enemyMech.HP, enemyMech.MAX_HP);
+    // Update energy display (if playerEnergy data is available)
+    if (playerEnergy !== undefined) {
+        updateEnergyDisplay(playerEnergy);
+    }
 }
 
 function updateMechStatusClass(mechCardId, currentHP, maxHP) {
@@ -1693,8 +1808,6 @@ function resetCardForm() {
     uploadedImageData = null;
     document.getElementById('imagePreview').style.display = 'none';
     updateCardPreviewImage(null);
-    
-    updateCardPreview();
 }
 
 function saveCard() {
@@ -2211,7 +2324,7 @@ const CardZoom = {
             'armor': '🛡️',
             'creature': '👾',
             'support': '🔧',
-            'special attack': '💥'
+            'special attack' : '💥'
         };
         return icons[type] || '❓';
     },
@@ -2251,13 +2364,131 @@ const CardZoom = {
 function handleCardClick(cardIndex, cardType) {
     console.log(`Card clicked: Index ${cardIndex}, Type: ${cardType}`);
     
-    // ALWAYS show zoom modal for ALL cards to view details
-    const cardElement = document.querySelector(`[data-card][style*="--card-index: ${cardIndex}"]`);
-    if (cardElement) {
-        CardZoom.showZoomModal(cardElement);
-    } else {
-        console.warn(`Card element not found for index ${cardIndex}`);
+    // This function now primarily handles playing the card.
+    // Equipping logic will be re-integrated later.
+    playCard(cardIndex);
+}
+
+// ===================================================================
+// ENERGY AND TURN SYSTEM FUNCTIONS
+// ===================================================================
+function endTurn() {
+    document.getElementById('endTurnBtn').disabled = true;
+    performCombatAction('end_turn').then(data => {
+        if (data.success) {
+            // We will add AI turn logic here later
+            document.getElementById('endTurnBtn').disabled = false;
+        }
+    }).catch(error => {
+        console.error('End turn error:', error);
+        document.getElementById('endTurnBtn').disabled = false;
+    });
+}
+
+function playCard(cardIndex) {
+    const formData = new FormData();
+    formData.append('action', 'play_card');
+    formData.append('card_index', cardIndex);
+
+    fetch('combat-manager.php', { method: 'POST', body: formData })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Reload to reflect changes. We will replace this with dynamic updates later.
+                window.location.reload();
+            } else {
+                alert('Could not play card: ' + data.message);
+            }
+        });
+}
+
+function updateEnergyDisplay(newEnergy) {
+    const energyEl = document.getElementById('playerEnergyValue');
+    if (energyEl) {
+        energyEl.textContent = newEnergy;
     }
+}
+
+// ===================================================================
+// ENEMY EQUIPMENT MANAGER FUNCTIONS
+// ===================================================================
+function toggleEnemyManager() {
+    const content = document.getElementById('enemyManagerContent');
+    const toggle = document.getElementById('enemyManagerToggle');
+    
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        toggle.textContent = 'Hide ▲';
+    } else {
+        content.style.display = 'none';
+        toggle.textContent = 'Show ▼';
+    }
+}
+
+function assignEnemyEquipment(slotType, cardId) {
+    if (!cardId) {
+        // Clearing equipment
+        clearEnemyEquipmentSlot(slotType);
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('action', 'assign_enemy_equipment');
+    formData.append('slot_type', slotType);
+    formData.append('card_id', cardId);
+    
+    fetch('combat-manager.php', { method: 'POST', body: formData })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Reload to reflect changes
+                window.location.reload();
+            } else {
+                alert('Could not assign equipment: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Assignment error:', error);
+            alert('Network error during equipment assignment');
+        });
+}
+
+function clearEnemyEquipmentSlot(slotType) {
+    const formData = new FormData();
+    formData.append('action', 'clear_enemy_equipment');
+    formData.append('slot_type', slotType);
+    
+    fetch('combat-manager.php', { method: 'POST', body: formData })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert('Could not clear equipment: ' + data.message);
+            }
+        });
+}
+
+function clearEnemyEquipment() {
+    if (confirm('Clear all enemy equipment?')) {
+        clearEnemyEquipmentSlot('weapon');
+        setTimeout(() => clearEnemyEquipmentSlot('armor'), 200);
+    }
+}
+
+function randomEnemyLoadout() {
+    const formData = new FormData();
+    formData.append('action', 'random_enemy_loadout');
+    
+    fetch('combat-manager.php', { method: 'POST', body: formData })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert('Could not generate random loadout: ' + data.message);
+            }
+        });
 }
 
 // Helper function to equip card by ID from zoom modal

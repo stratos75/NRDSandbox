@@ -14,7 +14,6 @@
             "image": "data\/images\/weapon_001.png"
         },
         {
-            "id": "weapon_002",
             "name": "Cryoshard Rifle",
             "cost": 4,
             "type": "weapon",
@@ -22,11 +21,12 @@
             "description": "Fires ultra-cooled crystal shards that freeze targets on impact. Slows enemy actions.",
             "rarity": "rare",
             "element": "ice",
+            "id": "weapon_002",
             "created_at": "2025-07-01 17:00:00",
-            "created_by": "system"
+            "updated_at": "2025-07-01 21:18:04",
+            "image": "data\/images\/weapon_002.png"
         },
         {
-            "id": "weapon_003",
             "name": "Incinerator Gauntlets",
             "cost": 5,
             "type": "weapon",
@@ -34,11 +34,12 @@
             "description": "Mech-mounted flame gauntlets, ideal for close-quarters devastation. Ignites enemies.",
             "rarity": "rare",
             "element": "fire",
+            "id": "weapon_003",
             "created_at": "2025-07-01 17:00:00",
-            "created_by": "system"
+            "updated_at": "2025-07-01 21:20:48",
+            "image": "data\/images\/weapon_003.png"
         },
         {
-            "id": "weapon_004",
             "name": "Arc Disruptor Blade",
             "cost": 6,
             "type": "weapon",
@@ -46,11 +47,12 @@
             "description": "A pulsating plasma sword that destabilizes enemy defenses. Pierces shields.",
             "rarity": "epic",
             "element": "plasma",
+            "id": "weapon_004",
             "created_at": "2025-07-01 17:00:00",
-            "created_by": "system"
+            "updated_at": "2025-07-01 21:27:49",
+            "image": "data\/images\/weapon_004.png"
         },
         {
-            "id": "armor_001",
             "name": "Spore Guard Plating",
             "cost": 3,
             "type": "armor",
@@ -58,11 +60,12 @@
             "description": "Bio-adaptive armor that neutralizes toxins. Reduces poison damage with minor self-repair.",
             "rarity": "uncommon",
             "element": "poison",
+            "id": "armor_001",
             "created_at": "2025-07-01 17:00:00",
-            "created_by": "system"
+            "updated_at": "2025-07-01 22:06:06",
+            "image": "data\/images\/armor_001.png"
         },
         {
-            "id": "armor_002",
             "name": "Cryo Insulation Shell",
             "cost": 4,
             "type": "armor",
@@ -70,11 +73,12 @@
             "description": "High-density layers that prevent freezing and maintain internal heat. Strong cold resistance.",
             "rarity": "rare",
             "element": "ice",
+            "id": "armor_002",
             "created_at": "2025-07-01 17:00:00",
-            "created_by": "system"
+            "updated_at": "2025-07-01 22:15:13",
+            "image": "data\/images\/armor_002.png"
         },
         {
-            "id": "armor_003",
             "name": "Thermal Diffusion Harness",
             "cost": 5,
             "type": "armor",
@@ -82,11 +86,12 @@
             "description": "Channels heat away from vital systems. Major fire resistance, boosts speed when overheated.",
             "rarity": "rare",
             "element": "fire",
+            "id": "armor_003",
             "created_at": "2025-07-01 17:00:00",
-            "created_by": "system"
+            "updated_at": "2025-07-01 22:15:30",
+            "image": "data\/images\/armor_003.png"
         },
         {
-            "id": "armor_004",
             "name": "Phase Conductor Barrier",
             "cost": 6,
             "type": "armor",
@@ -94,8 +99,10 @@
             "description": "Reactive plasma layer that absorbs high-energy attacks. Occasional energy shield activation.",
             "rarity": "epic",
             "element": "plasma",
+            "id": "armor_004",
             "created_at": "2025-07-01 17:00:00",
-            "created_by": "system"
+            "updated_at": "2025-07-01 22:06:28",
+            "image": "data\/images\/armor_004.png"
         },
         {
             "id": "special_001",
@@ -150,7 +157,7 @@
         "created": "2025-07-01 17:00:00",
         "version": "2.0",
         "total_cards": 12,
-        "last_updated": "2025-07-01 20:57:18",
+        "last_updated": "2025-07-01 22:15:30",
         "lore_aligned": true,
         "description": "New Retro Dawn tactical card set - ChatGPT curated lore-specific cards"
     }
