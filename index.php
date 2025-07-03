@@ -16,6 +16,20 @@ if (!isset($_SESSION['maxEnergy'])) {
     $_SESSION['maxEnergy'] = 5;
 }
 
+// Initialize AI state
+if (!isset($_SESSION['enemy_hand'])) {
+    $enemyHand = [];
+    if (!empty($cardLibrary)) {
+        $shuffledCards = $cardLibrary;
+        shuffle($shuffledCards);
+        $enemyHand = array_slice($shuffledCards, 0, 5); // Give enemy 5 cards
+    }
+    $_SESSION['enemy_hand'] = $enemyHand;
+}
+if (!isset($_SESSION['enemyEnergy'])) {
+    $_SESSION['enemyEnergy'] = 5;
+}
+
 $gameConfig = ['hand_size' => 5, 'draw_deck_size' => 20, 'enable_companions' => true];
 
 // Load game rules from session with defaults
@@ -585,7 +599,7 @@ function renderEquipmentSlot($equipment, $slotType, $owner, $specialAttack = nul
         
         return "
             <div class='equipment-area'>
-                <div class='equipment-card {$slotType}-card {$owner}-equipment {$slotClass}' data-slot='{$slotType}'>
+                <div class='equipment-card {$slotType}-card {$owner}-equipment {$slotClass}' data-slot='{$slotType}' data-owner='{$owner}'>
                     <div class='card-type'>{$slotLabel}</div>
                     <div class='card-name empty-slot-text'>{$placeholderText}</div>
                     <div class='card-stats empty-slot-stats'>Click card in hand</div>
@@ -651,7 +665,7 @@ function renderEquipmentSlot($equipment, $slotType, $owner, $specialAttack = nul
             <div class='equipment-area weapon-combo-area'>
                 {$specialAttackHtml}
                 <form method='post'>
-                    <button type='submit' name='equipment_click' value='{$owner} {$slotType}' class='equipment-card {$slotType}-card {$owner}-equipment equipped {$element}-element {$rarity}-rarity{$imageClass}' data-slot='{$slotType}' {$backgroundImage}>
+                    <button type='submit' name='equipment_click' value='{$owner} {$slotType}' class='equipment-card {$slotType}-card {$owner}-equipment equipped {$element}-element {$rarity}-rarity{$imageClass}' data-slot='{$slotType}' data-owner='{$owner}' {$backgroundImage}>
                         <div class='card-type'>{$slotType}</div>
                         <div class='card-name'>" . htmlspecialchars($equipment['name']) . "</div>
                         <div class='card-stats'>{$statLabel}: {$statValue}</div>
@@ -676,21 +690,32 @@ function renderEquipmentSlot($equipment, $slotType, $owner, $specialAttack = nul
 
 <div class="battlefield-container">
 
+    <!-- NARRATIVE GUIDE PANEL -->
+    <div id="narrativeGuide" class="narrative-guide-panel">
+        <div class="portrait-container">
+            <img id="guidePortrait" src="images/old_man_neutral.png" alt="Old Man">
+            <!-- This div will be used for a blinking animation -->
+            <div id="guideBlink" class="blink-overlay" style="background-image: url('images/old_man_blink.png');"></div>
+        </div>
+        <div class="speech-bubble">
+            <p id="guideDialogueText">Welcome to town. Let's show our friend here what we can do.</p>
+        </div>
+    </div>
+
     <!-- ===================================================================
          TOP NAVIGATION BAR (UPDATED - Clean Navigation)
          =================================================================== -->
     <header class="top-bar">
         <div class="nav-left">
-            <button type="button" class="config-link debug-toggle-btn" onclick="toggleDebugPanel()">🐛 Debug</button>
-            <button type="button" class="config-link card-creator-btn" onclick="toggleCardCreator()">🃏 Card Creator</button>
-            <a href="config/mechs.php" class="config-link">🤖 Mech Config</a>
+            <a href="config/" class="config-link">⚙️ Configuration</a>
+            <button type="button" onclick="showHelpModal()" class="help-button" title="Game Help & Instructions">❓ Help</button>
             <span class="user-info">👤 <?= htmlspecialchars($_SESSION['username'] ?? 'Unknown') ?></span>
         </div>
         <div class="nav-center">
             <h1 class="game-title">NRD TACTICAL SANDBOX</h1>
         </div>
         <div class="nav-right">
-            <a href="config/" class="version-badge" title="Open Control Dashboard">v0.9.3+</a>
+            <a href="config/" class="version-badge" title="Open Configuration Dashboard">v1.0</a>
             <a href="logout.php" class="logout-link">🚪 Logout</a>
         </div>
     </header>
@@ -776,59 +801,12 @@ function renderEquipmentSlot($equipment, $slotType, $owner, $specialAttack = nul
 
         <!-- BATTLEFIELD DIVIDER -->
         <div class="battlefield-divider">
+            <div id="turnIndicator" class="turn-indicator player-turn">PLAYER'S TURN</div>
             <div class="divider-line"></div>
             <div class="divider-label">COMBAT ZONE</div>
         </div>
 
         <!-- ENEMY EQUIPMENT MANAGER -->
-        <section class="enemy-equipment-manager">
-            <div class="manager-header">
-                <h3>🔧 Enemy Equipment Manager</h3>
-                <button type="button" onclick="toggleEnemyManager()" class="toggle-btn" id="enemyManagerToggle">
-                    Show ▼
-                </button>
-            </div>
-            <div class="manager-content" id="enemyManagerContent" style="display: none;">
-                <div class="equipment-assignment">
-                    <div class="assignment-slot">
-                        <label>Enemy Weapon:</label>
-                        <select id="enemyWeaponSelect" onchange="assignEnemyEquipment('weapon', this.value)">
-                            <option value="">No Weapon</option>
-                            <?php foreach ($cardLibrary as $card): ?>
-                                <?php if ($card['type'] === 'weapon'): ?>
-                                    <option value="<?= htmlspecialchars($card['id']) ?>" 
-                                            <?= ($enemyEquipment['weapon']['id'] ?? '') === $card['id'] ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($card['name']) ?> (ATK: <?= $card['damage'] ?? 0 ?>)
-                                    </option>
-                                <?php endif; ?>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="assignment-slot">
-                        <label>Enemy Armor:</label>
-                        <select id="enemyArmorSelect" onchange="assignEnemyEquipment('armor', this.value)">
-                            <option value="">No Armor</option>
-                            <?php foreach ($cardLibrary as $card): ?>
-                                <?php if ($card['type'] === 'armor'): ?>
-                                    <option value="<?= htmlspecialchars($card['id']) ?>" 
-                                            <?= ($enemyEquipment['armor']['id'] ?? '') === $card['id'] ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($card['name']) ?> (DEF: <?= $card['defense'] ?? $card['damage'] ?? 0 ?>)
-                                    </option>
-                                <?php endif; ?>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                </div>
-                <div class="manager-actions">
-                    <button type="button" onclick="clearEnemyEquipment()" class="clear-btn">
-                        🗑️ Clear All
-                    </button>
-                    <button type="button" onclick="randomEnemyLoadout()" class="random-btn">
-                        🎲 Random Loadout
-                    </button>
-                </div>
-            </div>
-        </section>
 
         <!-- PLAYER SECTION (BOTTOM) -->
         <section class="combat-zone player-zone">
@@ -962,161 +940,20 @@ function renderEquipmentSlot($equipment, $slotType, $owner, $specialAttack = nul
             </div>
         </section>
 
+        <!-- ACTION BAR - The new heart of player interaction -->
+        <div id="actionBar" class="action-bar">
+            <div id="actionBarText" class="action-bar-text">Your move. Play a card or prepare an attack.</div>
+            <div id="actionBarButtons" class="action-bar-buttons">
+                <!-- Buttons will be dynamically inserted here by JavaScript -->
+            </div>
+        </div>
+
     </main>
 
-    <!-- ===================================================================
-         GAME CONTROLS PANEL (CONVERTED TO AJAX)
-         =================================================================== -->
-    <section class="controls-panel">
-        <div class="control-group">
-            <h3>Combat Actions</h3>
-            <div class="action-buttons">
-                <button type="button" onclick="performCombatAction('attack_enemy')" class="action-btn attack-btn">
-                    ⚔️ Attack Enemy
-                </button>
-                <button type="button" onclick="performCombatAction('enemy_attack')" class="action-btn defend-btn">
-                    🛡️ Enemy Attacks
-                </button>
-                <button type="button" onclick="performCombatAction('reset_mechs')" class="action-btn reset-btn">
-                    🔄 Reset Mechs
-                </button>
-                <button type="button" onclick="endTurn()" class="action-btn" id="endTurnBtn">
-                    ➡️ End Turn
-                </button>
-            </div>
-        </div>
-    </section>
-
 
 </div>
 
-<!-- ===================================================================
-     DEBUG PANEL (SLIDE-IN FROM LEFT)
-     =================================================================== -->
-<div id="debugPanel" class="debug-panel">
-    <div class="debug-header">
-        <h2>🐛 Debug Console</h2>
-        <button type="button" class="close-btn" onclick="toggleDebugPanel()">✕</button>
-    </div>
-    
-    <div class="debug-content">
-        
-        <!-- System Status Section -->
-        <div class="debug-section">
-            <h3>📊 System Status</h3>
-            <div class="status-grid">
-                <?php foreach ($debugInfo as $info): ?>
-                    <div class="status-item">
-                        <span class="status-value"><?= htmlspecialchars($info) ?></span>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-        </div>
-
-        <!-- Current Game State -->
-        <div class="debug-section">
-            <h3>🎮 Current Game State</h3>
-            <div class="game-state-grid">
-                <div class="state-card player-state">
-                    <div class="state-header">Player Mech</div>
-                    <div class="state-stats">
-                        <div class="stat-line">HP: <span id="debugPlayerHP"><?= $playerMech['HP'] ?></span>/<?= $playerMech['MAX_HP'] ?></div>
-                        <div class="stat-line">ATK: <span id="debugPlayerATK"><?= $playerMech['ATK'] + ($playerEquipment['weapon']['atk'] ?? 0) ?></span></div>
-                        <div class="stat-line">DEF: <span id="debugPlayerDEF"><?= $playerMech['DEF'] + ($playerEquipment['armor']['def'] ?? $playerEquipment['armor']['defense'] ?? 0) ?></span></div>
-                    </div>
-                </div>
-                <div class="state-card enemy-state">
-                    <div class="state-header">Enemy Mech</div>
-                    <div class="state-stats">
-                        <div class="stat-line">HP: <span id="debugEnemyHP"><?= $enemyMech['HP'] ?></span>/<?= $enemyMech['MAX_HP'] ?></div>
-                        <div class="stat-line">ATK: <span id="debugEnemyATK"><?= $enemyMech['ATK'] + ($enemyEquipment['weapon']['atk'] ?? 0) ?></span></div>
-                        <div class="stat-line">DEF: <span id="debugEnemyDEF"><?= $enemyMech['DEF'] + ($enemyEquipment['armor']['def'] ?? 0) ?></span></div>
-                    </div>
-                </div>
-            </div>
-            <div class="hand-status">
-                <div class="hand-info">
-                    <span>Player Hand: <?= count($playerHand) ?> cards</span>
-                    <span>Card Library: <?= count($cardLibrary) ?> cards</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Reset Controls -->
-        <div class="debug-section">
-            <h3>🔄 Reset Controls</h3>
-            <div class="reset-controls">
-                <form method="post" style="display: inline;">
-                    <button type="submit" name="reset_mechs" value="1" class="debug-btn reset-health">
-                        ❤️ Reset Mech Health
-                    </button>
-                </form>
-                <form method="post" style="display: inline;">
-                    <button type="submit" name="reset_hands" value="1" class="debug-btn reset-hands">
-                        🃏 Reset Card Hands
-                    </button>
-                </form>
-                <form method="post" style="display: inline;">
-                    <button type="submit" name="clear_log" value="1" class="debug-btn clear-log">
-                        📝 Clear Game Log
-                    </button>
-                </form>
-                <form method="post" style="display: inline;">
-                    <button type="submit" name="reset_all" value="1" class="debug-btn reset-all">
-                        🔄 Reset Everything
-                    </button>
-                </form>
-            </div>
-        </div>
-
-        <!-- Action Log -->
-        <div class="debug-section">
-            <h3>📝 Action Log</h3>
-            <div class="action-log" id="debugActionLog">
-                <?php if (!empty($gameLog)): ?>
-                    <?php foreach (array_slice($gameLog, -10) as $logEntry): ?>
-                        <div class="log-entry"><?= htmlspecialchars($logEntry) ?></div>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <div class="log-entry">No actions yet</div>
-                <?php endif; ?>
-            </div>
-        </div>
-
-        <!-- Technical Info -->
-        <div class="debug-section">
-            <h3>⚙️ Technical Info</h3>
-            <div class="tech-info">
-                <div class="tech-item">
-                    <span class="tech-label">Version:</span>
-                    <span class="tech-value">v0.9.3+</span>
-                </div>
-                <div class="tech-item">
-                    <span class="tech-label">PHP Session ID:</span>
-                    <span class="tech-value"><?= substr(session_id(), 0, 8) ?>...</span>
-                </div>
-                <div class="tech-item">
-                    <span class="tech-label">Equipment Status:</span>
-                    <span class="tech-value">
-                        W:<?= $playerEquipment['weapon'] ? '✓' : '✗' ?> 
-                        A:<?= $playerEquipment['armor'] ? '✓' : '✗' ?>
-                    </span>
-                </div>
-                <div class="tech-item">
-                    <span class="tech-label">Combat System:</span>
-                    <span class="tech-value">AJAX v2</span>
-                </div>
-            </div>
-        </div>
-
-    </div>
-</div>
-
-<!-- Debug Panel Overlay -->
-<div id="debugOverlay" class="debug-overlay" onclick="toggleDebugPanel()"></div>
-
-<!-- Hidden forms for card actions -->
-<form id="equipmentForm" method="post" style="display: none;">
+<!-- Debug Panel Removed - Now in config/debug.php -->
     <input type="hidden" name="equip_card" value="1">
     <input type="hidden" name="card_index" id="equipCardIndex">
     <input type="hidden" name="equip_slot" id="equipSlot">
@@ -1217,139 +1054,172 @@ function renderEquipmentSlot($equipment, $slotType, $owner, $specialAttack = nul
 <div id="cardDetailOverlay" class="card-detail-overlay" onclick="closeCardDetails()"></div>
 
 <!-- ===================================================================
-     CARD CREATOR PANEL (SLIDE-IN FROM RIGHT)
+     HELP MODAL
      =================================================================== -->
-<div id="cardCreatorPanel" class="card-creator-panel">
-    <div class="card-creator-header">
-        <h2>🃏 Card Creator</h2>
-        <button type="button" class="close-btn" onclick="toggleCardCreator()">✕</button>
-    </div>
-    
-    <div class="card-creator-content">
-        <!-- Card Form -->
-        <div class="card-form-section">
-            <h3>Card Properties</h3>
-            <form id="cardCreatorForm" class="card-form">
-                <div class="form-group">
-                    <label for="cardName">Card Name:</label>
-                    <input type="text" id="cardName" name="cardName" placeholder="Plasma Rifle" oninput="updateCardPreview()">
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="cardCost">Cost:</label>
-                        <input type="number" id="cardCost" name="cardCost" min="0" max="10" value="3" oninput="updateCardPreview()">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="cardType">Type:</label>
-                        <select id="cardType" name="cardType" onchange="updateCardPreview()">
-                            <option value="weapon">⚔️ Weapon</option>
-                            <option value="armor">🛡️ Armor</option>
-                            <option value="special attack">💥 Special Attack</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="cardDamage">Damage:</label>
-                        <input type="number" id="cardDamage" name="cardDamage" min="0" max="50" value="5" oninput="updateCardPreview()">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="cardRarity">Rarity:</label>
-                        <select id="cardRarity" name="cardRarity" onchange="updateCardPreview()">
-                            <option value="common">Common</option>
-                            <option value="uncommon">Uncommon</option>
-                            <option value="rare">Rare</option>
-                            <option value="epic">Epic</option>
-                            <option value="legendary">Legendary</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="cardElement">Element:</label>
-                        <select id="cardElement" name="cardElement" onchange="updateCardPreview()">
-                            <option value="fire">🔥 Fire</option>
-                            <option value="ice">🧊 Ice</option>
-                            <option value="poison">🧪 Poison</option>
-                            <option value="plasma">⚡ Plasma</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <!-- Empty space for balanced layout -->
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="cardDescription">Description:</label>
-                    <textarea id="cardDescription" name="cardDescription" placeholder="High-powered energy weapon with devastating firepower..." oninput="updateCardPreview()"></textarea>
-                </div>
-                
-                <div class="form-group">
-                    <label for="cardImage">Card Image:</label>
-                    <input type="file" id="cardImage" name="cardImage" accept="image/*" onchange="handleImageUpload(this)">
-                    <div class="image-upload-hint">
-                        Recommended: 300x400px (PNG/JPG, max 2MB)
-                    </div>
-                    <div id="imagePreview" class="image-preview" style="display: none;">
-                        <img id="previewImg" src="" alt="Card Image Preview">
-                        <button type="button" onclick="removeImage()" class="remove-image-btn">✕ Remove</button>
-                    </div>
-                </div>
-                
-                <div class="form-actions">
-                    <button type="button" class="action-btn reset-btn" onclick="resetCardForm()">🔄 Reset</button>
-                    <button type="button" class="action-btn attack-btn" onclick="saveCard()">💾 Save Card</button>
-                </div>
-            </form>
+<div id="helpModal" class="help-modal">
+    <div class="help-modal-content">
+        <div class="help-modal-header">
+            <h2>🎮 NRD Tactical Sandbox - Game Guide</h2>
+            <button type="button" class="help-close-btn" onclick="closeHelpModal()">✕</button>
         </div>
         
-        <!-- Card Preview -->
-        <div class="card-preview-section">
-            <h3>Live Preview</h3>
-            <div class="card-preview-container">
-                <div id="cardPreview" class="preview-card weapon-card fire-element common-rarity">
-                    <div class="preview-cost">3</div>
-                    <div class="preview-name">New Weapon</div>
-                    <div class="preview-type">WEAPON</div>
-                    <div class="preview-art" id="previewArt">
-                        <div id="previewArtPlaceholder">[Art]</div>
-                        <img id="previewArtImage" src="" alt="Card Art" style="display: none;">
-                    </div>
-                    <div class="preview-damage">💥 5</div>
-                    <div class="preview-description">Deal damage to target enemy...</div>
-                    <div class="preview-rarity common-rarity">Common</div>
+        <div class="help-modal-body">
+            <div class="help-sections">
+                
+                <!-- Game Overview -->
+                <div class="help-section">
+                    <h3>🎯 Game Overview</h3>
+                    <p>NRD Tactical Sandbox is a turn-based card battle game where you pilot a mech and battle against an AI opponent. Use strategy, equipment, and card management to emerge victorious!</p>
                 </div>
+                
+                <!-- Turn System -->
+                <div class="help-section">
+                    <h3>⚡ Turn-Based System</h3>
+                    <div class="help-subsection">
+                        <h4>🟢 Player Turn:</h4>
+                        <ul>
+                            <li>Your energy is restored to maximum (default: 5)</li>
+                            <li>You can play cards that cost energy</li>
+                            <li>Each card has an energy cost shown in the top-left corner</li>
+                            <li>Click "End Turn" when you're done</li>
+                        </ul>
+                    </div>
+                    <div class="help-subsection">
+                        <h4>🔴 Enemy Turn:</h4>
+                        <ul>
+                            <li>The AI takes its turn automatically</li>
+                            <li>Watch for enemy actions and prepare your strategy</li>
+                            <li>Turn returns to you after AI completes its actions</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- Card System -->
+                <div class="help-section">
+                    <h3>🃏 Card System</h3>
+                    <div class="help-subsection">
+                        <h4>Card Types:</h4>
+                        <ul>
+                            <li><strong>⚔️ Weapons:</strong> Equip to increase attack power</li>
+                            <li><strong>🛡️ Armor:</strong> Equip to increase defense</li>
+                            <li><strong>⚡ Spells:</strong> Cast for immediate effects</li>
+                            <li><strong>👾 Creatures:</strong> Summon allies to the battlefield</li>
+                            <li><strong>🔧 Support:</strong> Utility effects and buffs</li>
+                            <li><strong>💥 Special Attacks:</strong> Attach to weapons for enhanced abilities</li>
+                        </ul>
+                    </div>
+                    <div class="help-subsection">
+                        <h4>Playing Cards:</h4>
+                        <ul>
+                            <li>Click a card in your hand to play it (costs energy)</li>
+                            <li>Equipment cards can be equipped by clicking or dragging to slots</li>
+                            <li>Spell cards are consumed when played</li>
+                            <li>You cannot play cards if you don't have enough energy</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- Equipment System -->
+                <div class="help-section">
+                    <h3>⚔️ Equipment System</h3>
+                    <div class="help-subsection">
+                        <h4>Equipment Slots:</h4>
+                        <ul>
+                            <li><strong>Weapon Slot:</strong> Increases your mech's attack power</li>
+                            <li><strong>Armor Slot:</strong> Increases your mech's defense</li>
+                            <li><strong>Special Attack:</strong> Attaches to weapons for extra abilities</li>
+                        </ul>
+                    </div>
+                    <div class="help-subsection">
+                        <h4>Managing Equipment:</h4>
+                        <ul>
+                            <li>Drag weapon/armor cards to the appropriate slots</li>
+                            <li>Click the red ✕ button to unequip items</li>
+                            <li>Unequipped cards return to your hand</li>
+                            <li>Equipment bonuses apply immediately to combat</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- Combat System -->
+                <div class="help-section">
+                    <h3>⚔️ Combat System</h3>
+                    <div class="help-subsection">
+                        <h4>Mech Stats:</h4>
+                        <ul>
+                            <li><strong>HP:</strong> Health points - when this reaches 0, you lose</li>
+                            <li><strong>ATK:</strong> Attack power + weapon bonuses</li>
+                            <li><strong>DEF:</strong> Defense power + armor bonuses</li>
+                        </ul>
+                    </div>
+                    <div class="help-subsection">
+                        <h4>Combat Actions:</h4>
+                        <ul>
+                            <li><strong>⚔️ Attack Enemy:</strong> Deal damage based on your ATK vs enemy DEF</li>
+                            <li><strong>🛡️ Enemy Attacks:</strong> Simulate enemy attacking you</li>
+                            <li><strong>🔄 Reset Mechs:</strong> Restore both mechs to full health</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- Strategy Tips -->
+                <div class="help-section">
+                    <h3>🧠 Strategy Tips</h3>
+                    <ul>
+                        <li><strong>Energy Management:</strong> Plan your turns - expensive cards may require saving energy</li>
+                        <li><strong>Equipment First:</strong> Equip weapons and armor early for combat bonuses</li>
+                        <li><strong>Card Draw:</strong> Click the deck to draw cards when your hand is empty</li>
+                        <li><strong>Special Combos:</strong> Attach special attacks to weapons for powerful combinations</li>
+                        <li><strong>Defense Matters:</strong> Armor can significantly reduce incoming damage</li>
+                        <li><strong>Timing:</strong> Some effects are best saved for critical moments</li>
+                    </ul>
+                </div>
+                
+                <!-- Interface Guide -->
+                <div class="help-section">
+                    <h3>🖥️ Interface Guide</h3>
+                    <div class="help-subsection">
+                        <h4>Top Navigation:</h4>
+                        <ul>
+                            <li><strong>⚙️ Configuration:</strong> Access card creator, debug tools, and settings</li>
+                            <li><strong>❓ Help:</strong> This help guide</li>
+                            <li><strong>v1.0:</strong> Current game version</li>
+                        </ul>
+                    </div>
+                    <div class="help-subsection">
+                        <h4>Battlefield Layout:</h4>
+                        <ul>
+                            <li><strong>Top:</strong> Enemy territory with their mech and equipment</li>
+                            <li><strong>Center:</strong> Combat zone divider with turn indicator</li>
+                            <li><strong>Bottom:</strong> Your territory with hand, mech, and equipment</li>
+                            <li><strong>Right Panel:</strong> Combat actions and enemy equipment manager</li>
+                        </ul>
+                    </div>
+                </div>
+                
             </div>
         </div>
         
-        <!-- Card Library -->
-        <div class="card-library-section">
-            <h3>Your Card Library</h3>
-            <div class="library-stats">
-                <span id="cardCount">0 cards</span> | 
-                <button type="button" onclick="loadCardLibrary()" class="refresh-btn">🔄 Refresh</button>
-            </div>
-            <div id="cardLibrary" class="card-library">
-                <div class="library-empty">No cards created yet. Create your first card above!</div>
-            </div>
+        <div class="help-modal-footer">
+            <button type="button" onclick="closeHelpModal()" class="help-close-button">Got it! Let's Play! 🎮</button>
         </div>
     </div>
 </div>
 
-<!-- Card Creator Overlay -->
-<div id="cardCreatorOverlay" class="card-creator-overlay" onclick="toggleCardCreator()"></div>
+<!-- Help Modal Overlay -->
+<div id="helpModalOverlay" class="help-modal-overlay" onclick="closeHelpModal()"></div>
+
 
 <script>
 // ===================================================================
 // COMBAT SYSTEM AJAX FUNCTIONS (RESTORED)
 // ===================================================================
 function performCombatAction(action) {
+    // Validate player action
+    if (!validatePlayerAction(action)) {
+        return Promise.reject('Invalid turn');
+    }
+    
     // Disable buttons during request to prevent double-clicks
     const buttons = document.querySelectorAll('.action-btn');
     buttons.forEach(btn => btn.disabled = true);
@@ -1371,6 +1241,15 @@ function performCombatAction(action) {
             
             // Add log entry to debug panel if open
             addLogEntry(data.data.logEntry);
+            
+            // Check for game over conditions
+            if (data.data.gameOver) {
+                if (data.data.gameOver === 'player_wins') {
+                    updateActionBar('player_wins');
+                } else if (data.data.gameOver === 'enemy_wins') {
+                    updateActionBar('enemy_wins');
+                }
+            }
             
             // Show brief success message
             showCombatMessage(data.message, 'success');
@@ -1398,6 +1277,7 @@ function updateCombatUI(combatData) {
     
     // Update Player HP displays (if playerMech data is available)
     if (playerMech) {
+        console.log('🩺 Updating Player HP to:', playerMech.HP, 'Max HP:', playerMech.MAX_HP);
         const playerHPValue = document.getElementById('playerHPValue');
         const playerHPDisplay = document.getElementById('playerHPDisplay');
         const debugPlayerHP = document.getElementById('debugPlayerHP');
@@ -1429,6 +1309,7 @@ function updateCombatUI(combatData) {
     
     // Update Enemy HP displays (if enemyMech data is available)
     if (enemyMech) {
+        console.log('🤖 Updating Enemy HP to:', enemyMech.HP, 'Max HP:', enemyMech.MAX_HP);
         const enemyHPValue = document.getElementById('enemyHPValue');
         const enemyHPDisplay = document.getElementById('enemyHPDisplay');
         const debugEnemyHP = document.getElementById('debugEnemyHP');
@@ -1605,12 +1486,31 @@ function unequipItem(slotType) {
 // ===================================================================
 
 function equipCard(cardIndex, cardType) {
-    // Set the form values
-    document.getElementById('equipCardIndex').value = cardIndex;
-    document.getElementById('equipSlot').value = cardType;
+    console.log(`🎯 Equipping card ${cardIndex} as ${cardType}`);
     
-    // Submit the form
-    document.getElementById('equipmentForm').submit();
+    // Use AJAX instead of form submission to maintain dynamic UI
+    const formData = new URLSearchParams();
+    formData.append('equip_card', '1');
+    formData.append('card_index', cardIndex);
+    formData.append('equip_slot', cardType);
+    
+    fetch(window.location.href, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        }
+    })
+    .then(response => response.text())
+    .then(() => {
+        // Reload the page to see the equipped item
+        // TODO: In future, this could be made fully dynamic
+        window.location.reload();
+    })
+    .catch(error => {
+        console.error('Equipment error:', error);
+        showMessage('❌ Failed to equip item');
+    });
 }
 
 function deleteCard(cardIndex) {
@@ -1623,21 +1523,7 @@ function deleteCard(cardIndex) {
     }
 }
 
-// ===================================================================
-// DEBUG PANEL FUNCTIONS
-// ===================================================================
-function toggleDebugPanel() {
-    const panel = document.getElementById('debugPanel');
-    const overlay = document.getElementById('debugOverlay');
-    
-    if (panel.classList.contains('active')) {
-        panel.classList.remove('active');
-        overlay.classList.remove('active');
-    } else {
-        panel.classList.add('active');
-        overlay.classList.add('active');
-    }
-}
+// Debug panel functions removed - now in config/debug.php
 
 // ===================================================================
 // CARD DETAIL MODAL FUNCTIONS (LEGACY SUPPORT)
@@ -1698,388 +1584,7 @@ function playCard() {
     closeCardDetails();
 }
 
-// ===================================================================
-// CARD CREATOR JAVASCRIPT FUNCTIONS
-// ===================================================================
-function toggleCardCreator() {
-    const panel = document.getElementById('cardCreatorPanel');
-    const overlay = document.getElementById('cardCreatorOverlay');
-    
-    if (panel.classList.contains('active')) {
-        panel.classList.remove('active');
-        overlay.classList.remove('active');
-    } else {
-        panel.classList.add('active');
-        overlay.classList.add('active');
-    }
-}
-
-function updateCardPreview() {
-    const preview = document.getElementById('cardPreview');
-    const name = document.getElementById('cardName').value || 'New Card';
-    const cost = document.getElementById('cardCost').value || '0';
-    const type = document.getElementById('cardType').value || 'weapon';
-    const damage = document.getElementById('cardDamage').value || '0';
-    const description = document.getElementById('cardDescription').value || 'Card description...';
-    const rarity = document.getElementById('cardRarity').value || 'common';
-    const element = document.getElementById('cardElement').value || 'fire';
-    
-    // Update preview card
-    preview.querySelector('.preview-cost').textContent = cost;
-    preview.querySelector('.preview-name').textContent = name;
-    preview.querySelector('.preview-type').textContent = type.toUpperCase();
-    preview.querySelector('.preview-damage').textContent = damage > 0 ? `💥 ${damage}` : '';
-    preview.querySelector('.preview-description').textContent = description;
-    preview.querySelector('.preview-rarity').textContent = rarity.charAt(0).toUpperCase() + rarity.slice(1);
-    
-    // Update card styling based on type, element, and rarity
-    preview.className = `preview-card ${type}-card ${element}-element ${rarity}-rarity`;
-    preview.querySelector('.preview-rarity').className = `preview-rarity ${rarity}-rarity`;
-}
-
-// Image upload handling functions
-let uploadedImageData = null;
-
-function handleImageUpload(input) {
-    const file = input.files[0];
-    if (!file) return;
-    
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-        alert('Please select a valid image file (PNG, JPG, etc.)');
-        input.value = '';
-        return;
-    }
-    
-    // Validate file size (2MB max)
-    if (file.size > 2 * 1024 * 1024) {
-        alert('Image file is too large. Please select an image smaller than 2MB.');
-        input.value = '';
-        return;
-    }
-    
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const imageData = e.target.result;
-        uploadedImageData = imageData;
-        
-        // Show preview in form
-        const previewImg = document.getElementById('previewImg');
-        const imagePreview = document.getElementById('imagePreview');
-        previewImg.src = imageData;
-        imagePreview.style.display = 'block';
-        
-        // Update card preview
-        updateCardPreviewImage(imageData);
-    };
-    reader.readAsDataURL(file);
-}
-
-function updateCardPreviewImage(imageData) {
-    const previewCard = document.getElementById('cardPreview');
-    const previewArtPlaceholder = document.getElementById('previewArtPlaceholder');
-    
-    if (imageData) {
-        // Set background image and add has-image class
-        previewCard.style.backgroundImage = `url(${imageData})`;
-        previewCard.classList.add('has-image');
-        previewArtPlaceholder.style.display = 'none';
-    } else {
-        // Remove background image and has-image class
-        previewCard.style.backgroundImage = '';
-        previewCard.classList.remove('has-image');
-        previewArtPlaceholder.style.display = 'block';
-    }
-}
-
-function removeImage() {
-    uploadedImageData = null;
-    document.getElementById('cardImage').value = '';
-    document.getElementById('imagePreview').style.display = 'none';
-    updateCardPreviewImage(null);
-}
-
-function resetCardForm() {
-    document.getElementById('cardCreatorForm').reset();
-    document.getElementById('cardCost').value = '3';
-    document.getElementById('cardDamage').value = '5';
-    
-    // Reset image upload
-    uploadedImageData = null;
-    document.getElementById('imagePreview').style.display = 'none';
-    updateCardPreviewImage(null);
-}
-
-function saveCard() {
-    const cardData = {
-        name: document.getElementById('cardName').value,
-        cost: document.getElementById('cardCost').value,
-        type: document.getElementById('cardType').value,
-        damage: document.getElementById('cardDamage').value,
-        description: document.getElementById('cardDescription').value,
-        rarity: document.getElementById('cardRarity').value,
-        element: document.getElementById('cardElement').value
-    };
-    
-    // Validate required fields
-    if (!cardData.name.trim()) {
-        alert('Please enter a card name');
-        return;
-    }
-    
-    // Prepare form data for submission
-    const formData = new FormData();
-    
-    // Check if we're editing an existing card
-    if (window.editingCardId) {
-        formData.append('action', 'update_card');
-        formData.append('card_id', window.editingCardId);
-    } else {
-        formData.append('action', 'create_card');
-    }
-    
-    formData.append('name', cardData.name);
-    formData.append('cost', cardData.cost);
-    formData.append('type', cardData.type);
-    formData.append('damage', cardData.damage);
-    formData.append('description', cardData.description);
-    formData.append('rarity', cardData.rarity);
-    formData.append('element', cardData.element);
-    
-    // Add image data if available
-    if (uploadedImageData) {
-        formData.append('image_data', uploadedImageData);
-        console.log('📸 Image data attached to save request:', uploadedImageData.length, 'characters');
-    } else {
-        console.log('❌ No image data to save');
-    }
-    
-    // Send to server
-    fetch('card-manager.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            const actionText = window.editingCardId ? 'updated' : 'created';
-            showMessage(`✅ Card ${actionText} successfully: ${data.data.name}`);
-            addLogEntry(`Card ${actionText}: ${data.data.name}`);
-            
-            // Clear editing mode
-            window.editingCardId = null;
-            
-            // Reset form after successful save
-            resetCardForm();
-            
-            // Update card library without reloading page
-            loadCardLibrary();
-            
-            // Show success feedback
-            console.log('✅ Card saved successfully:', data.data);
-        } else {
-            alert('Error saving card: ' + data.message);
-            console.error('❌ Card save failed:', data);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Network error while saving card. Please try again.');
-    });
-}
-
-function loadCardLibrary() {
-    // Load saved cards from server
-    const formData = new FormData();
-    formData.append('action', 'get_all_cards');
-    
-    fetch('card-manager.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            displayCardLibrary(data.data);
-            updateCardCount(data.data.length);
-        } else {
-            document.getElementById('cardLibrary').innerHTML = 
-                '<div class="library-error">Error: ' + data.message + '</div>';
-        }
-    })
-    .catch(error => {
-        console.error('Error loading cards:', error);
-        document.getElementById('cardLibrary').innerHTML = 
-            '<div class="library-error">Network error loading cards</div>';
-    });
-}
-
-function displayCardLibrary(cards) {
-    const libraryContainer = document.getElementById('cardLibrary');
-    
-    if (!cards || cards.length === 0) {
-        libraryContainer.innerHTML = '<div class="library-empty">No cards created yet. Create your first card above!</div>';
-        return;
-    }
-    
-    let html = '';
-    cards.forEach(card => {
-        const imageContent = card.image ? 
-            `<img src="${card.image}" alt="${card.name}" class="library-card-image" loading="lazy">` :
-            `<div class="library-card-icon">${getTypeIcon(card.type)}</div>`;
-            
-        html += `
-            <div class="library-card ${card.type}-card" data-card-id="${card.id}">
-                <div class="library-card-header">
-                    <span class="library-card-name">${card.name}</span>
-                    <span class="library-card-cost">${card.cost}</span>
-                </div>
-                <div class="library-card-visual">
-                    ${imageContent}
-                </div>
-                <div class="library-card-type">${card.type.toUpperCase()}</div>
-                <div class="library-card-damage">${card.damage > 0 ? '💥 ' + card.damage : ''}</div>
-                <div class="library-card-description">${card.description}</div>
-                <div class="library-card-footer">
-                    <span class="library-card-rarity ${card.rarity}-rarity">${card.rarity}</span>
-                    <div class="library-card-actions">
-                        <button onclick="editCard('${card.id}')" class="edit-btn">✏️</button>
-                        <button onclick="deleteLibraryCard('${card.id}')" class="delete-btn">🗑️</button>
-                    </div>
-                </div>
-            </div>
-        `;
-    });
-    
-    libraryContainer.innerHTML = html;
-}
-
-function updateCardCount(count) {
-    document.getElementById('cardCount').textContent = count + (count === 1 ? ' card' : ' cards');
-}
-
-function getTypeIcon(type) {
-    const icons = {
-        'spell': '✨',
-        'weapon': '⚔️', 
-        'armor': '🛡️',
-        'creature': '👾',
-        'support': '🔧'
-    };
-    return icons[type] || '❓';
-}
-
-
-function editCard(cardId) {
-    // Load card data from server and populate form
-    const formData = new FormData();
-    formData.append('action', 'get_card');
-    formData.append('card_id', cardId);
-    
-    fetch('card-manager.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.text();
-    })
-    .then(responseText => {
-        try {
-            const data = JSON.parse(responseText);
-            return data;
-        } catch (e) {
-            console.error('EditCard: JSON parse error:', e);
-            console.error('EditCard: Response was:', responseText.substring(0, 200));
-            throw new Error('Invalid JSON response from server');
-        }
-    })
-    .then(data => {
-        if (data.success && data.data) {
-            const card = data.data;
-            
-            // Populate form fields
-            document.getElementById('cardName').value = card.name || '';
-            document.getElementById('cardCost').value = card.cost || 0;
-            document.getElementById('cardType').value = card.type || 'weapon';
-            document.getElementById('cardDamage').value = card.damage || 0;
-            document.getElementById('cardDescription').value = card.description || '';
-            document.getElementById('cardRarity').value = card.rarity || 'common';
-            document.getElementById('cardElement').value = card.element || 'fire';
-            
-            // Set editing mode flag
-            window.editingCardId = cardId;
-            
-            // Update card preview
-            updateCardPreview();
-            
-            // Show card creator panel if not already visible
-            const panel = document.getElementById('cardCreatorPanel');
-            if (!panel.classList.contains('active')) {
-                toggleCardCreator();
-            }
-            
-            // Scroll to top of panel
-            panel.scrollTop = 0;
-            
-            // Show editing indicator
-            showMessage(`📝 Editing card: ${card.name}`);
-            addLogEntry(`Started editing card: ${card.name}`);
-            
-        } else {
-            if (data.error_type === 'auth_required') {
-                alert('Your session has expired. Please log in again.');
-                window.location.href = 'login.php';
-            } else {
-                alert('Error loading card: ' + (data.message || 'Card not found'));
-            }
-        }
-    })
-    .catch(error => {
-        console.error('EditCard error:', error.message);
-        alert('Network error while loading card for editing: ' + error.message);
-    });
-}
-
-function deleteLibraryCard(cardId) {
-    if (confirm('Are you sure you want to delete this card from the library?')) {
-        const formData = new FormData();
-        formData.append('action', 'delete_card');
-        formData.append('card_id', cardId);
-        
-        fetch('card-manager.php', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                loadCardLibrary(); // Refresh the library
-                // Reload page to update hand display
-                setTimeout(() => {
-                    window.location.reload();
-                }, 500);
-            } else {
-                alert('Error deleting card: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Network error while deleting card.');
-        });
-    }
-}
-
-// Initialize preview on page load
-document.addEventListener('DOMContentLoaded', function() {
-    updateCardPreview();
-    loadCardLibrary(); // Load existing cards when page loads
-});
-/// ===================================================================
-// CARD ZOOM MODAL SYSTEM - Add this to your <script> section in index.php
-// ===================================================================
+// Card creator functions removed - now in config/cards.php
 
 // Card Zoom Modal Management
 const CardZoom = {
@@ -2140,12 +1645,13 @@ const CardZoom = {
     },
 
     // Show zoom modal for hand cards
-    showZoomModal(cardElement) {
+    showZoomModal(cardData, isEquipment = false, cardIndex = null) {
         if (this.isOpen) return;
 
         try {
-            const cardData = JSON.parse(cardElement.getAttribute('data-card'));
-            this.createZoomModal(cardData);
+            // Store cardIndex for use in modal
+            this.currentCardIndex = cardIndex;
+            this.createZoomModal(cardData, isEquipment, cardIndex);
             this.isOpen = true;
         } catch (e) {
             console.error('Error parsing card data for zoom:', e);
@@ -2195,14 +1701,14 @@ const CardZoom = {
     },
 
     // Create and show the zoom modal
-    createZoomModal(cardData, isEquipment = false) {
+    createZoomModal(cardData, isEquipment = false, cardIndex = null) {
         // Remove existing modal if any
         this.closeZoomModal();
 
         // Create modal overlay
         const overlay = document.createElement('div');
         overlay.className = 'card-zoom-overlay';
-        overlay.innerHTML = this.generateZoomHTML(cardData, isEquipment);
+        overlay.innerHTML = this.generateZoomHTML(cardData, isEquipment, cardIndex);
 
         // Add click handler to overlay (close when clicking outside card)
         overlay.addEventListener('click', (e) => {
@@ -2234,7 +1740,7 @@ const CardZoom = {
     },
 
     // Generate zoom modal HTML
-    generateZoomHTML(cardData, isEquipment = false) {
+    generateZoomHTML(cardData, isEquipment = false, cardIndex = null) {
         const typeIcon = this.getTypeIcon(cardData.type);
         const actionHint = isEquipment ? 
             'Currently equipped • Providing combat bonuses' : 
@@ -2294,6 +1800,12 @@ const CardZoom = {
                         `<div class="zoom-equip-action" onclick="CardZoom.closeZoomModal(); equipCardById('${cardData.id}');">
                             <div class="equip-icon">${cardData.type === 'weapon' ? '⚔️' : '🛡️'}</div>
                             <div class="equip-text">EQUIP ${cardData.type.toUpperCase()}</div>
+                        </div>` : ''
+                    }
+                    ${!isEquipment && cardIndex !== null && (cardData.type !== 'weapon' && cardData.type !== 'armor') ? 
+                        `<div class="zoom-equip-action" onclick="playCardFromHand(${cardIndex})">
+                            <div class="equip-icon">⚡</div>
+                            <div class="equip-text">PLAY CARD (${cardData.cost} Energy)</div>
                         </div>` : ''
                     }
                 </div>
@@ -2359,30 +1871,94 @@ const CardZoom = {
 };
 
 // ===================================================================
+// NARRATIVE GUIDE SYSTEM
+// ===================================================================
+const NarrativeGuide = {
+    panel: null,
+    portrait: null,
+    dialogue: null,
+    typewriterTimer: null,
+    preloadedImages: {},
+
+    init: function() {
+        this.panel = document.getElementById('narrativeGuide');
+        this.portrait = document.getElementById('guidePortrait');
+        this.dialogue = document.getElementById('guideDialogueText');
+        this.preloadImages();
+    },
+
+    preloadImages: function() {
+        const expressions = ['neutral', 'happy', 'serious', 'thoughtful', 'disappointed'];
+        expressions.forEach(expression => {
+            const img = new Image();
+            img.onload = () => {
+                this.preloadedImages[expression] = true;
+            };
+            img.onerror = () => {
+                console.warn(`Failed to load old_man_${expression}.png`);
+                this.preloadedImages[expression] = false;
+            };
+            img.src = `images/old_man_${expression}.png`;
+        });
+    },
+
+    show: function(expression, text) {
+        if (!this.panel) this.init();
+        this.panel.classList.add('visible');
+
+        // Clear any existing typewriter animation
+        if (this.typewriterTimer) {
+            clearTimeout(this.typewriterTimer);
+        }
+
+        // Validate and change the expression
+        if (this.preloadedImages[expression] !== false) {
+            this.portrait.src = `images/old_man_${expression}.png`;
+        } else {
+            console.warn(`Using fallback for missing expression: ${expression}`);
+            this.portrait.src = `images/old_man_neutral.png`;
+        }
+
+        // Animate the text with a typewriter effect
+        let i = 0;
+        this.dialogue.innerHTML = '';
+        const typeWriter = () => {
+            if (i < text.length) {
+                this.dialogue.innerHTML += text.charAt(i);
+                i++;
+                this.typewriterTimer = setTimeout(typeWriter, 30);
+            }
+        };
+        typeWriter();
+    }
+};
+
+// ===================================================================
 // UNIFIED CARD INTERACTION SYSTEM
 // ===================================================================
-function handleCardClick(cardIndex, cardType) {
-    console.log(`Card clicked: Index ${cardIndex}, Type: ${cardType}`);
-    
-    // This function now primarily handles playing the card.
-    // Equipping logic will be re-integrated later.
-    playCard(cardIndex);
-}
 
 // ===================================================================
 // ENERGY AND TURN SYSTEM FUNCTIONS
 // ===================================================================
-function endTurn() {
-    document.getElementById('endTurnBtn').disabled = true;
-    performCombatAction('end_turn').then(data => {
-        if (data.success) {
-            // We will add AI turn logic here later
-            document.getElementById('endTurnBtn').disabled = false;
-        }
-    }).catch(error => {
-        console.error('End turn error:', error);
-        document.getElementById('endTurnBtn').disabled = false;
-    });
+
+// Turn validation helper function
+function isPlayerTurn() {
+    // Check if it's the player's turn and game is active
+    return window.gameState === 'active' && window.currentPlayerTurn === 'player';
+}
+
+function validatePlayerAction(actionName) {
+    if (window.gameState !== 'active') {
+        showMessage('Game is over! Please start a new game.', 'error');
+        return false;
+    }
+    
+    if (window.currentPlayerTurn !== 'player') {
+        showMessage('It\'s not your turn! Wait for the enemy to finish.', 'warning');
+        return false;
+    }
+    
+    return true;
 }
 
 function playCard(cardIndex) {
@@ -2402,12 +1978,6 @@ function playCard(cardIndex) {
         });
 }
 
-function updateEnergyDisplay(newEnergy) {
-    const energyEl = document.getElementById('playerEnergyValue');
-    if (energyEl) {
-        energyEl.textContent = newEnergy;
-    }
-}
 
 // ===================================================================
 // ENEMY EQUIPMENT MANAGER FUNCTIONS
@@ -2511,10 +2081,18 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
         CardZoom.init();
         initDragAndDrop();
+        // Initialize Narrative Guide
+        setTimeout(() => {
+            NarrativeGuide.show('neutral', "Welcome to town. Let's show our friend here what we can do.");
+        }, 1000); // Show after a 1-second delay
     });
 } else {
     CardZoom.init();
     initDragAndDrop();
+    // Initialize Narrative Guide
+    setTimeout(() => {
+        NarrativeGuide.show('neutral', "Welcome to town. Let's show our friend here what we can do.");
+    }, 1000); // Show after a 1-second delay
 }
 
 // ===================================================================
@@ -2686,17 +2264,28 @@ function handleEquipmentDrop(e) {
     if (dragData.startsWith('card:')) {
         const [, cardIndex, cardType] = dragData.split(':');
         const slotType = slot ? slot.getAttribute('data-slot') : 'no-slot';
+        const slotOwner = slot ? slot.getAttribute('data-owner') : 'no-owner';
         
-        console.log(`🎯 Drop - Attempting to equip ${cardType} to ${slotType}`);
+        console.log(`🎯 Drop - Attempting to equip ${cardType} to ${slotOwner} ${slotType}`);
         
         // Handle equipment based on card and slot type
         if (cardType === 'special attack' && slotType === 'weapon') {
             // Special attacks go to weapon_special slot
-            console.log(`💥 Equipping special attack from index ${cardIndex} to weapon`);
-            equipCard(parseInt(cardIndex), 'weapon_special');
+            if (slotOwner === 'player') {
+                console.log(`💥 Equipping player special attack from index ${cardIndex} to weapon`);
+                equipCard(parseInt(cardIndex), 'weapon_special');
+            } else if (slotOwner === 'enemy') {
+                console.log(`💥 Assigning enemy special attack from index ${cardIndex} to weapon`);
+                assignEnemyEquipment(parseInt(cardIndex), 'weapon_special');
+            }
         } else if (cardType === slotType && (cardType === 'weapon' || cardType === 'armor')) {
-            console.log(`⚔️ Equipping ${cardType} from index ${cardIndex} to ${slotType} slot`);
-            equipCard(parseInt(cardIndex), cardType);
+            if (slotOwner === 'player') {
+                console.log(`⚔️ Equipping player ${cardType} from index ${cardIndex} to ${slotType} slot`);
+                equipCard(parseInt(cardIndex), cardType);
+            } else if (slotOwner === 'enemy') {
+                console.log(`⚔️ Assigning enemy ${cardType} from index ${cardIndex} to ${slotType} slot`);
+                assignEnemyEquipment(parseInt(cardIndex), cardType);
+            }
         } else {
             console.log(`❌ Cannot equip ${cardType} to ${slotType} slot`);
             showMessage(`❌ Cannot equip ${cardType} to ${slotType} slot`);
@@ -2704,6 +2293,38 @@ function handleEquipmentDrop(e) {
     }
 }
 
+// ===================================================================
+// ENEMY EQUIPMENT ASSIGNMENT FUNCTION
+// ===================================================================
+function assignEnemyEquipment(cardIndex, slotType) {
+    console.log(`🎯 Assigning enemy equipment - card ${cardIndex} to ${slotType}`);
+    
+    // Get player hand from session to find the card
+    const formData = new FormData();
+    formData.append('action', 'assign_enemy_equipment');
+    formData.append('card_index', cardIndex);
+    formData.append('slot_type', slotType);
+    
+    fetch('combat-manager.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('🎯 Enemy equipment assignment response:', data);
+        if (data.success) {
+            showMessage(`✅ Assigned enemy equipment: ${data.message || 'Equipment assigned'}`);
+            // Reload page to update equipment display
+            location.reload();
+        } else {
+            showMessage(`❌ Failed to assign enemy equipment: ${data.error || 'Unknown error'}`);
+        }
+    })
+    .catch(error => {
+        console.error('❌ Enemy equipment assignment error:', error);
+        showMessage('❌ Error assigning enemy equipment');
+    });
+}
 
 // Function to prevent dragging on specific elements
 function preventDrag(element) {
@@ -2720,6 +2341,317 @@ document.addEventListener('DOMContentLoaded', function() {
     const unequipButtons = document.querySelectorAll('.equipment-unequip-btn');
     unequipButtons.forEach(preventDrag);
 });
+
+// ===================================================================
+// ACTION BAR STATE MACHINE
+// ===================================================================
+function updateActionBar(state) {
+    const textEl = document.getElementById('actionBarText');
+    const buttonsEl = document.getElementById('actionBarButtons');
+    buttonsEl.innerHTML = ''; // Clear existing buttons
+
+    switch (state) {
+        case 'combat_confirm':
+            textEl.textContent = 'You are preparing to attack. Are you sure?';
+            buttonsEl.innerHTML = `
+                <button onclick="performCombatAction('attack_enemy').then((data) => { if (!data.data.gameOver) updateActionBar('main'); })" class="action-btn attack-btn">Confirm Attack</button>
+                <button onclick="updateActionBar('main')" class="action-btn defend-btn">Cancel</button>
+            `;
+            break;
+        case 'enemy_turn':
+            textEl.textContent = 'The enemy is taking its turn...';
+            // No buttons during enemy turn
+            break;
+        case 'player_wins':
+            window.gameState = 'player_wins';
+            textEl.textContent = 'VICTORY! You have defeated the enemy.';
+            buttonsEl.innerHTML = `<form method="post"><button type="submit" name="reset_all" class="action-btn reset-btn">🎉 Play Again</button></form>`;
+            NarrativeGuide.show('happy', 'Heh. Not bad, kid. Not bad at all.');
+            break;
+        case 'enemy_wins':
+            window.gameState = 'enemy_wins';
+            textEl.textContent = 'DEFEAT! Your mech has been destroyed.';
+            buttonsEl.innerHTML = `<form method="post"><button type="submit" name="reset_all" class="action-btn reset-btn">⚡ Try Again</button></form>`;
+            NarrativeGuide.show('disappointed', 'Simulation failed. Resetting. Every pilot gets knocked down.');
+            break;
+        case 'enemy_config':
+            textEl.textContent = 'Configure enemy equipment. Choose weapons and armor.';
+            NarrativeGuide.show('thoughtful', 'Let\'s set up our opponent. Make it challenging, but fair.');
+            buttonsEl.innerHTML = `
+                <div class="config-section">
+                    <div class="config-row">
+                        <button onclick="clearEnemyEquipment()" class="action-btn clear-btn" title="Remove all enemy equipment">🗑️ Clear All</button>
+                        <button onclick="randomEnemyLoadout()" class="action-btn random-btn" title="Give enemy random equipment">🎲 Randomize</button>
+                    </div>
+                    <div class="config-info">
+                        <small>Drag weapon/armor cards from your hand to enemy slots, or use buttons above</small>
+                    </div>
+                    <button onclick="updateActionBar('main')" class="action-btn back-btn">↩️ Back to Combat</button>
+                </div>
+            `;
+            break;
+        case 'main':
+        default:
+            textEl.textContent = 'Your move. Play a card or prepare an attack.';
+            buttonsEl.innerHTML = `
+                <button onclick="updateActionBar('combat_confirm')" class="action-btn attack-btn">⚔️ Attack</button>
+                <button onclick="endTurn()" id="endTurnBtn" class="action-btn">➡️ End Turn</button>
+                <button onclick="updateActionBar('enemy_config')" class="action-btn config-btn" title="Configure enemy equipment">⚙️ Enemy Gear</button>
+            `;
+            break;
+    }
+}
+
+// ===================================================================
+// TURN-BASED SYSTEM FUNCTIONS
+// ===================================================================
+function endTurn() {
+    // Set turn to enemy
+    window.currentPlayerTurn = 'enemy';
+    
+    updateActionBar('enemy_turn');
+    showTurnIndicator('enemy');
+    NarrativeGuide.show('serious', 'Hmph. Let\'s see what this machine has planned.');
+
+    fetch('combat-manager.php', {
+        method: 'POST',
+        body: new URLSearchParams('action=end_turn')
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            processAIActions(data.data.ai_actions, () => {
+                // This callback runs after all AI actions are visualized
+                updateCombatUI(data.data);
+                updateEnergyDisplay(data.data.playerEnergy);
+                showTurnIndicator('player');
+                
+                // Set turn back to player
+                window.currentPlayerTurn = 'player';
+                
+                NarrativeGuide.show('thoughtful', 'Alright, our turn. Full energy. Make it count.');
+                
+                // Check for game over conditions after AI turn
+                if (data.data.gameOver) {
+                    if (data.data.gameOver === 'player_wins') {
+                        updateActionBar('player_wins');
+                    } else if (data.data.gameOver === 'enemy_wins') {
+                        updateActionBar('enemy_wins');
+                    }
+                } else {
+                    updateActionBar('main');
+                }
+            });
+        } else {
+            showMessage('An error occurred during the AI turn.', 'error');
+            showTurnIndicator('player');
+            updateActionBar('main');
+        }
+    });
+}
+
+function processAIActions(actions, finalCallback) {
+    if (!actions || actions.length === 0) {
+        if (finalCallback) finalCallback();
+        return;
+    }
+
+    const action = actions.shift(); // Process one action at a time
+    let delay = 1500; // 1.5 second delay between actions
+
+    if (action.type === 'play_card') {
+        showCombatMessage(`AI plays ${action.card.name}!`, 'error');
+    } else if (action.type === 'attack') {
+        showCombatMessage(`AI attacks for ${action.damage} damage!`, 'error');
+    }
+
+    // Fetch the very latest game state to update UI mid-turn
+    fetch('combat-manager.php', { 
+        method: 'POST', 
+        body: new URLSearchParams('action=get_combat_status')
+    })
+    .then(res => res.json())
+    .then(status => {
+        if(status.success) updateCombatUI(status.data);
+    });
+
+    setTimeout(() => {
+        processAIActions(actions, finalCallback); // Process next action
+    }, delay);
+}
+
+function playCardFromHand(cardIndex) {
+    // Validate player action
+    if (!validatePlayerAction('play card')) {
+        return;
+    }
+    
+    CardZoom.closeZoomModal(); // Close the modal first
+
+    fetch('combat-manager.php', {
+        method: 'POST',
+        body: new URLSearchParams(`action=play_card&card_index=${cardIndex}`)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // SUCCESS: Update UI dynamically
+            updateEnergyDisplay(data.data.playerEnergy);
+            // Re-render the player's hand
+            renderPlayerHand(data.data.playerHand); 
+            showMessage(data.message, 'success');
+            
+            // Check for game over conditions
+            if (data.data && data.data.gameOver) {
+                if (data.data.gameOver === 'player_wins') {
+                    updateActionBar('player_wins');
+                } else if (data.data.gameOver === 'enemy_wins') {
+                    updateActionBar('enemy_wins');
+                }
+            }
+        } else {
+            showMessage('Error: ' + data.message, 'error');
+        }
+    });
+}
+
+// NEW FUNCTION: To dynamically render the hand (matching original clean design)
+function renderPlayerHand(hand) {
+    const handContainer = document.querySelector('.player-hand-section .hand-cards-fan');
+    if (!handContainer) return;
+    
+    handContainer.innerHTML = ''; // Clear current hand
+    
+    if (hand.length === 0) {
+        handContainer.innerHTML = '<div class="hand-empty-message"><div class="empty-hand-text">Click deck to draw cards</div></div>';
+    } else {
+        hand.forEach((card, index) => {
+            // Build the card HTML string dynamically based on ORIGINAL clean structure
+            const cardElement = card.element || 'fire';
+            const cardRarity = card.rarity || 'common';
+            const hasImage = card.image && card.image.length > 0;
+            const backgroundStyle = hasImage ? `style="background-image: url('${card.image}');"` : '';
+            const imageClass = hasImage ? ' has-image' : '';
+            
+            // Type icons mapping (same as original)
+            const typeIcons = {
+                'spell': '✨',
+                'weapon': '⚔️', 
+                'armor': '🛡️',
+                'creature': '👾',
+                'support': '🔧',
+                'special attack': '💥'
+            };
+            
+            const cardHTML = `
+                <div class="hand-card-container" style="--card-index: ${index}">
+                    <button type="button" onclick="handleCardClick(${index}, '${card.type}')" 
+                            class="hand-card face-up fan-card ${card.type}-card ${cardElement}-element ${cardRarity}-rarity${imageClass}" 
+                            data-card='${JSON.stringify(card).replace(/'/g, "&apos;")}' 
+                            draggable="true" ${backgroundStyle}>
+                        <div class="card-mini-name">${card.name}</div>
+                        <div class="card-mini-cost">${card.cost}</div>
+                        ${!hasImage ? `<div class="card-type-icon">${typeIcons[card.type] || '❓'}</div>` : ''}
+                        ${(card.damage && card.damage > 0) ? `<div class="card-mini-damage">💥${card.damage}</div>` : ''}
+                    </button>
+                </div>
+            `;
+            handContainer.innerHTML += cardHTML;
+        });
+    }
+    
+    // Update hand count display
+    const handLabel = document.querySelector('.player-hand-section .hand-label');
+    if (handLabel) {
+        const maxHandSize = <?= $gameRules['max_hand_size'] ?>;
+        handLabel.textContent = `Your Hand (${hand.length}/${maxHandSize})`;
+    }
+    
+    // Re-attach drag and drop event handlers to newly created cards
+    const newCards = handContainer.querySelectorAll('.hand-card');
+    newCards.forEach(card => {
+        card.addEventListener('dragstart', handleCardDragStart);
+        card.addEventListener('dragend', handleDragEnd);
+    });
+}
+
+// Modify the existing card click handler
+function handleCardClick(cardIndex, cardType) {
+    const cardElement = document.querySelector(`.hand-card-container[style*="--card-index: ${cardIndex}"] .hand-card`);
+    if (!cardElement) return;
+
+    const cardData = JSON.parse(cardElement.dataset.card);
+    CardZoom.showZoomModal(cardData, false, cardIndex); // Pass cardIndex to the modal
+}
+
+// Helper functions for UI updates
+function updateEnergyDisplay(newEnergy) {
+    const energyElement = document.getElementById('playerEnergyValue');
+    if (energyElement) {
+        energyElement.textContent = newEnergy;
+    }
+}
+
+function showTurnIndicator(player) {
+    const indicator = document.getElementById('turnIndicator');
+    if (indicator) {
+        if (player === 'player') {
+            indicator.textContent = "PLAYER'S TURN";
+            indicator.className = 'turn-indicator player-turn';
+        } else {
+            indicator.textContent = "ENEMY'S TURN";
+            indicator.className = 'turn-indicator enemy-turn';
+        }
+    }
+}
+
+// ===================================================================
+// HELP MODAL FUNCTIONS
+// ===================================================================
+function showHelpModal() {
+    const modal = document.getElementById('helpModal');
+    const overlay = document.getElementById('helpModalOverlay');
+    
+    if (modal && overlay) {
+        modal.classList.add('active');
+        overlay.classList.add('active');
+        
+        // Prevent body scrolling when modal is open
+        document.body.style.overflow = 'hidden';
+        
+        // Add escape key listener
+        document.addEventListener('keydown', handleHelpEscKey);
+    }
+}
+
+function closeHelpModal() {
+    const modal = document.getElementById('helpModal');
+    const overlay = document.getElementById('helpModalOverlay');
+    
+    if (modal && overlay) {
+        modal.classList.remove('active');
+        overlay.classList.remove('active');
+        
+        // Restore body scrolling
+        document.body.style.overflow = '';
+        
+        // Remove escape key listener
+        document.removeEventListener('keydown', handleHelpEscKey);
+    }
+}
+
+function handleHelpEscKey(event) {
+    if (event.key === 'Escape') {
+        closeHelpModal();
+    }
+}
+
+// Initialize Action Bar on page load
+updateActionBar('main');
+
+// Global game state tracking
+window.gameState = 'active'; // Can be 'active', 'player_wins', 'enemy_wins'
+window.currentPlayerTurn = 'player'; // Can be 'player' or 'enemy'
 </script>
 
 </body>

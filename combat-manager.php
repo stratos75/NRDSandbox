@@ -62,6 +62,53 @@ function calculateDamage($attackerMech, $attackerEquipment, $defenderMech, $defe
     ];
 }
 
+// AI Turn Logic - Performs complete AI turn and returns actions for visualization
+function performAITurn(&$playerMech, &$enemyMech, &$enemyHand, &$enemyEnergy, $maxEnergy, &$gameLog) {
+    $ai_actions = [];
+    $enemyEnergy = $maxEnergy; // AI starts its turn with full energy.
+
+    // AI Decision 1: Play the highest-damage card it can afford.
+    $bestCardIndex = -1;
+    $maxDamage = -1;
+    foreach ($enemyHand as $index => $card) {
+        if (isset($card['cost']) && isset($card['damage']) && intval($card['cost']) <= $enemyEnergy && intval($card['damage']) > $maxDamage) {
+            $maxDamage = intval($card['damage']);
+            $bestCardIndex = $index;
+        }
+    }
+
+    if ($bestCardIndex > -1) {
+        $cardToPlay = $enemyHand[$bestCardIndex];
+        $enemyEnergy -= intval($cardToPlay['cost']);
+        $playerMech['HP'] = max(0, $playerMech['HP'] - intval($cardToPlay['damage']));
+
+        $playedCard = array_splice($enemyHand, $bestCardIndex, 1)[0];
+        $logMessage = "[" . date('H:i:s') . "] AI played {$playedCard['name']} dealing {$playedCard['damage']} damage.";
+        $gameLog[] = $logMessage;
+        $ai_actions[] = ['type' => 'play_card', 'card' => $playedCard, 'log' => $logMessage];
+        
+        // Check for game over after card play
+        if ($playerMech['HP'] <= 0) {
+            $ai_actions[] = ['type' => 'game_over', 'winner' => 'enemy'];
+            return $ai_actions;
+        }
+    }
+
+    // AI Decision 2: Always perform a base attack.
+    $baseAttackDamage = $enemyMech['ATK'] ?? 25;
+    $playerMech['HP'] = max(0, $playerMech['HP'] - $baseAttackDamage);
+    $logMessage = "[" . date('H:i:s') . "] AI attacks for {$baseAttackDamage} damage.";
+    $gameLog[] = $logMessage;
+    $ai_actions[] = ['type' => 'attack', 'damage' => $baseAttackDamage, 'log' => $logMessage];
+    
+    // Check for game over after attack
+    if ($playerMech['HP'] <= 0) {
+        $ai_actions[] = ['type' => 'game_over', 'winner' => 'enemy'];
+    }
+
+    return $ai_actions;
+}
+
 // Process different combat actions
 switch ($action) {
     
@@ -86,6 +133,11 @@ switch ($action) {
             'logEntry' => end($gameLog),
             'combatDetails' => $combatResult
         ];
+        
+        // Check for game over
+        if ($enemyMech['HP'] <= 0) {
+            $response['data']['gameOver'] = 'player_wins';
+        }
         break;
         
     case 'enemy_attack':
@@ -109,6 +161,11 @@ switch ($action) {
             'logEntry' => end($gameLog),
             'combatDetails' => $combatResult
         ];
+        
+        // Check for game over
+        if ($playerMech['HP'] <= 0) {
+            $response['data']['gameOver'] = 'enemy_wins';
+        }
         break;
         
     case 'reset_mechs':
@@ -137,21 +194,30 @@ switch ($action) {
         break;
         
     case 'end_turn':
-        // For now, just switch back to player and reset energy
+        // AI takes its turn
+        $ai_actions = performAITurn($_SESSION['playerMech'], $_SESSION['enemyMech'], $_SESSION['enemy_hand'], $_SESSION['enemyEnergy'], $_SESSION['maxEnergy'], $_SESSION['log']);
+
+        // Then, it becomes the player's turn again
         $_SESSION['currentPlayer'] = 'player';
         $_SESSION['playerEnergy'] = $_SESSION['maxEnergy'] ?? 5;
 
-        $gameLog[] = "[" . date('H:i:s') . "] Turn ended. Energy restored to " . $_SESSION['playerEnergy'] . ".";
-
         $response['success'] = true;
-        $response['message'] = "Player's turn started.";
+        $response['message'] = "AI turn finished. Player's turn.";
         $response['data'] = [
-            'currentPlayer' => $_SESSION['currentPlayer'],
+            'ai_actions' => $ai_actions,
+            'playerMech' => $_SESSION['playerMech'],
+            'enemyMech' => $_SESSION['enemyMech'],
             'playerEnergy' => $_SESSION['playerEnergy'],
-            'playerMech' => $playerMech,
-            'enemyMech' => $enemyMech,
-            'logEntry' => end($gameLog)
+            'enemyHandCount' => count($_SESSION['enemy_hand'])
         ];
+        
+        // Check if AI actions resulted in game over
+        foreach ($ai_actions as $action) {
+            if ($action['type'] === 'game_over') {
+                $response['data']['gameOver'] = ($action['winner'] === 'enemy') ? 'enemy_wins' : 'player_wins';
+                break;
+            }
+        }
         break;
         
     case 'play_card':
@@ -166,18 +232,36 @@ switch ($action) {
             if ($playerEnergy >= $cardCost) {
                 $_SESSION['playerEnergy'] -= $cardCost;
 
+                // Apply card damage to enemy if applicable
+                $cardDamage = intval($card['damage'] ?? 0);
+                if ($cardDamage > 0) {
+                    $enemyMech['HP'] = max(0, $enemyMech['HP'] - $cardDamage);
+                    $_SESSION['enemyMech'] = $enemyMech;
+                }
+
                 // Remove card from hand
                 $playedCard = array_splice($_SESSION['player_hand'], $cardIndex, 1);
 
-                $gameLog[] = "[" . date('H:i:s') . "] Player played {$card['name']} for {$cardCost} energy.";
+                $logMessage = "[" . date('H:i:s') . "] Player played {$card['name']} for {$cardCost} energy";
+                if ($cardDamage > 0) {
+                    $logMessage .= " dealing {$cardDamage} damage";
+                }
+                $logMessage .= ".";
+                $gameLog[] = $logMessage;
                 $_SESSION['log'] = $gameLog;
 
                 $response['success'] = true;
                 $response['message'] = "Played {$card['name']}";
                 $response['data'] = [
                     'playerEnergy' => $_SESSION['playerEnergy'],
-                    'playerHand' => $_SESSION['player_hand']
+                    'playerHand' => $_SESSION['player_hand'],
+                    'enemyMech' => $enemyMech
                 ];
+                
+                // Check for game over
+                if ($cardDamage > 0 && $enemyMech['HP'] <= 0) {
+                    $response['data']['gameOver'] = 'player_wins';
+                }
             } else {
                 $response['message'] = 'Not enough energy!';
             }

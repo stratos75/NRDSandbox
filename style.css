@@ -544,6 +544,8 @@ body {
 .hand-section {
     padding: 15px 0;
     text-align: center;
+    position: relative;
+    z-index: 50; /* Ensure hand section is above other elements */
 }
 
 .enemy-hand-section {
@@ -586,12 +588,12 @@ body {
     /* Fan positioning and rotation using CSS custom property */
     left: calc(50% + (var(--card-index) - 2) * 20px);
     transform: translateX(-50%) rotate(calc((var(--card-index) - 2) * 8deg));
-    z-index: calc(10 + var(--card-index));
+    z-index: calc(100 + var(--card-index)); /* Much higher z-index to ensure cards are always visible */
 }
 
 .fan-card:hover {
     transform: translateX(-50%) rotate(calc((var(--card-index) - 2) * 8deg)) translateY(-10px) scale(1.1);
-    z-index: 20;
+    z-index: 200; /* Even higher for hover state */
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
 }
 
@@ -812,13 +814,20 @@ body {
     position: fixed;
     bottom: 20px;
     left: 20px;
-    width: 280px;
+    width: 320px;
+    max-height: 400px;
+    overflow-y: auto;
     z-index: 1000;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .control-group {
     width: 100%;
+    margin-bottom: 20px;
+}
+
+.control-group:last-child {
+    margin-bottom: 0;
 }
 
 .control-group h3 {
@@ -2308,7 +2317,7 @@ body {
     /* Improved fan positioning - tighter spread */
     left: calc(50% + (var(--card-index) - 2) * 15px); /* Reduced from 20px to 15px */
     transform: translateX(-50%) rotate(calc((var(--card-index) - 2) * 6deg)); /* Reduced from 8deg to 6deg */
-    z-index: calc(10 + var(--card-index));
+    z-index: calc(100 + var(--card-index)); /* Much higher z-index to ensure cards are always visible */
 }
 
 /* Responsive fan adjustments */
@@ -3352,14 +3361,15 @@ body {
    =================================================================== */
 .trash-zone {
     position: fixed;
-    bottom: 20px;
+    top: 50%;
     right: 20px;
-    width: 120px;
-    height: 120px;
+    transform: translateY(-50%);
+    width: 100px;
+    height: 100px;
     background: linear-gradient(135deg, #4a0e0e 0%, #6d1a1a 100%);
     border: 2px dashed #ff6b6b;
     border-radius: 15px;
-    display: flex;
+    display: none; /* Hidden to prevent interference with cards */
     flex-direction: column;
     align-items: center;
     justify-content: center;
@@ -3842,9 +3852,9 @@ body {
 }
 
 .equipment-assignment {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
     margin-bottom: 15px;
 }
 
@@ -3907,4 +3917,460 @@ body {
 
 .random-btn:hover {
     background: rgba(40, 167, 69, 0.3);
+}
+
+/* ===================================================================
+   TURN-BASED SYSTEM STYLES
+   =================================================================== */
+
+/* Energy Display */
+.player-resources {
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.energy-display {
+    display: inline-block;
+    background: rgba(0, 0, 0, 0.5);
+    color: #ffc107;
+    padding: 8px 18px;
+    border-radius: 20px;
+    font-size: 16px;
+    font-weight: bold;
+    border: 1px solid #333;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
+/* End Turn Button */
+#endTurnBtn {
+    background: linear-gradient(145deg, #17a2b8 0%, #117a8b 100%);
+    color: white;
+    border: 1px solid #17a2b8;
+}
+
+#endTurnBtn:hover {
+    background: linear-gradient(145deg, #138496 0%, #0d5e6e 100%);
+    transform: translateY(-1px);
+}
+
+#endTurnBtn:disabled {
+    background: rgba(128, 128, 128, 0.5);
+    border-color: #666;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Turn Indicator */
+.turn-indicator {
+    position: absolute;
+    background: #1a1a2e;
+    padding: 4px 20px;
+    border: 1px solid;
+    border-radius: 15px;
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    transition: all 0.3s ease;
+    z-index: 10;
+    left: 50%;
+    transform: translateX(-50%);
+    top: -10px;
+}
+
+.player-turn {
+    color: #28a745;
+    border-color: #28a745;
+    box-shadow: 0 0 10px rgba(40, 167, 69, 0.5);
+}
+
+.enemy-turn {
+    color: #dc3545;
+    border-color: #dc3545;
+    box-shadow: 0 0 10px rgba(220, 53, 69, 0.5);
+}
+
+/* Battlefield divider positioning */
+.battlefield-divider {
+    position: relative;
+    margin: 20px 0;
+}
+
+/* ===================================================================
+   HELP SYSTEM STYLES
+   =================================================================== */
+
+/* Help Button */
+.help-button {
+    background: rgba(255, 193, 7, 0.2);
+    color: #ffc107;
+    border: 1px solid #ffc107;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: inherit;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.help-button:hover {
+    background: rgba(255, 193, 7, 0.3);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+}
+
+/* Help Modal */
+.help-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+    border: 2px solid #333;
+    border-radius: 15px;
+    width: 90%;
+    max-width: 800px;
+    max-height: 90vh;
+    z-index: 10000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.help-modal.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.help-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 9999;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.help-modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.help-modal-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    max-height: 90vh;
+}
+
+.help-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 25px;
+    border-bottom: 2px solid #333;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 15px 15px 0 0;
+}
+
+.help-modal-header h2 {
+    color: #00d4ff;
+    margin: 0;
+    font-size: 24px;
+    text-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+}
+
+.help-close-btn {
+    background: rgba(220, 53, 69, 0.2);
+    color: #dc3545;
+    border: 1px solid #dc3545;
+    border-radius: 50%;
+    width: 35px;
+    height: 35px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+.help-close-btn:hover {
+    background: rgba(220, 53, 69, 0.4);
+    transform: scale(1.1);
+}
+
+.help-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+}
+
+.help-sections {
+    padding: 25px;
+}
+
+.help-section {
+    margin-bottom: 30px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 20px;
+}
+
+.help-section h3 {
+    color: #ffc107;
+    margin: 0 0 15px 0;
+    font-size: 20px;
+    border-bottom: 1px solid #444;
+    padding-bottom: 8px;
+}
+
+.help-section p {
+    color: #ddd;
+    line-height: 1.6;
+    margin-bottom: 15px;
+}
+
+.help-subsection {
+    margin-bottom: 20px;
+}
+
+.help-subsection h4 {
+    color: #88c0ff;
+    margin: 0 0 10px 0;
+    font-size: 16px;
+}
+
+.help-section ul {
+    color: #ccc;
+    margin-left: 20px;
+    line-height: 1.8;
+}
+
+.help-section li {
+    margin-bottom: 8px;
+}
+
+.help-section strong {
+    color: #fff;
+}
+
+.help-modal-footer {
+    padding: 20px 25px;
+    border-top: 2px solid #333;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 0 0 15px 15px;
+    text-align: center;
+}
+
+.help-close-button {
+    background: linear-gradient(145deg, #28a745 0%, #1e7e34 100%);
+    color: white;
+    border: 1px solid #28a745;
+    padding: 12px 25px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+.help-close-button:hover {
+    background: linear-gradient(145deg, #218838 0%, #1a6e2e 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .help-modal {
+        width: 95%;
+        max-height: 95vh;
+    }
+    
+    .help-modal-header h2 {
+        font-size: 20px;
+    }
+    
+    .help-sections {
+        padding: 15px;
+    }
+    
+    .help-section {
+        padding: 15px;
+    }
+    
+    .help-section h3 {
+        font-size: 18px;
+    }
+}
+
+/* ===================================================================
+   ACTION BAR STYLES
+   =================================================================== */
+
+.action-bar {
+    position: fixed;
+    top: 35%;
+    right: 30px;
+    transform: translateY(-50%);
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 2px solid #333;
+    text-align: center;
+    width: 280px;
+    border-radius: 12px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.7);
+    backdrop-filter: blur(8px);
+    z-index: 1500; /* Above most elements but below modals */
+}
+
+.action-bar-text {
+    color: #ffc107;
+    font-size: 16px;
+    font-style: italic;
+    margin-bottom: 15px;
+}
+
+.action-bar-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+}
+
+.action-bar-buttons .action-btn {
+    min-width: 140px;
+    font-size: 14px;
+    padding: 10px 20px;
+}
+
+.action-bar-buttons .config-btn {
+    background: linear-gradient(145deg, #6c757d 0%, #495057 100%);
+    font-size: 12px;
+    min-width: 120px;
+    margin-top: 5px;
+}
+
+.action-bar-buttons .config-btn:hover {
+    background: linear-gradient(145deg, #5a6268 0%, #3d4045 100%);
+}
+
+/* Enemy Configuration Interface */
+.config-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+}
+
+.config-row {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.config-row .action-btn {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+}
+
+.clear-btn {
+    background: linear-gradient(145deg, #dc3545 0%, #c82333 100%) !important;
+}
+
+.clear-btn:hover {
+    background: linear-gradient(145deg, #c82333 0%, #a71e2a 100%) !important;
+}
+
+.random-btn {
+    background: linear-gradient(145deg, #17a2b8 0%, #138496 100%) !important;
+}
+
+.random-btn:hover {
+    background: linear-gradient(145deg, #138496 0%, #0f6674 100%) !important;
+}
+
+.back-btn {
+    background: linear-gradient(145deg, #28a745 0%, #1e7e34 100%) !important;
+}
+
+.back-btn:hover {
+    background: linear-gradient(145deg, #1e7e34 0%, #155724 100%) !important;
+}
+
+.config-info {
+    text-align: center;
+    margin: 5px 0;
+}
+
+.config-info small {
+    color: #aaa;
+    font-size: 10px;
+    font-style: italic;
+}
+
+/* ===================================================================
+   NARRATIVE GUIDE PANEL STYLES
+   =================================================================== */
+
+.narrative-guide-panel {
+    position: fixed;
+    top: 80px; /* Below the top nav bar */
+    left: 20px;
+    width: 250px;
+    z-index: 1100; /* Above the battlefield but below modals */
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid #444;
+    border-radius: 8px;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    transform: translateX(-150%);
+    transition: transform 0.5s ease-in-out;
+}
+
+.narrative-guide-panel.visible {
+    transform: translateX(0);
+}
+
+.portrait-container {
+    position: relative;
+    width: 100%;
+    height: 250px; /* Square portrait */
+    background-color: #111;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    overflow: hidden;
+}
+
+#guidePortrait {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.blink-overlay {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background-size: cover;
+    opacity: 0;
+}
+
+.speech-bubble {
+    padding: 15px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #ddd;
+    font-style: italic;
+    border-top: 1px solid #444;
 }
