@@ -21,14 +21,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $action = $_POST['action'] ?? '';
 
 // Load current game state from session
-$playerMech = $_SESSION['playerMech'] ?? ['HP' => 100, 'ATK' => 30, 'DEF' => 15, 'MAX_HP' => 100, 'companion' => 'Pilot-Alpha'];
-$enemyMech = $_SESSION['enemyMech'] ?? ['HP' => 100, 'ATK' => 25, 'DEF' => 10, 'MAX_HP' => 100, 'companion' => 'AI-Core'];
+$playerMech = $_SESSION['playerMech'] ?? ['HP' => 75, 'ATK' => 30, 'DEF' => 15, 'MAX_HP' => 75, 'companion' => 'Pilot-Alpha'];
+$enemyMech = $_SESSION['enemyMech'] ?? ['HP' => 75, 'ATK' => 25, 'DEF' => 10, 'MAX_HP' => 75, 'companion' => 'AI-Core'];
 $playerEquipment = $_SESSION['playerEquipment'] ?? ['weapon' => null, 'armor' => null, 'weapon_special' => null];
 $enemyEquipment = $_SESSION['enemyEquipment'] ?? ['weapon' => null, 'armor' => null];
 $gameLog = $_SESSION['log'] ?? [];
 
 // Helper function to calculate actual damage
-function calculateDamage($attackerMech, $attackerEquipment, $defenderMech, $defenderEquipment) {
+function calculateDamage($attackerMech, $attackerEquipment, $defenderMech, $defenderEquipment, $isPlayerAttacker = true) {
     // Base damage from mech stats
     $baseDamage = $attackerMech['ATK'] ?? 20;
     
@@ -38,8 +38,15 @@ function calculateDamage($attackerMech, $attackerEquipment, $defenderMech, $defe
         $weaponBonus = intval($attackerEquipment['weapon']['atk'] ?? $attackerEquipment['weapon']['damage'] ?? 0);
     }
     
+    // Add companion attack bonus if attacker is player and companion is active
+    $companionAtkBonus = 0;
+    if ($isPlayerAttacker && ($_SESSION['playerCompanionActive'] ?? false)) {
+        $companionBonuses = $_SESSION['companionBonuses'] ?? [];
+        $companionAtkBonus = $companionBonuses['atk_bonus'] ?? 0;
+    }
+    
     // Calculate total attack
-    $totalAttack = $baseDamage + $weaponBonus;
+    $totalAttack = $baseDamage + $weaponBonus + $companionAtkBonus;
     
     // Calculate defense
     $baseDefense = $defenderMech['DEF'] ?? 10;
@@ -48,17 +55,37 @@ function calculateDamage($attackerMech, $attackerEquipment, $defenderMech, $defe
         $armorBonus = intval($defenderEquipment['armor']['def'] ?? $defenderEquipment['armor']['defense'] ?? 0);
     }
     
-    $totalDefense = $baseDefense + $armorBonus;
+    // Add companion defense bonus if defender is player and companion is active
+    $companionDefBonus = 0;
+    if (!$isPlayerAttacker && ($_SESSION['playerCompanionActive'] ?? false)) {
+        $companionBonuses = $_SESSION['companionBonuses'] ?? [];
+        $companionDefBonus = $companionBonuses['def_bonus'] ?? 0;
+    }
     
-    // Final damage calculation (minimum 1 damage)
-    $finalDamage = max(1, $totalAttack - $totalDefense);
+    $totalDefense = $baseDefense + $armorBonus + $companionDefBonus;
+    
+    // Calculate raw damage
+    $rawDamage = max(1, $totalAttack - $totalDefense);
+    
+    // Apply companion damage reduction if defender is player and companion is active
+    $finalDamage = $rawDamage;
+    if (!$isPlayerAttacker && ($_SESSION['playerCompanionActive'] ?? false)) {
+        $companionBonuses = $_SESSION['companionBonuses'] ?? [];
+        $damageReduction = $companionBonuses['damage_reduction'] ?? 0;
+        if ($damageReduction > 0) {
+            $finalDamage = max(1, round($rawDamage * (1 - $damageReduction / 100)));
+        }
+    }
     
     return [
         'damage' => $finalDamage,
         'totalAttack' => $totalAttack,
         'totalDefense' => $totalDefense,
         'weaponBonus' => $weaponBonus,
-        'armorBonus' => $armorBonus
+        'armorBonus' => $armorBonus,
+        'companionAtkBonus' => $companionAtkBonus,
+        'companionDefBonus' => $companionDefBonus,
+        'damageReduction' => ($finalDamage < $rawDamage) ? ($rawDamage - $finalDamage) : 0
     ];
 }
 
@@ -113,7 +140,20 @@ function performAITurn(&$playerMech, &$enemyMech, &$enemyHand, &$enemyEnergy, $m
 switch ($action) {
     
     case 'attack_enemy':
-        $combatResult = calculateDamage($playerMech, $playerEquipment, $enemyMech, $enemyEquipment);
+        // Check if player has enough energy (attacking costs 1 energy)
+        $attackCost = 1;
+        $playerEnergy = $_SESSION['playerEnergy'] ?? 0;
+        
+        if ($playerEnergy < $attackCost) {
+            $response['message'] = 'Not enough energy to attack! (Need 1 energy)';
+            break;
+        }
+        
+        // Deduct energy for attacking
+        $_SESSION['playerEnergy'] -= $attackCost;
+        error_log("🔋 DEBUG: Attack consumed {$attackCost} energy. Energy: {$playerEnergy} → {$_SESSION['playerEnergy']}");
+        
+        $combatResult = calculateDamage($playerMech, $playerEquipment, $enemyMech, $enemyEquipment, true);
         $damageAmount = $combatResult['damage'];
         
         $enemyMech['HP'] = max(0, $enemyMech['HP'] - $damageAmount);
@@ -130,6 +170,7 @@ switch ($action) {
             'enemyMech' => $enemyMech,
             'playerEquipment' => $playerEquipment,
             'enemyEquipment' => $enemyEquipment,
+            'playerEnergy' => $_SESSION['playerEnergy'],
             'logEntry' => end($gameLog),
             'combatDetails' => $combatResult
         ];
@@ -141,7 +182,7 @@ switch ($action) {
         break;
         
     case 'enemy_attack':
-        $combatResult = calculateDamage($enemyMech, $enemyEquipment, $playerMech, $playerEquipment);
+        $combatResult = calculateDamage($enemyMech, $enemyEquipment, $playerMech, $playerEquipment, false);
         $damageAmount = $combatResult['damage'];
         
         $playerMech['HP'] = max(0, $playerMech['HP'] - $damageAmount);
@@ -158,6 +199,7 @@ switch ($action) {
             'enemyMech' => $enemyMech,
             'playerEquipment' => $playerEquipment,
             'enemyEquipment' => $enemyEquipment,
+            'playerEnergy' => $_SESSION['playerEnergy'],
             'logEntry' => end($gameLog),
             'combatDetails' => $combatResult
         ];
@@ -178,6 +220,7 @@ switch ($action) {
         $response['data'] = [
             'playerMech' => $playerMech,
             'enemyMech' => $enemyMech,
+            'playerEnergy' => $_SESSION['playerEnergy'],
             'logEntry' => end($gameLog)
         ];
         break;
@@ -189,13 +232,14 @@ switch ($action) {
         $response['data'] = [
             'playerMech' => $playerMech,
             'enemyMech' => $enemyMech,
+            'playerEnergy' => $_SESSION['playerEnergy'],
             'recentLog' => array_slice($gameLog, -5) // Last 5 log entries
         ];
         break;
         
     case 'end_turn':
-        // AI takes its turn
-        $ai_actions = performAITurn($_SESSION['playerMech'], $_SESSION['enemyMech'], $_SESSION['enemy_hand'], $_SESSION['enemyEnergy'], $_SESSION['maxEnergy'], $_SESSION['log']);
+        // AI takes its turn - pass by reference to update session data
+        $ai_actions = performAITurn($playerMech, $enemyMech, $_SESSION['enemy_hand'], $_SESSION['enemyEnergy'], $_SESSION['maxEnergy'], $gameLog);
 
         // Then, it becomes the player's turn again
         $_SESSION['currentPlayer'] = 'player';
@@ -205,8 +249,8 @@ switch ($action) {
         $response['message'] = "AI turn finished. Player's turn.";
         $response['data'] = [
             'ai_actions' => $ai_actions,
-            'playerMech' => $_SESSION['playerMech'],
-            'enemyMech' => $_SESSION['enemyMech'],
+            'playerMech' => $playerMech,
+            'enemyMech' => $enemyMech,
             'playerEnergy' => $_SESSION['playerEnergy'],
             'enemyHandCount' => count($_SESSION['enemy_hand'])
         ];
@@ -221,16 +265,30 @@ switch ($action) {
         break;
         
     case 'play_card':
+        error_log("🎮 DEBUG: play_card action started");
         $cardIndex = intval($_POST['card_index'] ?? -1);
         $playerHand = $_SESSION['player_hand'] ?? [];
         $playerEnergy = $_SESSION['playerEnergy'] ?? 0;
+        error_log("🔋 DEBUG: Initial energy from session: {$playerEnergy}");
 
         if ($cardIndex >= 0 && isset($playerHand[$cardIndex])) {
             $card = $playerHand[$cardIndex];
-            $cardCost = intval($card['cost'] ?? 0);
+            
+            // NEW ENERGY ECONOMY: Equipment costs energy, other cards use their cost
+            if ($card['type'] === 'weapon' || $card['type'] === 'armor') {
+                $cardCost = 1; // Basic equipment costs 1 energy
+                error_log("🎯 DEBUG: Equipment card - using fixed cost of 1 energy");
+            } elseif ($card['type'] === 'special attack') {
+                $cardCost = 2; // Special attacks cost 2 energy when equipped
+                error_log("🎯 DEBUG: Special attack card - using fixed cost of 2 energy");
+            } else {
+                $cardCost = intval($card['cost'] ?? 1); // Other cards use their card cost (minimum 1)
+                error_log("🎯 DEBUG: Non-equipment card (type: {$card['type']}) - using card cost: {$cardCost}");
+            }
 
             if ($playerEnergy >= $cardCost) {
                 $_SESSION['playerEnergy'] -= $cardCost;
+                error_log("🔋 DEBUG: Energy after deduction: {$_SESSION['playerEnergy']} (was {$playerEnergy}, cost was {$cardCost})");
 
                 // Apply card damage to enemy if applicable
                 $cardDamage = intval($card['damage'] ?? 0);
@@ -255,8 +313,14 @@ switch ($action) {
                 $response['data'] = [
                     'playerEnergy' => $_SESSION['playerEnergy'],
                     'playerHand' => $_SESSION['player_hand'],
-                    'enemyMech' => $enemyMech
+                    'enemyMech' => $enemyMech,
+                    'playedCard' => $playedCard[0], // Add the card that was just played for tutorial system
+                    'playerEquipment' => $playerEquipment // Add equipment state for tutorial system
                 ];
+                error_log("🔋 DEBUG: Sending playerEnergy in response: {$_SESSION['playerEnergy']}");
+                
+                // Debug logging
+                error_log("🔋 DEBUG: Card cost: {$cardCost}, Energy before: {$playerEnergy}, Energy after: {$_SESSION['playerEnergy']}");
                 
                 // Check for game over
                 if ($cardDamage > 0 && $enemyMech['HP'] <= 0) {
@@ -264,6 +328,8 @@ switch ($action) {
                 }
             } else {
                 $response['message'] = 'Not enough energy!';
+                // Add cost and energy data for tutorial system
+                $response['data'] = ['cost' => $cardCost, 'energy' => $playerEnergy];
             }
         } else {
             $response['message'] = 'Invalid card selected.';
@@ -406,6 +472,11 @@ switch ($action) {
         
         $_SESSION['enemyEquipment'] = $enemyEquipment;
         
+        // Mark enemy as manually equipped for tutorial
+        $tutorialState = $_SESSION['tutorialState'] ?? [];
+        $tutorialState['enemyManuallyEquipped'] = true;
+        $_SESSION['tutorialState'] = $tutorialState;
+        
         $weaponName = $enemyEquipment['weapon']['name'] ?? 'none';
         $armorName = $enemyEquipment['armor']['name'] ?? 'none';
         $gameLog[] = "[" . date('H:i:s') . "] Enemy random loadout: {$weaponName} + {$armorName}";
@@ -413,6 +484,126 @@ switch ($action) {
         $response['success'] = true;
         $response['message'] = "Random loadout: {$weaponName} + {$armorName}";
         $response['data'] = ['enemyEquipment' => $enemyEquipment];
+        break;
+        
+    case 'debug_change_energy':
+        $amount = intval($_POST['amount'] ?? 0);
+        $currentEnergy = $_SESSION['playerEnergy'] ?? 0;
+        $maxEnergy = $_SESSION['maxEnergy'] ?? 5;
+        
+        // Calculate new energy (clamp between 0 and max)
+        $newEnergy = max(0, min($maxEnergy, $currentEnergy + $amount));
+        $_SESSION['playerEnergy'] = $newEnergy;
+        
+        $response['success'] = true;
+        $response['message'] = "Energy changed by {$amount}";
+        $response['data'] = ['playerEnergy' => $newEnergy];
+        break;
+        
+    case 'debug_reset_energy':
+        $maxEnergy = $_SESSION['maxEnergy'] ?? 5;
+        $_SESSION['playerEnergy'] = $maxEnergy;
+        
+        $response['success'] = true;
+        $response['message'] = "Energy reset to maximum";
+        $response['data'] = ['playerEnergy' => $maxEnergy];
+        break;
+        
+    case 'discard_card':
+        $cardIndex = intval($_POST['card_index'] ?? -1);
+        $playerHand = $_SESSION['player_hand'] ?? [];
+        
+        if ($cardIndex >= 0 && isset($playerHand[$cardIndex])) {
+            $discardedCard = array_splice($_SESSION['player_hand'], $cardIndex, 1)[0];
+            
+            $logMessage = "[" . date('H:i:s') . "] Player discarded {$discardedCard['name']}.";
+            $gameLog[] = $logMessage;
+            $_SESSION['log'] = $gameLog;
+            
+            $response['success'] = true;
+            $response['message'] = "Discarded {$discardedCard['name']}";
+            $response['data'] = [
+                'playerHand' => $_SESSION['player_hand'],
+                'discardedCard' => $discardedCard
+            ];
+        } else {
+            $response['message'] = 'Invalid card selected for discard.';
+        }
+        break;
+        
+    case 'activate_companion':
+        $owner = $_POST['owner'] ?? '';
+        $currentEnergy = $_SESSION['playerEnergy'] ?? 0;
+        $companionCost = 2;
+        
+        if ($owner !== 'player') {
+            $response['message'] = 'Only player companions can be activated';
+            break;
+        }
+        
+        // Check if companion is already active
+        if ($_SESSION['playerCompanionActive'] ?? false) {
+            $response['message'] = 'Companion is already active!';
+            break;
+        }
+        
+        // Check if player has enough energy
+        if ($currentEnergy < $companionCost) {
+            $response['message'] = "Not enough energy! Need {$companionCost} energy, have {$currentEnergy}";
+            break;
+        }
+        
+        // Load companion data
+        $companionLibrary = [
+            'Jack' => [
+                'name' => 'Jack',
+                'full_name' => 'Jack the Super-Intelligent Terrier',
+                'energy_bonus' => 1,
+                'atk_bonus' => 3,
+                'def_bonus' => 2,
+                'heal_per_turn' => 0,
+                'damage_reduction' => 5,
+                'special_ability' => 'tactical_analysis'
+            ],
+            'AI-Core' => [
+                'name' => 'AI-Core',
+                'full_name' => 'Tactical AI Core',
+                'energy_bonus' => 0,
+                'atk_bonus' => 2,
+                'def_bonus' => 4,
+                'heal_per_turn' => 1,
+                'damage_reduction' => 0,
+                'special_ability' => 'shield_boost'
+            ]
+        ];
+        
+        $companionName = $playerMech['companion'] ?? 'Jack';
+        $companionData = $companionLibrary[$companionName] ?? $companionLibrary['Jack'];
+        
+        // Deduct energy
+        $_SESSION['playerEnergy'] -= $companionCost;
+        
+        // Activate companion
+        $_SESSION['playerCompanionActive'] = true;
+        
+        // Apply companion bonuses (these will be used in combat calculations)
+        $_SESSION['companionBonuses'] = [
+            'atk_bonus' => $companionData['atk_bonus'],
+            'def_bonus' => $companionData['def_bonus'],
+            'damage_reduction' => $companionData['damage_reduction'],
+            'heal_per_turn' => $companionData['heal_per_turn'],
+            'special_ability' => $companionData['special_ability']
+        ];
+        
+        $gameLog[] = "[" . date('H:i:s') . "] {$companionData['full_name']} activated! Bonuses applied.";
+        
+        $response['success'] = true;
+        $response['message'] = "{$companionData['name']} activated! +{$companionData['atk_bonus']} ATK, +{$companionData['def_bonus']} DEF, {$companionData['damage_reduction']}% damage reduction";
+        $response['data'] = [
+            'playerEnergy' => $_SESSION['playerEnergy'],
+            'companionActive' => true,
+            'bonuses' => $_SESSION['companionBonuses']
+        ];
         break;
         
     default:
@@ -427,6 +618,9 @@ $_SESSION['enemyMech'] = $enemyMech;
 $_SESSION['playerEquipment'] = $playerEquipment;
 $_SESSION['enemyEquipment'] = $enemyEquipment;
 $_SESSION['log'] = $gameLog;
+
+// Debug final session state
+error_log("🔋 DEBUG: Final session playerEnergy: " . ($_SESSION['playerEnergy'] ?? 'NOT SET'));
 
 // Return JSON response
 echo json_encode($response);

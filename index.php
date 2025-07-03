@@ -203,20 +203,54 @@ if (!isset($_SESSION['player_hand'])) {
 $playerHand = $_SESSION['player_hand'] ?? [];
 
 // Initialize basic mech data with image support
+// ===================================================================
+// COMPANION SYSTEM DATA
+// ===================================================================
+$companionLibrary = [
+    'Jack' => [
+        'name' => 'Jack',
+        'full_name' => 'Jack the Super-Intelligent Terrier',
+        'type' => 'enhanced_animal',
+        'energy_bonus' => 1,        // +1 energy per turn
+        'atk_bonus' => 3,           // +3 attack
+        'def_bonus' => 2,           // +2 defense  
+        'heal_per_turn' => 0,       // No healing
+        'damage_reduction' => 5,    // 5% damage reduction
+        'special_ability' => 'tactical_analysis', // Once per turn: see enemy hand
+        'synergy_element' => null,  // No element synergy
+        'description' => 'Hyperactive genius provides tactical analysis and energy efficiency',
+        'image' => 'images/companions/companion_pilot_jack.png'
+    ],
+    'AI-Core' => [
+        'name' => 'AI-Core',
+        'full_name' => 'Tactical AI Core',
+        'type' => 'artificial_intelligence',
+        'energy_bonus' => 0,        // No energy bonus
+        'atk_bonus' => 2,           // +2 attack
+        'def_bonus' => 4,           // +4 defense
+        'heal_per_turn' => 1,       // +1 HP per turn
+        'damage_reduction' => 0,    // No damage reduction
+        'special_ability' => 'shield_boost', // Once per turn: temporary defense
+        'synergy_element' => 'plasma', // Synergy with plasma weapons
+        'description' => 'Advanced AI provides defensive calculations and regenerative protocols',
+        'image' => 'images/companions/companion_ai_core.png'
+    ]
+];
+
 $defaultPlayerMech = [
-    'HP' => 100, 
+    'HP' => 75, 
     'ATK' => 30, 
     'DEF' => 15, 
-    'MAX_HP' => 100, 
-    'companion' => 'Pilot-Alpha',
+    'MAX_HP' => 75, 
+    'companion' => 'Jack',
     'name' => 'Player Mech',
     'image' => null
 ];
 $defaultEnemyMech = [
-    'HP' => 100, 
+    'HP' => 75, 
     'ATK' => 25, 
     'DEF' => 10, 
-    'MAX_HP' => 100, 
+    'MAX_HP' => 75, 
     'companion' => 'AI-Core',
     'name' => 'Enemy Mech',
     'image' => null
@@ -232,12 +266,17 @@ $enemyMech = array_merge($defaultEnemyMech, $_SESSION['enemyMech'] ?? []);
 $playerEquipment = $_SESSION['playerEquipment'] ?? ['weapon' => null, 'armor' => null, 'weapon_special' => null];
 $enemyEquipment = $_SESSION['enemyEquipment'] ?? ['weapon' => null, 'armor' => null];
 
-// For enemy, pre-populate equipment (they start equipped)
+// Tutorial state tracking
+$tutorialState = $_SESSION['tutorialState'] ?? ['enemyManuallyEquipped' => false];
+
+// For enemy, pre-populate equipment (they start equipped) - but mark as not manually equipped for tutorial
 if ($enemyEquipment['weapon'] === null && $enemyEquipment['armor'] === null) {
     $enemyEquipment = [
         'weapon' => ['name' => 'Ion Cannon', 'atk' => 12, 'durability' => 100, 'type' => 'weapon'],
         'armor' => ['name' => 'Reactive Plating', 'def' => 8, 'durability' => 100, 'type' => 'armor']
     ];
+    // This is default equipment, not manually equipped
+    $tutorialState['enemyManuallyEquipped'] = false;
 }
 
 $gameLog = $_SESSION['log'] ?? [];
@@ -254,7 +293,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['reset_mechs'])) {
         $playerMech['HP'] = $playerMech['MAX_HP'];
         $enemyMech['HP'] = $enemyMech['MAX_HP'];
-        $gameLog[] = "[" . date('H:i:s') . "] Debug: Mech health reset to full";
+        // Also reset energy when resetting mechs
+        $_SESSION['playerEnergy'] = $_SESSION['maxEnergy'] ?? 5;
+        $_SESSION['enemyEnergy'] = $_SESSION['maxEnergy'] ?? 5;
+        $gameLog[] = "[" . date('H:i:s') . "] Debug: Mech health and energy reset to full";
     }
     
     // Reset card hands to starting state
@@ -290,19 +332,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $playerImage = $playerMech['image'] ?? null;
         $enemyImage = $enemyMech['image'] ?? null;
         $playerMech = [
-            'HP' => 100, 
+            'HP' => 75, 
             'ATK' => 30, 
             'DEF' => 15, 
-            'MAX_HP' => 100, 
+            'MAX_HP' => 75, 
             'companion' => 'Pilot-Alpha',
             'name' => 'Player Mech',
             'image' => $playerImage
         ];
         $enemyMech = [
-            'HP' => 100, 
+            'HP' => 75, 
             'ATK' => 25, 
             'DEF' => 10, 
-            'MAX_HP' => 100, 
+            'MAX_HP' => 75, 
             'companion' => 'AI-Core',
             'name' => 'Enemy Mech',
             'image' => $enemyImage
@@ -330,6 +372,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $_SESSION['player_hand'] = $playerHand;
         }
+        
+        // Reset energy to maximum
+        $_SESSION['playerEnergy'] = $_SESSION['maxEnergy'] ?? 5;
+        $_SESSION['enemyEnergy'] = $_SESSION['maxEnergy'] ?? 5;
+        
+        // Reset tutorial state
+        $tutorialState = ['enemyManuallyEquipped' => false];
         
         // Reset log
         $gameLog = [];
@@ -396,6 +445,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (isset($playerHand[$cardIndex])) {
             $card = $playerHand[$cardIndex];
             
+            // Calculate energy cost for equipment
+            $energyCost = 1; // Default for weapon/armor
+            if ($card['type'] === 'special attack') {
+                $energyCost = 2; // Special attacks cost 2 energy
+            }
+            
+            // Check if player has enough energy
+            $currentEnergy = $_SESSION['playerEnergy'] ?? 0;
+            if ($currentEnergy < $energyCost) {
+                $gameLog[] = "[" . date('H:i:s') . "] Error: Not enough energy to equip {$card['name']}! (Need {$energyCost} energy, have {$currentEnergy})";
+            } else {
+            
             // Handle special attack equipping
             if ($card['type'] === 'special attack' && $equipSlot === 'weapon_special') {
                 // Check if weapon is equipped first
@@ -415,6 +476,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['player_hand'] = $playerHand;
                     
                     $gameLog[] = "[" . date('H:i:s') . "] Equipped {$card['name']} special attack!";
+                    // Deduct energy for successful special attack equipping
+                    $_SESSION['playerEnergy'] -= $energyCost;
                 }
             }
             // Validate card type matches slot for weapons and armor
@@ -434,9 +497,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['player_hand'] = $playerHand;
                 
                 $gameLog[] = "[" . date('H:i:s') . "] Equipped {$card['name']} to {$equipSlot} slot!";
+                // Deduct energy for successful weapon/armor equipping
+                $_SESSION['playerEnergy'] -= $energyCost;
             } else {
                 $gameLog[] = "[" . date('H:i:s') . "] Error: Cannot equip {$card['type']} card to {$equipSlot} slot!";
             }
+            } // Close energy check block
         }
     }
     
@@ -493,6 +559,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $_SESSION['enemyMech'] = $enemyMech;
     $_SESSION['playerEquipment'] = $playerEquipment;
     $_SESSION['enemyEquipment'] = $enemyEquipment;
+    $_SESSION['tutorialState'] = $tutorialState;
     $_SESSION['log'] = $gameLog;
     
     // Prevent form resubmission on page refresh
@@ -759,10 +826,14 @@ function renderEquipmentSlot($equipment, $slotType, $owner, $specialAttack = nul
                 <div class="mech-area enemy-mech">
                     <div class="mech-card <?= getMechStatusClass($enemyMech['HP'], $enemyMech['MAX_HP']) ?>" id="enemyMechCard">
                         <?php if ($gameConfig['enable_companions']): ?>
-                            <div class="companion-pog enemy-companion">
-                                <div class="pog-content">
-                                    <div class="pog-name"><?= safeHtmlOutput($enemyMech['companion'], 'AI-Core') ?></div>
-                                </div>
+                            <div class="companion-pog enemy-companion" title="Companion: <?= safeHtmlOutput($enemyMech['companion'], 'AI-Core') ?>">
+                                <?php 
+                                $companionImage = 'images/companions/companion_ai_core.png';
+                                if (file_exists($companionImage)): ?>
+                                    <img src="<?= $companionImage ?>" alt="<?= safeHtmlOutput($enemyMech['companion'], 'AI-Core') ?>" class="companion-image">
+                                <?php else: ?>
+                                    <div class="companion-text"><?= substr(safeHtmlOutput($enemyMech['companion'], 'AI'), 0, 2) ?></div>
+                                <?php endif; ?>
                             </div>
                         <?php endif; ?>
                         
@@ -814,6 +885,11 @@ function renderEquipmentSlot($equipment, $slotType, $owner, $specialAttack = nul
             
             <div class="player-resources">
                 <div class="energy-display">⚡️ Energy: <span id="playerEnergyValue"><?= $_SESSION['playerEnergy'] ?></span> / <?= $_SESSION['maxEnergy'] ?></div>
+                <div class="energy-debug-controls" style="margin-top: 10px;">
+                    <button type="button" onclick="debugChangeEnergy(-1)" class="debug-btn">-1 Energy</button>
+                    <button type="button" onclick="debugChangeEnergy(1)" class="debug-btn">+1 Energy</button>
+                    <button type="button" onclick="debugResetEnergy()" class="debug-btn">Reset Energy</button>
+                </div>
             </div>
             
             <div class="battlefield-layout">
@@ -839,10 +915,27 @@ function renderEquipmentSlot($equipment, $slotType, $owner, $specialAttack = nul
                 <div class="mech-area player-mech">
                     <div class="mech-card <?= getMechStatusClass($playerMech['HP'], $playerMech['MAX_HP']) ?>" id="playerMechCard">
                         <?php if ($gameConfig['enable_companions']): ?>
-                            <div class="companion-pog player-companion">
-                                <div class="pog-content">
-                                    <div class="pog-name"><?= safeHtmlOutput($playerMech['companion'], 'Pilot-Alpha') ?></div>
-                                </div>
+                            <?php
+                            $companionName = $playerMech['companion'] ?? 'Jack';
+                            $companionData = $companionLibrary[$companionName] ?? $companionLibrary['Jack'];
+                            $isActive = $_SESSION['playerCompanionActive'] ?? false;
+                            $activeClass = $isActive ? 'companion-active' : '';
+                            $costText = $isActive ? 'Active!' : 'Click: 2 Energy';
+                            ?>
+                            <div class="companion-pog player-companion <?= $activeClass ?>" 
+                                 title="<?= $companionData['full_name'] ?> - <?= $costText ?>"
+                                 onclick="activateCompanion('player')"
+                                 id="playerCompanionPog">
+                                <?php 
+                                $companionImage = $companionData['image'];
+                                if (file_exists($companionImage)): ?>
+                                    <img src="<?= $companionImage ?>" alt="<?= $companionData['name'] ?>" class="companion-image">
+                                <?php else: ?>
+                                    <div class="companion-text">🐕</div>
+                                <?php endif; ?>
+                                <?php if ($isActive): ?>
+                                    <div class="companion-active-indicator">⚡</div>
+                                <?php endif; ?>
                             </div>
                         <?php endif; ?>
                         
@@ -1044,7 +1137,7 @@ function renderEquipmentSlot($equipment, $slotType, $owner, $specialAttack = nul
         </div>
         
         <div class="modal-footer">
-            <button type="button" onclick="playCard()" class="action-btn attack-btn">⚡ Play Card</button>
+            <button type="button" onclick="playCard(window.currentCardIndex)" class="action-btn attack-btn">⚡ Play Card</button>
             <button type="button" onclick="closeCardDetails()" class="action-btn cancel-btn">Close</button>
         </div>
     </div>
@@ -1059,149 +1152,187 @@ function renderEquipmentSlot($equipment, $slotType, $owner, $specialAttack = nul
 <div id="helpModal" class="help-modal">
     <div class="help-modal-content">
         <div class="help-modal-header">
-            <h2>🎮 NRD Tactical Sandbox - Game Guide</h2>
+            <img src="images/old_man_thoughtful.png" alt="Old Man Instructor" class="help-old-man-image">
+            <div class="help-header-text">
+                <h2>🎓 Welcome to Combat Training, Pilot</h2>
+                <p class="help-subtitle">Listen carefully to these old battle-tested lessons...</p>
+            </div>
             <button type="button" class="help-close-btn" onclick="closeHelpModal()">✕</button>
         </div>
         
         <div class="help-modal-body">
             <div class="help-sections">
                 
-                <!-- Game Overview -->
+                <!-- 1. Welcome & Basic Concepts -->
                 <div class="help-section">
-                    <h3>🎯 Game Overview</h3>
-                    <p>NRD Tactical Sandbox is a turn-based card battle game where you pilot a mech and battle against an AI opponent. Use strategy, equipment, and card management to emerge victorious!</p>
+                    <h3>🎯 Lesson 1: Understanding Your Mission</h3>
+                    <p><em>"Alright, rookie. You're about to pilot a combat mech in tactical card-based warfare. This isn't child's play - it's about strategy, resource management, and making every decision count. Pay attention."</em></p>
+                    <p><strong>Your Goal:</strong> Reduce the enemy mech's HP to zero before they destroy you. Simple concept, complex execution.</p>
                 </div>
                 
-                <!-- Turn System -->
+                <!-- 2. Energy - The Core Resource -->
                 <div class="help-section">
-                    <h3>⚡ Turn-Based System</h3>
+                    <h3>⚡ Lesson 2: Energy - Your Lifeline</h3>
+                    <p><em>"Listen carefully, pilot. Energy is EVERYTHING. You get 5 energy each turn - no more, no less. Waste it, and you're dead."</em></p>
                     <div class="help-subsection">
-                        <h4>🟢 Player Turn:</h4>
+                        <h4>🔋 Energy Costs (Learn These!):</h4>
                         <ul>
-                            <li>Your energy is restored to maximum (default: 5)</li>
-                            <li>You can play cards that cost energy</li>
-                            <li>Each card has an energy cost shown in the top-left corner</li>
-                            <li>Click "End Turn" when you're done</li>
+                            <li><strong>Equip Weapon:</strong> 1 energy</li>
+                            <li><strong>Equip Armor:</strong> 1 energy</li>
+                            <li><strong>Equip Special Attack:</strong> 2 energy</li>
+                            <li><strong>Attack Enemy:</strong> 1 energy</li>
+                            <li><strong>Play Spell Cards:</strong> Varies (check the card cost)</li>
                         </ul>
                     </div>
-                    <div class="help-subsection">
-                        <h4>🔴 Enemy Turn:</h4>
-                        <ul>
-                            <li>The AI takes its turn automatically</li>
-                            <li>Watch for enemy actions and prepare your strategy</li>
-                            <li>Turn returns to you after AI completes its actions</li>
-                        </ul>
-                    </div>
+                    <p><em>"Full equipment setup costs 4 energy (weapon + armor + special). That leaves you only 1 energy for attacking. Choose wisely."</em></p>
                 </div>
                 
-                <!-- Card System -->
+                <!-- 3. Equipment Fundamentals -->
                 <div class="help-section">
-                    <h3>🃏 Card System</h3>
+                    <h3>⚔️ Lesson 3: Equipment Basics</h3>
+                    <p><em>"A naked mech is a dead mech. Here's what you need to know about gear:"</em></p>
                     <div class="help-subsection">
-                        <h4>Card Types:</h4>
+                        <h4>🔧 Equipment Types:</h4>
                         <ul>
-                            <li><strong>⚔️ Weapons:</strong> Equip to increase attack power</li>
-                            <li><strong>🛡️ Armor:</strong> Equip to increase defense</li>
-                            <li><strong>⚡ Spells:</strong> Cast for immediate effects</li>
-                            <li><strong>👾 Creatures:</strong> Summon allies to the battlefield</li>
-                            <li><strong>🔧 Support:</strong> Utility effects and buffs</li>
-                            <li><strong>💥 Special Attacks:</strong> Attach to weapons for enhanced abilities</li>
+                            <li><strong>⚔️ Weapons:</strong> Increase your attack damage</li>
+                            <li><strong>🛡️ Armor:</strong> Reduce incoming damage</li>
+                            <li><strong>💥 Special Attacks:</strong> Enhanced abilities (requires weapon first)</li>
                         </ul>
                     </div>
-                    <div class="help-subsection">
-                        <h4>Playing Cards:</h4>
-                        <ul>
-                            <li>Click a card in your hand to play it (costs energy)</li>
-                            <li>Equipment cards can be equipped by clicking or dragging to slots</li>
-                            <li>Spell cards are consumed when played</li>
-                            <li>You cannot play cards if you don't have enough energy</li>
-                        </ul>
-                    </div>
+                    <p><em>"To equip: Click a card in your hand. To unequip: Click the red ✕ button (but it costs no energy to unequip)."</em></p>
                 </div>
                 
-                <!-- Equipment System -->
+                <!-- 4. Combat Mechanics -->
                 <div class="help-section">
-                    <h3>⚔️ Equipment System</h3>
+                    <h3>⚔️ Lesson 4: Combat Mathematics</h3>
+                    <p><em>"Combat isn't random, pilot. It's pure mathematics. Here's the formula that'll keep you alive:"</em></p>
                     <div class="help-subsection">
-                        <h4>Equipment Slots:</h4>
+                        <h4>📊 Damage Calculation:</h4>
                         <ul>
-                            <li><strong>Weapon Slot:</strong> Increases your mech's attack power</li>
-                            <li><strong>Armor Slot:</strong> Increases your mech's defense</li>
-                            <li><strong>Special Attack:</strong> Attaches to weapons for extra abilities</li>
+                            <li><strong>Your Damage =</strong> (Mech ATK + Weapon Bonus) - (Enemy DEF + Armor Bonus)</li>
+                            <li><strong>Minimum Damage:</strong> Always at least 1 (can't be reduced to 0)</li>
+                            <li><strong>HP:</strong> Both mechs start with 75 HP - every point matters</li>
                         </ul>
                     </div>
-                    <div class="help-subsection">
-                        <h4>Managing Equipment:</h4>
-                        <ul>
-                            <li>Drag weapon/armor cards to the appropriate slots</li>
-                            <li>Click the red ✕ button to unequip items</li>
-                            <li>Unequipped cards return to your hand</li>
-                            <li>Equipment bonuses apply immediately to combat</li>
-                        </ul>
-                    </div>
+                    <p><em>"Example: Your 30 ATK + 20 weapon vs enemy's 10 DEF + 15 armor = 25 damage dealt."</em></p>
                 </div>
                 
-                <!-- Combat System -->
+                <!-- Lesson 5: Strategic Thinking -->
                 <div class="help-section">
-                    <h3>⚔️ Combat System</h3>
+                    <h3>🧠 Lesson 5: Strategic Thinking</h3>
                     <div class="help-subsection">
-                        <h4>Mech Stats:</h4>
+                        <p><em>"Listen up, cadet. Equipment makes you stronger, but strategy keeps you alive. Here's how real pilots think:"</em></p>
+                        <h4>🎯 Turn Planning:</h4>
                         <ul>
-                            <li><strong>HP:</strong> Health points - when this reaches 0, you lose</li>
-                            <li><strong>ATK:</strong> Attack power + weapon bonuses</li>
-                            <li><strong>DEF:</strong> Defense power + armor bonuses</li>
+                            <li><strong>Think 2-3 turns ahead:</strong> What will you need? What will the enemy do?</li>
+                            <li><strong>Energy curves:</strong> Turn 1: 1 energy, Turn 2: 2 energy, Turn 3: 3 energy, etc.</li>
+                            <li><strong>Save vs spend:</strong> Sometimes hoarding energy for a big turn wins battles</li>
+                            <li><strong>Card advantage:</strong> Drawing cards is worthless if you can't afford to play them</li>
                         </ul>
                     </div>
                     <div class="help-subsection">
-                        <h4>Combat Actions:</h4>
+                        <h4>⚖️ Risk Assessment:</h4>
                         <ul>
-                            <li><strong>⚔️ Attack Enemy:</strong> Deal damage based on your ATK vs enemy DEF</li>
-                            <li><strong>🛡️ Enemy Attacks:</strong> Simulate enemy attacking you</li>
-                            <li><strong>🔄 Reset Mechs:</strong> Restore both mechs to full health</li>
+                            <li><strong>Calculate lethal:</strong> Can you kill the enemy this turn or next?</li>
+                            <li><strong>Defensive math:</strong> Will their attack kill you? Armor up or attack harder?</li>
+                            <li><strong>Resource trading:</strong> Is spending 3 energy worth 15 damage?</li>
+                            <li><strong>Emergency planning:</strong> Always have a backup if your main plan fails</li>
                         </ul>
                     </div>
+                    <div class="help-subsection">
+                        <h4>⏱️ Tempo Control:</h4>
+                        <ul>
+                            <li><strong>Early aggression:</strong> Pressure enemies before they can set up</li>
+                            <li><strong>Mid-game control:</strong> Maintain equipment advantage and board presence</li>
+                            <li><strong>Late-game power:</strong> High-cost cards dominate if you survive</li>
+                        </ul>
+                    </div>
+                    <p><em>"Strategy without execution is just wishful thinking. But execution without strategy? That's how good pilots die."</em></p>
                 </div>
                 
-                <!-- Strategy Tips -->
+                <!-- Lesson 6: Battle-Tested Tactics -->
                 <div class="help-section">
-                    <h3>🧠 Strategy Tips</h3>
-                    <ul>
-                        <li><strong>Energy Management:</strong> Plan your turns - expensive cards may require saving energy</li>
-                        <li><strong>Equipment First:</strong> Equip weapons and armor early for combat bonuses</li>
-                        <li><strong>Card Draw:</strong> Click the deck to draw cards when your hand is empty</li>
-                        <li><strong>Special Combos:</strong> Attach special attacks to weapons for powerful combinations</li>
-                        <li><strong>Defense Matters:</strong> Armor can significantly reduce incoming damage</li>
-                        <li><strong>Timing:</strong> Some effects are best saved for critical moments</li>
-                    </ul>
+                    <h3>⚔️ Lesson 6: Battle-Tested Tactics</h3>
+                    <div class="help-subsection">
+                        <p><em>"These aren't theories, kid. These are tactics that have won and lost real battles. Choose your approach wisely:"</em></p>
+                        <h4>🏃 Aggressive Rush (1-3 energy focus):</h4>
+                        <ul>
+                            <li><strong>Goal:</strong> End the fight before it starts</li>
+                            <li><strong>Cards:</strong> Cheap weapons, low-cost spells, quick attacks</li>
+                            <li><strong>Energy use:</strong> Spend everything every turn, maximum pressure</li>
+                            <li><strong>Risk:</strong> If you don't win fast, you'll lose slow</li>
+                        </ul>
+                    </div>
+                    <div class="help-subsection">
+                        <h4>⚖️ Balanced Setup (2-4 energy focus):</h4>
+                        <ul>
+                            <li><strong>Goal:</strong> Steady pressure with defensive options</li>
+                            <li><strong>Cards:</strong> Medium-cost everything, versatile responses</li>
+                            <li><strong>Energy use:</strong> Curve out smoothly, save 1-2 energy for reactions</li>
+                            <li><strong>Strength:</strong> Adaptable to any enemy strategy</li>
+                        </ul>
+                    </div>
+                    <div class="help-subsection">
+                        <h4>🏰 Power Build (3-5 energy focus):</h4>
+                        <ul>
+                            <li><strong>Goal:</strong> Survive to deploy devastating late-game cards</li>
+                            <li><strong>Cards:</strong> Heavy armor, expensive weapons, powerful spells</li>
+                            <li><strong>Energy use:</strong> Bank energy early, explosive powerful turns</li>
+                            <li><strong>Risk:</strong> Vulnerable to early rush strategies</li>
+                        </ul>
+                    </div>
+                    <div class="help-subsection">
+                        <h4>🔮 Spell Focus (Variable energy):</h4>
+                        <ul>
+                            <li><strong>Goal:</strong> Control the battlefield with magical effects</li>
+                            <li><strong>Cards:</strong> Light equipment, heavy on spells and abilities</li>
+                            <li><strong>Energy use:</strong> Flexible spending based on spell costs</li>
+                            <li><strong>Note:</strong> Master this when spell effects are fully implemented</li>
+                        </ul>
+                    </div>
+                    <p><em>"I've seen hotheads rush to their doom and cowards hide until they're overwhelmed. Find your style, but respect your enemy's."</em></p>
                 </div>
                 
-                <!-- Interface Guide -->
+                <!-- Lesson 7: Interface & Controls -->
                 <div class="help-section">
-                    <h3>🖥️ Interface Guide</h3>
+                    <h3>🖥️ Lesson 7: Interface & Controls</h3>
                     <div class="help-subsection">
-                        <h4>Top Navigation:</h4>
+                        <p><em>"Your interface is your lifeline. Fumble with the controls and you're dead. Master these essentials:"</em></p>
+                        <h4>📋 Essential Controls:</h4>
                         <ul>
-                            <li><strong>⚙️ Configuration:</strong> Access card creator, debug tools, and settings</li>
-                            <li><strong>❓ Help:</strong> This help guide</li>
-                            <li><strong>v1.0:</strong> Current game version</li>
+                            <li><strong>Card Selection:</strong> Click cards in your hand to play them</li>
+                            <li><strong>Equipment:</strong> Click weapons/armor to equip, red X to unequip</li>
+                            <li><strong>Energy Display:</strong> Top-left shows current/max energy</li>
+                            <li><strong>Deck:</strong> Click your deck to draw cards (when hand is empty)</li>
+                            <li><strong>Attack Button:</strong> Big red button when you're ready to strike</li>
                         </ul>
                     </div>
                     <div class="help-subsection">
-                        <h4>Battlefield Layout:</h4>
+                        <h4>📊 Combat Information:</h4>
                         <ul>
-                            <li><strong>Top:</strong> Enemy territory with their mech and equipment</li>
-                            <li><strong>Center:</strong> Combat zone divider with turn indicator</li>
-                            <li><strong>Bottom:</strong> Your territory with hand, mech, and equipment</li>
-                            <li><strong>Right Panel:</strong> Combat actions and enemy equipment manager</li>
+                            <li><strong>HP Bars:</strong> Green = healthy, yellow = damaged, red = critical</li>
+                            <li><strong>Stat Displays:</strong> ATK/DEF numbers include equipment bonuses</li>
+                            <li><strong>Turn Indicator:</strong> Shows whose turn it is</li>
+                            <li><strong>Combat Log:</strong> Right panel shows all battle actions</li>
                         </ul>
                     </div>
+                    <div class="help-subsection">
+                        <h4>⚙️ Advanced Features:</h4>
+                        <ul>
+                            <li><strong>Configuration:</strong> Access card creator, debug tools, game settings</li>
+                            <li><strong>Debug Panel:</strong> Real-time system diagnostics (left slide panel)</li>
+                            <li><strong>Enemy Manager:</strong> Equip enemy cards for testing scenarios</li>
+                            <li><strong>Reset Functions:</strong> Restore mechs to full health for testing</li>
+                        </ul>
+                    </div>
+                    <p><em>"A good pilot knows their mech inside and out. A great pilot knows their interface just as well. Don't let clumsy fingers cost you the battle."</em></p>
                 </div>
                 
             </div>
         </div>
         
         <div class="help-modal-footer">
-            <button type="button" onclick="closeHelpModal()" class="help-close-button">Got it! Let's Play! 🎮</button>
+            <button type="button" onclick="closeHelpModal()" class="help-close-button">Understood, instructor! ⚔️</button>
         </div>
     </div>
 </div>
@@ -1218,6 +1349,11 @@ function performCombatAction(action) {
     // Validate player action
     if (!validatePlayerAction(action)) {
         return Promise.reject('Invalid turn');
+    }
+    
+    // Check tutorial flow - enemy must be equipped first
+    if (!validateTutorialFlow('combat_action')) {
+        return Promise.reject('Tutorial flow validation failed');
     }
     
     // Disable buttons during request to prevent double-clicks
@@ -1241,6 +1377,11 @@ function performCombatAction(action) {
             
             // Add log entry to debug panel if open
             addLogEntry(data.data.logEntry);
+            
+            // NEW: Tutorial feedback for attack actions
+            if (action === 'attack_enemy') {
+                NarrativeGuide.trigger('player_attacks');
+            }
             
             // Check for game over conditions
             if (data.data.gameOver) {
@@ -1543,7 +1684,7 @@ function closeCardDetails() {
     document.getElementById('cardDetailOverlay').classList.remove('active');
 }
 
-function playCard() {
+function playCardOld() {
     // Get the current card data from the modal
     const cardName = document.getElementById('modalCardName').textContent;
     const cardType = document.getElementById('modalCardType').textContent.toLowerCase();
@@ -1803,7 +1944,7 @@ const CardZoom = {
                         </div>` : ''
                     }
                     ${!isEquipment && cardIndex !== null && (cardData.type !== 'weapon' && cardData.type !== 'armor') ? 
-                        `<div class="zoom-equip-action" onclick="playCardFromHand(${cardIndex})">
+                        `<div class="zoom-equip-action" onclick="playCard(${cardIndex})">
                             <div class="equip-icon">⚡</div>
                             <div class="equip-text">PLAY CARD (${cardData.cost} Energy)</div>
                         </div>` : ''
@@ -1902,7 +2043,86 @@ const NarrativeGuide = {
         });
     },
 
-    show: function(expression, text) {
+    // NEW function to replace the simple show() - acts as event bus
+    trigger: function(eventName, data = {}) {
+        if (!this.panel) this.init(); // Ensure it's initialized
+        let expression = 'neutral';
+        let text = '';
+
+        switch(eventName) {
+            case 'game_start':
+                expression = 'serious';
+                text = "Welcome to the combat simulator, pilot. Before we can begin combat training, the enemy MECH needs to be armed. Click the '⚙️ Enemy Gear' button below, then use '🎲 Randomize' to equip the enemy with weapons and armor. I'll wait here until that's done.";
+                break;
+            case 'enemy_needs_equipment':
+                expression = 'waiting';
+                text = "I'm still waiting, pilot. The enemy MECH must be equipped with both weapon and armor before we proceed. Use the '⚙️ Enemy Gear' button, then '🎲 Randomize' to arm your opponent.";
+                break;
+            case 'player_turn_start':
+                expression = 'thoughtful';
+                text = `Alright, our turn. We have ${data.energy} energy. Let's make it count.`;
+                break;
+            case 'player_plays_weapon':
+                expression = 'happy';
+                text = `A solid weapon! Our base attack power is now boosted.`;
+                break;
+            case 'player_plays_armor':
+                expression = 'happy';
+                text = `Smart move. That armor will absorb some of the next hit.`;
+                break;
+            case 'player_plays_special':
+                expression = 'happy';
+                text = `A special attack! That'll supercharge our next weapon strike.`;
+                break;
+            case 'player_equipped_all':
+                expression = 'serious';
+                text = "Alright, you're geared up. Weapon and armor are online. Now it's time to fight back. Prepare your attack.";
+                break;
+            case 'enemy_equipped':
+                expression = 'thoughtful';
+                text = "Good. The enemy is properly armed now. Next, you need to equip yourself with weapon and armor cards. If you don't have cards yet, click your deck to draw some first.";
+                break;
+            case 'player_drew_cards':
+                expression = 'happy';
+                text = "Excellent! Your tactical systems are online. Now equip yourself for battle - play a weapon card and an armor card from your hand. Each card costs energy, so spend wisely.";
+                break;
+            case 'player_needs_equipment':
+                expression = 'serious';
+                text = "You'll need both a weapon and armor before engaging. Look through your hand and equip what you need. Remember - weapons boost your attack, armor protects you from damage.";
+                break;
+            case 'player_insufficient_energy':
+                expression = 'disappointed';
+                text = `Whoa there. We don't have enough energy for that move. Costs ${data.cost}, but we only have ${data.energy}.`;
+                break;
+            case 'player_prepares_attack':
+                expression = 'serious';
+                text = `Preparing to attack. This will use our main action for the turn. Are you sure?`;
+                break;
+            case 'player_attacks':
+                expression = 'happy';
+                text = `Direct hit! That's how it's done!`;
+                break;
+            case 'enemy_turn_start':
+                expression = 'serious';
+                text = `Hmph. The enemy is making its move. Stay sharp.`;
+                break;
+            case 'game_win':
+                expression = 'happy';
+                text = 'Heh. Not bad, kid. Not bad at all. You might just make a pilot yet.';
+                break;
+            case 'game_loss':
+                expression = 'disappointed';
+                text = 'Simulation failed. Resetting. Every pilot gets knocked down. The trick is getting back up.';
+                break;
+            default:
+                return; // Do nothing if event is unknown
+        }
+
+        this._display(expression, text);
+    },
+
+    // The _display() function handles the visual update (renamed from show)
+    _display: function(expression, text) {
         if (!this.panel) this.init();
         this.panel.classList.add('visible');
 
@@ -1930,6 +2150,11 @@ const NarrativeGuide = {
             }
         };
         typeWriter();
+    },
+
+    // Keep the old show() function for backward compatibility
+    show: function(expression, text) {
+        this._display(expression, text);
     }
 };
 
@@ -1961,22 +2186,6 @@ function validatePlayerAction(actionName) {
     return true;
 }
 
-function playCard(cardIndex) {
-    const formData = new FormData();
-    formData.append('action', 'play_card');
-    formData.append('card_index', cardIndex);
-
-    fetch('combat-manager.php', { method: 'POST', body: formData })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Reload to reflect changes. We will replace this with dynamic updates later.
-                window.location.reload();
-            } else {
-                alert('Could not play card: ' + data.message);
-            }
-        });
-}
 
 
 // ===================================================================
@@ -2054,7 +2263,17 @@ function randomEnemyLoadout() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                window.location.reload();
+                // Update tutorial state in JavaScript
+                window.tutorialState.enemyManuallyEquipped = true;
+                
+                // Trigger tutorial dialogue for enemy being equipped
+                NarrativeGuide.trigger('enemy_equipped');
+                // Switch back to main combat view
+                updateActionBar('main');
+                // Reload page to show new equipment
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500); // Give time for dialogue to show
             } else {
                 alert('Could not generate random loadout: ' + data.message);
             }
@@ -2082,18 +2301,112 @@ if (document.readyState === 'loading') {
         CardZoom.init();
         initDragAndDrop();
         // Initialize Narrative Guide
+        NarrativeGuide.init();
         setTimeout(() => {
-            NarrativeGuide.show('neutral', "Welcome to town. Let's show our friend here what we can do.");
+            checkTutorialFlow();
         }, 1000); // Show after a 1-second delay
     });
 } else {
     CardZoom.init();
     initDragAndDrop();
     // Initialize Narrative Guide
+    NarrativeGuide.init();
     setTimeout(() => {
-        NarrativeGuide.show('neutral', "Welcome to town. Let's show our friend here what we can do.");
+        checkTutorialFlow();
     }, 1000); // Show after a 1-second delay
 }
+
+// ===================================================================
+// TUTORIAL FLOW DETECTION
+// ===================================================================
+function checkTutorialFlow() {
+    // Get current game state from PHP variables
+    const playerHand = <?= json_encode($playerHand) ?>;
+    const playerEquipment = <?= json_encode($playerEquipment) ?>;
+    const enemyEquipment = <?= json_encode($enemyEquipment) ?>;
+    const tutorialState = <?= json_encode($tutorialState) ?>;
+    
+    console.log('🎓 Tutorial Flow Check:', {
+        handSize: playerHand.length,
+        hasPlayerWeapon: !!playerEquipment.weapon,
+        hasPlayerArmor: !!playerEquipment.armor,
+        hasEnemyWeapon: !!enemyEquipment.weapon,
+        hasEnemyArmor: !!enemyEquipment.armor,
+        enemyManuallyEquipped: tutorialState.enemyManuallyEquipped
+    });
+    
+    // PRIORITY 1: Enemy MUST be manually equipped first - everything else waits
+    if (!tutorialState.enemyManuallyEquipped) {
+        // If this is the very first load, show game_start
+        // If player has done other actions, show reminder
+        if (playerHand.length === 0 && !playerEquipment.weapon && !playerEquipment.armor) {
+            NarrativeGuide.trigger('game_start');
+        } else {
+            NarrativeGuide.trigger('enemy_needs_equipment');
+        }
+        return;
+    }
+    
+    // Step 2: Enemy is equipped, now we can proceed with player setup
+    if (playerHand.length === 0) {
+        NarrativeGuide.trigger('enemy_equipped');
+        return;
+    }
+    
+    // Step 3: Player has cards, check if they need equipment
+    if (!playerEquipment.weapon || !playerEquipment.armor) {
+        // If they just drew cards, show drew cards message
+        if (playerHand.length >= 3) {
+            NarrativeGuide.trigger('player_drew_cards');
+        } else {
+            // Otherwise remind them to equip
+            NarrativeGuide.trigger('player_needs_equipment');
+        }
+        return;
+    }
+    
+    // Step 4: Player is fully equipped - ready to fight
+    NarrativeGuide.trigger('player_equipped_all');
+}
+
+// Store tutorial state in JavaScript for dynamic checking
+window.tutorialState = <?= json_encode($tutorialState) ?>;
+
+// Tutorial validation function - ensures proper flow
+function validateTutorialFlow(actionType) {
+    // Check tutorial state - enemy must be manually equipped
+    const enemyManuallyEquipped = window.tutorialState?.enemyManuallyEquipped || false;
+    
+    console.log('🎓 Tutorial validation check:', {
+        actionType,
+        enemyManuallyEquipped,
+        tutorialState: window.tutorialState
+    });
+    
+    // Always check if enemy was manually equipped first
+    if (!enemyManuallyEquipped) {
+        console.log('🚫 Tutorial validation failed: Enemy not manually equipped for action:', actionType);
+        NarrativeGuide.trigger('enemy_needs_equipment');
+        return false;
+    }
+    
+    return true;
+}
+
+// Add periodic tutorial reminders
+setInterval(() => {
+    // Check if enemy equipment slots are filled
+    const enemyWeaponSlot = document.querySelector('.enemy-equipment .weapon-card.equipped');
+    const enemyArmorSlot = document.querySelector('.enemy-equipment .armor-card.equipped');
+    const enemyEquipped = enemyWeaponSlot && enemyArmorSlot;
+    
+    // If enemy isn't equipped after 30 seconds, show reminder
+    if (!enemyEquipped) {
+        if (Math.random() < 0.3) { // 30% chance every 30 seconds
+            NarrativeGuide.trigger('enemy_needs_equipment');
+        }
+    }
+}, 30000); // Check every 30 seconds
 
 // ===================================================================
 // DRAG AND DROP CARD DELETION SYSTEM
@@ -2314,8 +2627,11 @@ function assignEnemyEquipment(cardIndex, slotType) {
         console.log('🎯 Enemy equipment assignment response:', data);
         if (data.success) {
             showMessage(`✅ Assigned enemy equipment: ${data.message || 'Equipment assigned'}`);
-            // Reload page to update equipment display
-            location.reload();
+            // Update UI without page reload
+            if (data.data && data.data.enemyEquipment) {
+                // TODO: Update enemy equipment display dynamically
+                console.log('🎯 Enemy equipment updated:', data.data.enemyEquipment);
+            }
         } else {
             showMessage(`❌ Failed to assign enemy equipment: ${data.error || 'Unknown error'}`);
         }
@@ -2353,6 +2669,7 @@ function updateActionBar(state) {
     switch (state) {
         case 'combat_confirm':
             textEl.textContent = 'You are preparing to attack. Are you sure?';
+            NarrativeGuide.trigger('player_prepares_attack');
             buttonsEl.innerHTML = `
                 <button onclick="performCombatAction('attack_enemy').then((data) => { if (!data.data.gameOver) updateActionBar('main'); })" class="action-btn attack-btn">Confirm Attack</button>
                 <button onclick="updateActionBar('main')" class="action-btn defend-btn">Cancel</button>
@@ -2366,13 +2683,13 @@ function updateActionBar(state) {
             window.gameState = 'player_wins';
             textEl.textContent = 'VICTORY! You have defeated the enemy.';
             buttonsEl.innerHTML = `<form method="post"><button type="submit" name="reset_all" class="action-btn reset-btn">🎉 Play Again</button></form>`;
-            NarrativeGuide.show('happy', 'Heh. Not bad, kid. Not bad at all.');
+            NarrativeGuide.trigger('game_win');
             break;
         case 'enemy_wins':
             window.gameState = 'enemy_wins';
             textEl.textContent = 'DEFEAT! Your mech has been destroyed.';
             buttonsEl.innerHTML = `<form method="post"><button type="submit" name="reset_all" class="action-btn reset-btn">⚡ Try Again</button></form>`;
-            NarrativeGuide.show('disappointed', 'Simulation failed. Resetting. Every pilot gets knocked down.');
+            NarrativeGuide.trigger('game_loss');
             break;
         case 'enemy_config':
             textEl.textContent = 'Configure enemy equipment. Choose weapons and armor.';
@@ -2390,14 +2707,28 @@ function updateActionBar(state) {
                 </div>
             `;
             break;
+        case 'discard_mode':
+            textEl.textContent = 'Discard Mode: Click on cards in your hand to discard them.';
+            buttonsEl.innerHTML = `
+                <button onclick="updateActionBar('main')" class="action-btn back-btn">↩️ Back to Combat</button>
+                <div class="discard-info">
+                    <small>Click cards in your hand to discard them permanently</small>
+                </div>
+            `;
+            // Enable discard mode
+            window.discardMode = true;
+            break;
         case 'main':
         default:
             textEl.textContent = 'Your move. Play a card or prepare an attack.';
             buttonsEl.innerHTML = `
                 <button onclick="updateActionBar('combat_confirm')" class="action-btn attack-btn">⚔️ Attack</button>
+                <button onclick="updateActionBar('discard_mode')" class="action-btn discard-btn" title="Discard cards from your hand">🗑️ Discard Cards</button>
                 <button onclick="endTurn()" id="endTurnBtn" class="action-btn">➡️ End Turn</button>
                 <button onclick="updateActionBar('enemy_config')" class="action-btn config-btn" title="Configure enemy equipment">⚙️ Enemy Gear</button>
             `;
+            // Disable discard mode when returning to main
+            window.discardMode = false;
             break;
     }
 }
@@ -2411,7 +2742,7 @@ function endTurn() {
     
     updateActionBar('enemy_turn');
     showTurnIndicator('enemy');
-    NarrativeGuide.show('serious', 'Hmph. Let\'s see what this machine has planned.');
+    NarrativeGuide.trigger('enemy_turn_start');
 
     fetch('combat-manager.php', {
         method: 'POST',
@@ -2429,7 +2760,7 @@ function endTurn() {
                 // Set turn back to player
                 window.currentPlayerTurn = 'player';
                 
-                NarrativeGuide.show('thoughtful', 'Alright, our turn. Full energy. Make it count.');
+                NarrativeGuide.trigger('player_turn_start', { energy: data.data.playerEnergy });
                 
                 // Check for game over conditions after AI turn
                 if (data.data.gameOver) {
@@ -2466,40 +2797,101 @@ function processAIActions(actions, finalCallback) {
     }
 
     // Fetch the very latest game state to update UI mid-turn
-    fetch('combat-manager.php', { 
-        method: 'POST', 
-        body: new URLSearchParams('action=get_combat_status')
-    })
-    .then(res => res.json())
-    .then(status => {
-        if(status.success) updateCombatUI(status.data);
-    });
+    // DISABLED: This was overriding energy display after cards were played
+    // fetch('combat-manager.php', { 
+    //     method: 'POST', 
+    //     body: new URLSearchParams('action=get_combat_status')
+    // })
+    // .then(res => res.json())
+    // .then(status => {
+    //     if(status.success) updateCombatUI(status.data);
+    // });
 
     setTimeout(() => {
         processAIActions(actions, finalCallback); // Process next action
     }, delay);
 }
 
-function playCardFromHand(cardIndex) {
+function playCard(cardIndex) {
+    console.log('🎯 PLAY CARD CALLED with index:', cardIndex);
+    console.log('🎯 Type of cardIndex:', typeof cardIndex, 'Value:', cardIndex);
+    
     // Validate player action
     if (!validatePlayerAction('play card')) {
+        console.log('❌ Player action validation failed');
         return;
     }
     
-    CardZoom.closeZoomModal(); // Close the modal first
+    // Close any open modals
+    CardZoom.closeZoomModal();
+    closeCardDetails();
+    
+    // Get current energy before making the request
+    const currentEnergyElement = document.getElementById('playerEnergyValue');
+    const currentEnergy = currentEnergyElement ? parseInt(currentEnergyElement.textContent) : 0;
+    console.log('🔋 Current energy before request:', currentEnergy);
 
+    console.log('🔋 MAKING PLAY CARD REQUEST...');
     fetch('combat-manager.php', {
         method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
         body: new URLSearchParams(`action=play_card&card_index=${cardIndex}`)
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('🔋 Got response, parsing JSON...');
+        return response.json();
+    })
     .then(data => {
+        console.log('🔋 FULL RESPONSE DATA:', JSON.stringify(data, null, 2));
+        
         if (data.success) {
-            // SUCCESS: Update UI dynamically
-            updateEnergyDisplay(data.data.playerEnergy);
+            console.log('🔋 SUCCESS! Energy in response:', data.data.playerEnergy);
+            
+            // FORCE UPDATE THE ENERGY DISPLAY IMMEDIATELY
+            if (data.data.playerEnergy !== undefined) {
+                console.log('🔋 FORCING ENERGY UPDATE TO:', data.data.playerEnergy);
+                updateEnergyDisplay(data.data.playerEnergy);
+                
+                // Also update the session storage for debugging
+                sessionStorage.setItem('lastKnownEnergy', data.data.playerEnergy);
+            }
+            
             // Re-render the player's hand
-            renderPlayerHand(data.data.playerHand); 
+            if (data.data.playerHand) {
+                renderPlayerHand(data.data.playerHand);
+            }
+            
             showMessage(data.message, 'success');
+            
+            // Tutorial feedback based on card type
+            if (data.data.playedCard) {
+                const cardType = data.data.playedCard.type;
+                if (cardType === 'weapon') {
+                    NarrativeGuide.trigger('player_plays_weapon');
+                } else if (cardType === 'armor') {
+                    NarrativeGuide.trigger('player_plays_armor');
+                } else if (cardType === 'special attack') {
+                    NarrativeGuide.trigger('player_plays_special');
+                }
+            }
+            
+            // Check if player is fully equipped (weapon and armor)
+            if (data.data.playerEquipment) {
+                const equip = data.data.playerEquipment;
+                if (equip.weapon && equip.armor) {
+                    // Use a timeout to let the other dialogue finish first
+                    setTimeout(() => {
+                        NarrativeGuide.trigger('player_equipped_all');
+                    }, 2000); // 2-second delay
+                } else if (data.data.playerHand && data.data.playerHand.length > 0) {
+                    // Player has cards but still needs equipment
+                    setTimeout(() => {
+                        NarrativeGuide.trigger('player_needs_equipment');
+                    }, 2000); // 2-second delay
+                }
+            }
             
             // Check for game over conditions
             if (data.data && data.data.gameOver) {
@@ -2510,8 +2902,20 @@ function playCardFromHand(cardIndex) {
                 }
             }
         } else {
+            console.log('❌ PLAY CARD FAILED:', data.message);
+            // Tutorial feedback for insufficient energy
+            if (data.message && data.message.includes('Not enough energy') && data.data) {
+                NarrativeGuide.trigger('player_insufficient_energy', { 
+                    cost: data.data.cost, 
+                    energy: data.data.energy 
+                });
+            }
             showMessage('Error: ' + data.message, 'error');
         }
+    })
+    .catch(error => {
+        console.error('❌ PLAY CARD ERROR:', error);
+        showMessage('Error playing card: ' + error.message, 'error');
     });
 }
 
@@ -2543,24 +2947,48 @@ function renderPlayerHand(hand) {
                 'special attack': '💥'
             };
             
-            const cardHTML = `
-                <div class="hand-card-container" style="--card-index: ${index}">
-                    <button type="button" onclick="handleCardClick(${index}, '${card.type}')" 
-                            class="hand-card face-up fan-card ${card.type}-card ${cardElement}-element ${cardRarity}-rarity${imageClass}" 
-                            data-card='${JSON.stringify(card).replace(/'/g, "&apos;")}' 
-                            draggable="true" ${backgroundStyle}>
-                        <div class="card-mini-name">${card.name}</div>
-                        <div class="card-mini-cost">${card.cost}</div>
-                        ${!hasImage ? `<div class="card-type-icon">${typeIcons[card.type] || '❓'}</div>` : ''}
-                        ${(card.damage && card.damage > 0) ? `<div class="card-mini-damage">💥${card.damage}</div>` : ''}
-                    </button>
-                </div>
+            // Create card container element
+            const cardContainer = document.createElement('div');
+            cardContainer.className = 'hand-card-container';
+            cardContainer.style.setProperty('--card-index', index);
+            
+            // Create card button element
+            const cardButton = document.createElement('button');
+            cardButton.type = 'button';
+            cardButton.className = `hand-card face-up fan-card ${card.type}-card ${cardElement}-element ${cardRarity}-rarity${imageClass}`;
+            cardButton.setAttribute('data-card', JSON.stringify(card));
+            cardButton.draggable = true;
+            if (hasImage) {
+                cardButton.style.backgroundImage = `url('${card.image}')`;
+            }
+            
+            // Add event listener instead of onclick attribute
+            cardButton.addEventListener('click', function() {
+                console.log('🎯 CARD BUTTON CLICKED! Index:', index, 'Card:', card.name);
+                handleCardClick(index, card.type);
+            });
+            
+            // Add drag and drop functionality
+            cardButton.draggable = true;
+            cardButton.addEventListener('dragstart', handleCardDragStart);
+            cardButton.addEventListener('dragend', handleDragEnd);
+            
+            // Add card content
+            cardButton.innerHTML = `
+                <div class="card-mini-name">${card.name}</div>
+                <div class="card-mini-cost">${card.cost}</div>
+                ${!hasImage ? `<div class="card-type-icon">${typeIcons[card.type] || '❓'}</div>` : ''}
+                ${(card.damage && card.damage > 0) ? `<div class="card-mini-damage">💥${card.damage}</div>` : ''}
             `;
-            handContainer.innerHTML += cardHTML;
+            
+            // Append to container and then to hand
+            cardContainer.appendChild(cardButton);
+            handContainer.appendChild(cardContainer);
         });
     }
     
     // Update hand count display
+    console.log('🎯 renderPlayerHand completed. Added', hand.length, 'cards with event listeners');
     const handLabel = document.querySelector('.player-hand-section .hand-label');
     if (handLabel) {
         const maxHandSize = <?= $gameRules['max_hand_size'] ?>;
@@ -2575,20 +3003,247 @@ function renderPlayerHand(hand) {
     });
 }
 
+// Add global card click handler that works with any card rendering system
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🎯 Setting up global card click handlers');
+    
+    // Use event delegation to catch clicks on any card, regardless of how it was rendered
+    document.addEventListener('click', function(event) {
+        const cardElement = event.target.closest('.hand-card');
+        if (cardElement && cardElement.closest('.player-hand-section')) {
+            console.log('🎯 GLOBAL CARD CLICK DETECTED!', cardElement);
+            
+            // Try to get card index from various sources
+            let cardIndex = null;
+            let cardData = null;
+            
+            // Method 1: From container style attribute
+            const container = cardElement.closest('.hand-card-container');
+            if (container) {
+                const styleAttr = container.getAttribute('style');
+                const match = styleAttr && styleAttr.match(/--card-index:\s*(\d+)/);
+                if (match) {
+                    cardIndex = parseInt(match[1]);
+                }
+            }
+            
+            // Method 2: Get card data from data attribute
+            const dataAttr = cardElement.getAttribute('data-card');
+            if (dataAttr) {
+                try {
+                    cardData = JSON.parse(dataAttr);
+                } catch (e) {
+                    console.log('❌ Failed to parse card data:', e);
+                }
+            }
+            
+            // If we found valid data, handle the click
+            if (cardIndex !== null && cardData) {
+                console.log('🎯 PROCESSING CARD CLICK - Index:', cardIndex, 'Card:', cardData.name);
+                event.preventDefault();
+                event.stopPropagation();
+                handleCardClickInternal(cardIndex, cardData.type, cardData);
+            } else {
+                console.log('❌ Could not extract card data from click');
+            }
+        }
+    });
+});
+
 // Modify the existing card click handler
 function handleCardClick(cardIndex, cardType) {
-    const cardElement = document.querySelector(`.hand-card-container[style*="--card-index: ${cardIndex}"] .hand-card`);
-    if (!cardElement) return;
+    handleCardClickInternal(cardIndex, cardType, null);
+}
 
-    const cardData = JSON.parse(cardElement.dataset.card);
-    CardZoom.showZoomModal(cardData, false, cardIndex); // Pass cardIndex to the modal
+function handleCardClickInternal(cardIndex, cardType, providedCardData) {
+    console.log('🎯 CARD CLICKED! Index:', cardIndex, 'Type:', cardType);
+    
+    // Check tutorial flow - enemy must be equipped first
+    if (!validateTutorialFlow('card_click')) {
+        return;
+    }
+    
+    // Check if we're in discard mode
+    if (window.discardMode) {
+        console.log('🗑️ DISCARD MODE: Discarding card at index:', cardIndex);
+        discardCard(cardIndex);
+        return;
+    }
+    
+    // Store card index for modal button
+    window.currentCardIndex = cardIndex;
+    console.log('🎯 Stored window.currentCardIndex:', window.currentCardIndex);
+    
+    // Get card data from provided parameter or from DOM element
+    let finalCardData = providedCardData;
+    if (!finalCardData) {
+        const cardElement = document.querySelector(`.hand-card-container[style*="--card-index: ${cardIndex}"] .hand-card`);
+        if (!cardElement) {
+            console.log('❌ Card element not found for index:', cardIndex);
+            return;
+        }
+        try {
+            finalCardData = JSON.parse(cardElement.dataset.card);
+        } catch (e) {
+            console.log('❌ Failed to parse card data from element:', e);
+            return;
+        }
+    }
+    
+    console.log('🎯 Opening CardZoom modal for card:', finalCardData.name);
+    CardZoom.showZoomModal(finalCardData, false, cardIndex); // Pass cardIndex to the modal
+}
+
+// Card discard functionality
+function discardCard(cardIndex) {
+    console.log('🗑️ Discarding card at index:', cardIndex);
+    
+    fetch('combat-manager.php', {
+        method: 'POST',
+        body: new URLSearchParams(`action=discard_card&card_index=${cardIndex}`)
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('🗑️ Discard response:', data);
+        if (data.success) {
+            // Re-render the player's hand
+            if (data.data.playerHand) {
+                renderPlayerHand(data.data.playerHand);
+            }
+            showMessage(data.message, 'success');
+        } else {
+            showMessage('Error discarding card: ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('❌ Error discarding card:', error);
+        showMessage('Error discarding card: ' + error.message, 'error');
+    });
 }
 
 // Helper functions for UI updates
 function updateEnergyDisplay(newEnergy) {
+    console.log('🔋 updateEnergyDisplay called with:', newEnergy);
     const energyElement = document.getElementById('playerEnergyValue');
     if (energyElement) {
+        console.log('🔋 Energy element found, updating from', energyElement.textContent, 'to', newEnergy);
         energyElement.textContent = newEnergy;
+    } else {
+        console.log('❌ Energy element not found!');
+    }
+}
+
+// Energy debug functions
+function debugChangeEnergy(amount) {
+    console.log('🔧 DEBUG: Changing energy by', amount);
+    
+    fetch('combat-manager.php', {
+        method: 'POST',
+        body: new URLSearchParams(`action=debug_change_energy&amount=${amount}`)
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('🔧 DEBUG: Energy change response:', data);
+        if (data.success) {
+            updateEnergyDisplay(data.data.playerEnergy);
+            showMessage(`Energy changed by ${amount}. New energy: ${data.data.playerEnergy}`, 'info');
+        } else {
+            showMessage('Failed to change energy: ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('❌ Error changing energy:', error);
+        showMessage('Error changing energy: ' + error.message, 'error');
+    });
+}
+
+function debugResetEnergy() {
+    console.log('🔧 DEBUG: Resetting energy');
+    
+    fetch('combat-manager.php', {
+        method: 'POST',
+        body: new URLSearchParams('action=debug_reset_energy')
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('🔧 DEBUG: Energy reset response:', data);
+        if (data.success) {
+            updateEnergyDisplay(data.data.playerEnergy);
+            showMessage(`Energy reset to ${data.data.playerEnergy}`, 'info');
+        } else {
+            showMessage('Failed to reset energy: ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('❌ Error resetting energy:', error);
+        showMessage('Error resetting energy: ' + error.message, 'error');
+    });
+}
+
+// ===================================================================
+// COMPANION ACTIVATION SYSTEM
+// ===================================================================
+function activateCompanion(owner) {
+    console.log(`🐕 Activating ${owner} companion`);
+    
+    const formData = new URLSearchParams();
+    formData.append('action', 'activate_companion');
+    formData.append('owner', owner);
+    
+    fetch('combat-manager.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('🐕 Companion activation response:', data);
+        if (data.success) {
+            // Update energy display
+            if (data.data.playerEnergy !== undefined) {
+                updateEnergyDisplay(data.data.playerEnergy);
+            }
+            
+            // Update companion visual state
+            updateCompanionState(owner, true);
+            
+            // Show success message
+            showMessage(data.message, 'success');
+            
+            console.log('🐕 Companion activated successfully!');
+        } else {
+            showMessage(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('❌ Error activating companion:', error);
+        showMessage('Error activating companion: ' + error.message, 'error');
+    });
+}
+
+function updateCompanionState(owner, isActive) {
+    const companionPog = document.getElementById(`${owner}CompanionPog`);
+    if (!companionPog) return;
+    
+    if (isActive) {
+        companionPog.classList.add('companion-active');
+        // Add active indicator if not already present
+        if (!companionPog.querySelector('.companion-active-indicator')) {
+            const indicator = document.createElement('div');
+            indicator.className = 'companion-active-indicator';
+            indicator.textContent = '⚡';
+            companionPog.appendChild(indicator);
+        }
+        // Update tooltip
+        companionPog.title = companionPog.title.replace('Click: 2 Energy', 'Active!');
+    } else {
+        companionPog.classList.remove('companion-active');
+        // Remove active indicator
+        const indicator = companionPog.querySelector('.companion-active-indicator');
+        if (indicator) {
+            indicator.remove();
+        }
+        // Update tooltip
+        companionPog.title = companionPog.title.replace('Active!', 'Click: 2 Energy');
     }
 }
 
