@@ -1,0 +1,37 @@
+# NRD Sandbox Security Configuration
+
+# Protect sensitive files
+<Files "*.php~">
+    Deny from all
+</Files>
+
+<Files "*.log">
+    Deny from all
+</Files>
+
+<Files "config.php">
+    Order Allow,Deny
+    Allow from all
+</Files>
+
+# Protect database directory from direct access
+RewriteEngine On
+RewriteRule ^database/ - [F,L]
+
+# Prevent access to test files in production
+<FilesMatch "^test_.*\.php$">
+    Order Deny,Allow
+    Deny from all
+    Allow from 127.0.0.1
+    Allow from ::1
+</FilesMatch>
+
+# Security headers
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options nosniff
+    Header always set X-Frame-Options DENY
+    Header always set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+# Prevent directory browsing
+Options -Indexes

@@ -1,0 +1,30 @@
+# NRD Sandbox Data Directory Protection
+# Prevent direct access to data files and backups
+
+# Deny all access to this directory
+Order Deny,Allow
+Deny from all
+
+# Explicitly block JSON files
+<Files "*.json">
+    Deny from all
+</Files>
+
+# Block backup files
+<Files "*.bak">
+    Deny from all
+</Files>
+
+# Block temporary files
+<Files "*.tmp">
+    Deny from all
+</Files>
+
+# Block system files
+<Files ".DS_Store">
+    Deny from all
+</Files>
+
+<Files ".htaccess">
+    Deny from all
+</Files>
