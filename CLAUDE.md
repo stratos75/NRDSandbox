@@ -43,18 +43,32 @@ NRDSandbox/
 ├── config/                # Configuration system
 │   ├── index.php          # Config dashboard
 │   ├── mechs.php          # Mech stat configuration
-│   ├── rules.php          # Game rules settings
-│   └── ai-context.php     # AI handoff system
+│   ├── cards.php          # Card management interface
+│   ├── debug.php          # Debug & system diagnostics
+│   └── shared.php         # Shared configuration functions
 ├── data/
-│   └── cards.json         # Persistent card storage
-└── docs/                  # Documentation
+│   ├── cards.json         # Persistent card storage
+│   └── images/            # Card and mech images
+├── images/                # Additional game images
+│   └── companions/        # Companion pilot images
+├── users.php              # User authentication data
+├── login.php              # Login interface
+├── logout.php             # Logout functionality
+└── push.sh                # Deployment script
 ```
 
 **Critical Files:**
-- `index.php` - Complete battlefield UI with equipment system
+- `index.php` - Complete battlefield UI with equipment system and turn-based combat
 - `card-manager.php` - Handles all card CRUD operations via AJAX
+- `combat-manager.php` - AJAX combat endpoints and battle logic
+- `auth.php` - Authentication logic and session management
 - `style.css` - Contains ALL project styling (no other CSS files)
-- `data/cards.json` - Card library with 10 sample cards
+- `config/index.php` - Configuration dashboard with game rules management
+- `config/mechs.php` - Mech stat configuration with image upload
+- `config/cards.php` - Card management interface
+- `config/debug.php` - Debug tools and system diagnostics
+- `data/cards.json` - Card library with weapons, armor, and special cards
+- `users.php` - User authentication data
 
 ---
 
@@ -79,9 +93,17 @@ NRDSandbox/
 - **Logging:** All combat actions logged with timestamps
 
 ### **Configuration**
-- **Game Rules:** Hand size, deck size, draw per turn, starting player
-- **Mech Stats:** Configurable HP/ATK/DEF for player and enemy
+- **Game Rules:** Hand size, deck size, draw per turn, starting player, energy system
+- **Mech Stats:** Configurable HP/ATK/DEF for player and enemy with image upload
+- **Debug Tools:** System diagnostics, session state inspection, reset functions
+- **Card Management:** Full CRUD interface for card library management
 - **Presets:** Balanced, tank, glass cannon, endurance configurations
+
+### **Turn-Based System**
+- **Energy System:** 5 energy per turn, cards cost energy to play
+- **Turn Management:** Player vs AI turns with automatic progression
+- **AI Behavior:** Enemy automatically plays cards and attacks
+- **Hand Management:** Automatic card drawing, hand size limits
 
 ---
 
@@ -137,7 +159,10 @@ chmod 644 data/cards.json
 **Testing URLs:**
 - Main interface: `http://localhost/NRDSandbox/`
 - Config dashboard: `http://localhost/NRDSandbox/config/`
-- AI context: `http://localhost/NRDSandbox/config/ai-context.php`
+- Mech configuration: `http://localhost/NRDSandbox/config/mechs.php`
+- Card management: `http://localhost/NRDSandbox/config/cards.php`
+- Debug tools: `http://localhost/NRDSandbox/config/debug.php`
+- Login page: `http://localhost/NRDSandbox/login.php`
 
 ---
 
@@ -232,9 +257,9 @@ chmod 644 data/cards.json
 ## 🤖 AI Assistant Guidelines
 
 ### **Current Development Status**
-- **✅ Completed:** Authentication, card creator, equipment system, AJAX combat, debug panels
-- **🎯 Next Priority:** Card effects implementation (make cards actually DO things)
-- **🔜 Future:** Deck building interface, advanced combat with stats
+- **✅ Completed:** Authentication, card creator, equipment system, AJAX combat, debug panels, turn-based system, energy management, AI enemy behavior, configuration dashboard, image upload system
+- **🎯 Next Priority:** Card effects implementation (make cards actually DO things), targeting system for spells
+- **🔜 Future:** Deck building interface, advanced combat with elemental damage, companion system integration
 
 ### **Key Context Points**
 - This is a **development tool**, not a polished game
@@ -261,10 +286,12 @@ chmod 644 data/cards.json
 - **Test form submissions** with network debugging
 
 ### **Priority Features for Implementation**
-1. **Card Effects System** - Make spells/abilities functional
-2. **Combat Integration** - Use ATK/DEF stats in battles  
-3. **Targeting System** - Select spell targets
-4. **Deck Building** - Assign specific cards to decks
+1. **Card Effects System** - Make spells/abilities functional with damage/healing/buffs
+2. **Targeting System** - Select spell targets (self, enemy, all)
+3. **Elemental Damage** - Implement poison, ice, fire damage types
+4. **Companion Integration** - Make companion system functional in combat
+5. **Deck Building** - Assign specific cards to player/enemy decks
+6. **Advanced Combat** - Status effects, buffs/debuffs, multi-turn effects
 
 ---
 
