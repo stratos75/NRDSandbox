@@ -79,14 +79,9 @@ if [ "$DEPLOY_PROD" = true ]; then
         exit 1
     fi
     
-    # Get DreamHost credentials
-    echo "📋 DreamHost deployment requires SSH access to newretrodawn.dev"
-    read -p "🔑 SSH username for newretrodawn.dev: " ssh_user
-    
-    if [ -z "$ssh_user" ]; then
-        red "❌ SSH username required for production deployment."
-        exit 1
-    fi
+    # Use configured SSH credentials
+    echo "📋 DreamHost deployment using SSH: nrddev@newretrodawn.dev"
+    ssh_user="nrddev"
     
     # Sync files to production (excluding development files)
     green "📤 Syncing files to production server..."
@@ -103,7 +98,7 @@ if [ "$DEPLOY_PROD" = true ]; then
         ./ "$ssh_user@newretrodawn.dev:~/nrdsandbox/" || { 
         red "❌ Production deployment failed."; 
         echo "💡 Make sure you have SSH access to newretrodawn.dev"
-        echo "💡 Try: ssh $ssh_user@newretrodawn.dev"
+        echo "💡 Try: ssh nrddev@newretrodawn.dev"
         exit 1; 
     }
     
