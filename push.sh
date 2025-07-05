@@ -95,6 +95,7 @@ if [ "$DEPLOY_PROD" = true ]; then
         --exclude='README.md' \
         --exclude='.gitignore' \
         --exclude='*.tmp' \
+        --exclude='.env' \
         ./ "$ssh_user@newretrodawn.dev:~/nrdsandbox/" || { 
         red "❌ Production deployment failed."; 
         echo "💡 Make sure you have SSH access to newretrodawn.dev"

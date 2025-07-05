@@ -25,21 +25,57 @@ class Database {
     
     // Load database configuration for production
     private function loadConfig() {
-        // Production MySQL configuration only
+        // Load .env file if it exists
+        $this->loadEnvFile();
+        
+        // Production MySQL configuration - using .env variables (no hardcoded credentials)
         $this->config = [
-            'host' => 'mysql.newretrodawn.dev',
-            'username' => 'nrd_dev',
-            'password' => '@NRDDEVAllDay57',
-            'database' => 'nrdsb',
+            'host' => getenv('DB_HOST') ?: 'mysql.newretrodawn.dev',
+            'username' => getenv('DB_USERNAME') ?: 'nrd_dev',
+            'password' => getenv('DB_PASSWORD') ?: '', // No fallback for security
+            'database' => getenv('DB_DATABASE') ?: 'nrdsb',
             'charset' => 'utf8mb4',
-            'port' => 3306
+            'port' => getenv('DB_PORT') ?: 3306
         ];
         
-        // Override with environment variables if available (for security)
-        if (getenv('DB_HOST')) $this->config['host'] = getenv('DB_HOST');
-        if (getenv('DB_USERNAME')) $this->config['username'] = getenv('DB_USERNAME');
-        if (getenv('DB_PASSWORD')) $this->config['password'] = getenv('DB_PASSWORD');
-        if (getenv('DB_DATABASE')) $this->config['database'] = getenv('DB_DATABASE');
+        // Validate required credentials are available
+        if (empty($this->config['password'])) {
+            error_log("Database password not found in environment variables");
+            throw new Exception("Database configuration incomplete. Check .env file.");
+        }
+    }
+    
+    // Load .env file and set environment variables
+    private function loadEnvFile() {
+        $envFile = __DIR__ . '/../.env';
+        if (!file_exists($envFile)) {
+            return; // .env file is optional
+        }
+        
+        $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        foreach ($lines as $line) {
+            // Skip comments
+            if (strpos(trim($line), '#') === 0) {
+                continue;
+            }
+            
+            // Parse KEY=value format
+            if (strpos($line, '=') !== false) {
+                list($key, $value) = explode('=', $line, 2);
+                $key = trim($key);
+                $value = trim($value);
+                
+                // Remove quotes if present
+                if (preg_match('/^(["\'])(.*)\\1$/', $value, $matches)) {
+                    $value = $matches[2];
+                }
+                
+                // Set environment variable if not already set
+                if (!getenv($key)) {
+                    putenv("$key=$value");
+                }
+            }
+        }
     }
     
     // Establish database connection

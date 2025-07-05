@@ -140,6 +140,9 @@ require_once 'auth.php';
 // Database operations
 $db = Database::getInstance();
 $user = $userManager->authenticate($username, $password);
+
+// Environment-based configuration (.env file)
+// Credentials stored securely outside of code
 ```
 
 **JavaScript Patterns:**
@@ -382,12 +385,13 @@ php test_db_cli.php
 **Security Audit:** ✅ **PASSED** (Latest audit date: Current session)
 
 **Security Features Active:**
-- Database credential protection via .htaccess
+- Database credential protection via .env files (no hardcoded passwords)
 - Input validation and prepared statements  
 - Error message sanitization
 - File access controls and directory protection
 - Security headers (XSS, frame options, content type)
 - Authentication system with secure sessions
+- .env files excluded from git and deployment
 
 **Access Controls:**
 - Hidden signup system with access key protection
