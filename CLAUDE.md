@@ -29,8 +29,8 @@
 **Architecture Pattern:** MVC-adjacent with clear separation:
 - `index.php` - Main game interface (View/Controller)
 - `*-manager.php` - Business logic endpoints (Controller)  
-- `database/` - Authentication and user management (Model)
-- `data/cards.json` - Card library persistence
+- `database/` - Authentication, user management, and card system (Model)
+- `database/CardManager.php` - Database-driven card management
 - Session variables for game state management
 
 ---
@@ -48,10 +48,12 @@ NRDSandbox/
 ├── combat-manager.php     # AJAX combat endpoints  
 ├── card-manager.php       # Card CRUD operations
 ├── style.css              # All styling (single file)
-├── database/              # Authentication system
+├── database/              # Database system
 │   ├── Database.php       # Database connection manager
 │   ├── User.php           # User authentication & profiles
+│   ├── CardManager.php    # Database-driven card management
 │   ├── schema.sql         # MySQL database schema
+│   ├── schema_sqlite.sql  # SQLite database schema
 │   └── .htaccess          # Database directory protection
 ├── config/                # Configuration system
 │   ├── index.php          # Config dashboard
@@ -60,7 +62,8 @@ NRDSandbox/
 │   ├── debug.php          # Debug & system diagnostics
 │   └── shared.php         # Shared configuration functions
 ├── data/
-│   ├── cards.json         # Persistent card storage
+│   ├── cards.json         # Legacy card storage (backup)
+│   ├── nrd_sandbox.sqlite # SQLite database (local development)
 │   ├── images/            # Game assets and card images
 │   │   └── mechs/         # Mech battle images
 │   └── audio/             # Audio narration system
@@ -74,8 +77,9 @@ NRDSandbox/
 - `login.php` - Database-driven user authentication
 - `database/Database.php` - MySQL/SQLite connection abstraction
 - `database/User.php` - User management and session handling
+- `database/CardManager.php` - Rarity-weighted card distribution system
 - `style.css` - Contains ALL project styling (no other CSS files)
-- `data/cards.json` - Card library with 10+ sample cards
+- `data/nrd_sandbox.sqlite` - Card library with 16 balanced cards
 
 ---
 
@@ -89,10 +93,12 @@ NRDSandbox/
 - **Security**: Prepared statements, input validation, error sanitization
 
 ### **Card System**
-- **Types:** Spell, Weapon, Armor, Creature, Support, Special Attack
-- **Properties:** ID, name, cost, type, damage, description, rarity, image
-- **Storage:** JSON format with metadata (created_at, created_by)
-- **Management:** Live card creator with instant preview and image upload
+- **Types:** Weapon, Armor, Special Attack, Spell, Creature, Support
+- **Elements:** Fire, Ice, Poison, Plasma, Neutral
+- **Rarities:** Common (60%), Uncommon (25%), Rare (12%), Epic (2.5%), Legendary (0.5%)
+- **Storage:** Database-driven with SQLite/MySQL support
+- **Distribution:** Weighted random selection preventing duplicates
+- **Management:** Live card creator with database integration and rarity controls
 
 ### **Equipment System**
 - **Equipping:** Click weapon/armor cards in hand to equip
