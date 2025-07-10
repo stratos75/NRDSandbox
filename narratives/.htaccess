@@ -1,0 +1,24 @@
+# NRDSandbox Narratives Directory Security
+# Protect sensitive narrative data and configuration files
+
+# Deny access to sensitive file types
+<Files ~ "\.(php|json|txt|md|log)$">
+    Require all granted
+</Files>
+
+# Allow access to Arrow exports and assets
+<Files ~ "\.(html|css|js|png|jpg|jpeg|gif|webp|mp3|ogg|wav)$">
+    Require all granted
+</Files>
+
+# Specific protections
+<Files "config.php">
+    Require all denied
+</Files>
+
+<Files "*.log">
+    Require all denied
+</Files>
+
+# Enable directory indexing for development
+Options +Indexes

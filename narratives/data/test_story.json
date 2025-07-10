@@ -1,0 +1,375 @@
+{
+  "id": "test_story",
+  "title": "The Tactical Test",
+  "description": "A test story to validate the Arrow integration system with NRDSandbox card battles.",
+  "nodes": {
+    "start": {
+      "id": "start",
+      "type": "text",
+      "title": "Mission Briefing",
+      "content": "Recruit, you've been assigned to your first tactical mission. Intelligence reports enemy forces have fortified a strategic position. Your approach will determine the outcome of this engagement. How do you want to proceed?",
+      "choices": [
+        {
+          "text": "Scout the perimeter for weaknesses",
+          "target": "scout_path",
+          "conditions": [],
+          "actions": [],
+          "nrd_effects": [
+            {
+              "type": "bias_card_type",
+              "card_type": "special"
+            }
+          ]
+        },
+        {
+          "text": "Prepare for direct assault",
+          "target": "assault_path",
+          "conditions": [],
+          "actions": [],
+          "nrd_effects": [
+            {
+              "type": "bias_card_type",
+              "card_type": "weapon"
+            }
+          ]
+        },
+        {
+          "text": "Set up defensive positions",
+          "target": "defense_path",
+          "conditions": [],
+          "actions": [],
+          "nrd_effects": [
+            {
+              "type": "bias_card_type",
+              "card_type": "armor"
+            }
+          ]
+        }
+      ],
+      "conditions": [],
+      "actions": [],
+      "nrd_actions": [
+        {
+          "type": "narrative_trigger",
+          "event": "story_node",
+          "text": "Mission briefing begins..."
+        }
+      ]
+    },
+    "scout_path": {
+      "id": "scout_path",
+      "type": "text",
+      "title": "Reconnaissance",
+      "content": "Your scouting reveals a hidden weakness in the enemy's left flank. You also discover they have advanced sensors that could detect a direct approach. This intelligence gives you a tactical advantage.",
+      "choices": [
+        {
+          "text": "Exploit the weakness for a stealth approach",
+          "target": "stealth_victory",
+          "conditions": [],
+          "actions": [
+            {
+              "type": "reward_card",
+              "card_id": "stealth_card",
+              "rarity": "rare"
+            }
+          ],
+          "nrd_effects": []
+        },
+        {
+          "text": "Share intel with assault team",
+          "target": "coordinated_attack",
+          "conditions": [],
+          "actions": [],
+          "nrd_effects": []
+        }
+      ],
+      "conditions": [],
+      "actions": [
+        {
+          "type": "set_variable",
+          "variable": "scouted",
+          "value": "true"
+        }
+      ],
+      "nrd_actions": [
+        {
+          "type": "narrative_trigger",
+          "event": "story_node",
+          "text": "Reconnaissance complete..."
+        }
+      ]
+    },
+    "assault_path": {
+      "id": "assault_path",
+      "type": "text",
+      "title": "Direct Assault",
+      "content": "You gear up for a frontal assault. Your aggressive approach catches the enemy off-guard, but you'll need superior firepower to break through their defenses. The battle will be intense.",
+      "choices": [
+        {
+          "text": "Lead the charge personally",
+          "target": "heroic_victory",
+          "conditions": [],
+          "actions": [
+            {
+              "type": "reward_card",
+              "card_id": "hero_weapon",
+              "rarity": "epic"
+            }
+          ],
+          "nrd_effects": [
+            {
+              "type": "modify_stats",
+              "stat": "ATK",
+              "value": 5
+            }
+          ]
+        },
+        {
+          "text": "Coordinate with support units",
+          "target": "coordinated_attack",
+          "conditions": [],
+          "actions": [],
+          "nrd_effects": []
+        }
+      ],
+      "conditions": [],
+      "actions": [
+        {
+          "type": "set_variable",
+          "variable": "assault_ready",
+          "value": "true"
+        }
+      ],
+      "nrd_actions": [
+        {
+          "type": "narrative_trigger",
+          "event": "story_node",
+          "text": "Assault preparations complete..."
+        }
+      ]
+    },
+    "defense_path": {
+      "id": "defense_path",
+      "type": "text",
+      "title": "Defensive Strategy",
+      "content": "You establish strong defensive positions and wait for the enemy to make the first move. This cautious approach minimizes casualties but requires patience and strong defensive equipment.",
+      "choices": [
+        {
+          "text": "Fortify positions with barriers",
+          "target": "fortress_victory",
+          "conditions": [],
+          "actions": [
+            {
+              "type": "reward_card",
+              "card_id": "fortress_armor",
+              "rarity": "rare"
+            }
+          ],
+          "nrd_effects": [
+            {
+              "type": "modify_stats",
+              "stat": "DEF",
+              "value": 5
+            }
+          ]
+        },
+        {
+          "text": "Set up counter-attack positions",
+          "target": "coordinated_attack",
+          "conditions": [],
+          "actions": [],
+          "nrd_effects": []
+        }
+      ],
+      "conditions": [],
+      "actions": [
+        {
+          "type": "set_variable",
+          "variable": "defensive_ready",
+          "value": "true"
+        }
+      ],
+      "nrd_actions": [
+        {
+          "type": "narrative_trigger",
+          "event": "story_node",
+          "text": "Defensive preparations complete..."
+        }
+      ]
+    },
+    "stealth_victory": {
+      "id": "stealth_victory",
+      "type": "text",
+      "title": "Silent Success",
+      "content": "Your stealth approach pays off perfectly. You infiltrate the enemy position undetected and disable their key systems without a single shot fired. A masterful display of tactical precision.",
+      "choices": [
+        {
+          "text": "Complete the mission",
+          "target": "mission_complete",
+          "conditions": [],
+          "actions": [
+            {
+              "type": "reward_card",
+              "card_id": "stealth_mastery",
+              "rarity": "legendary"
+            }
+          ],
+          "nrd_effects": []
+        }
+      ],
+      "conditions": [],
+      "actions": [
+        {
+          "type": "set_variable",
+          "variable": "victory_type",
+          "value": "stealth"
+        }
+      ],
+      "nrd_actions": [
+        {
+          "type": "narrative_trigger",
+          "event": "story_node",
+          "text": "Mission accomplished through stealth..."
+        }
+      ]
+    },
+    "heroic_victory": {
+      "id": "heroic_victory",
+      "type": "text",
+      "title": "Heroic Charge",
+      "content": "Your personal leadership in the assault inspires your entire unit. Despite heavy resistance, your bold charge breaks through enemy lines and secures a decisive victory. Your courage becomes legendary.",
+      "choices": [
+        {
+          "text": "Complete the mission",
+          "target": "mission_complete",
+          "conditions": [],
+          "actions": [
+            {
+              "type": "reward_card",
+              "card_id": "hero_medal",
+              "rarity": "legendary"
+            }
+          ],
+          "nrd_effects": []
+        }
+      ],
+      "conditions": [],
+      "actions": [
+        {
+          "type": "set_variable",
+          "variable": "victory_type",
+          "value": "heroic"
+        }
+      ],
+      "nrd_actions": [
+        {
+          "type": "narrative_trigger",
+          "event": "story_node",
+          "text": "Mission accomplished through heroism..."
+        }
+      ]
+    },
+    "fortress_victory": {
+      "id": "fortress_victory",
+      "type": "text",
+      "title": "Impregnable Defense",
+      "content": "Your defensive strategy proves unbreakable. The enemy exhausts themselves against your fortified positions, and you counter-attack when they're weakened. A textbook example of defensive warfare.",
+      "choices": [
+        {
+          "text": "Complete the mission",
+          "target": "mission_complete",
+          "conditions": [],
+          "actions": [
+            {
+              "type": "reward_card",
+              "card_id": "fortress_commander",
+              "rarity": "legendary"
+            }
+          ],
+          "nrd_effects": []
+        }
+      ],
+      "conditions": [],
+      "actions": [
+        {
+          "type": "set_variable",
+          "variable": "victory_type",
+          "value": "defensive"
+        }
+      ],
+      "nrd_actions": [
+        {
+          "type": "narrative_trigger",
+          "event": "story_node",
+          "text": "Mission accomplished through defense..."
+        }
+      ]
+    },
+    "coordinated_attack": {
+      "id": "coordinated_attack",
+      "type": "text",
+      "title": "Coordinated Strike",
+      "content": "Your tactical coordination proves effective. By combining different approaches and working with your team, you achieve a balanced victory that minimizes losses while maximizing strategic gain.",
+      "choices": [
+        {
+          "text": "Complete the mission",
+          "target": "mission_complete",
+          "conditions": [],
+          "actions": [
+            {
+              "type": "reward_card",
+              "card_id": "tactical_coordinator",
+              "rarity": "epic"
+            }
+          ],
+          "nrd_effects": []
+        }
+      ],
+      "conditions": [],
+      "actions": [
+        {
+          "type": "set_variable",
+          "variable": "victory_type",
+          "value": "coordinated"
+        }
+      ],
+      "nrd_actions": [
+        {
+          "type": "narrative_trigger",
+          "event": "story_node",
+          "text": "Mission accomplished through coordination..."
+        }
+      ]
+    },
+    "mission_complete": {
+      "id": "mission_complete",
+      "type": "text",
+      "title": "Mission Complete",
+      "content": "Excellent work, recruit. Your tactical decisions have led to a successful mission outcome. The experience and equipment you've gained will serve you well in future battles. Command is impressed with your performance.",
+      "choices": [],
+      "conditions": [],
+      "actions": [
+        {
+          "type": "reward_card",
+          "card_id": "mission_badge",
+          "rarity": "common"
+        }
+      ],
+      "nrd_actions": [
+        {
+          "type": "narrative_trigger",
+          "event": "story_end",
+          "text": "Mission debriefing complete..."
+        }
+      ]
+    }
+  },
+  "variables": {
+    "scouted": "false",
+    "assault_ready": "false",
+    "defensive_ready": "false",
+    "victory_type": "unknown"
+  },
+  "created_at": "2024-01-01 12:00:00",
+  "version": "1.0.0"
+}

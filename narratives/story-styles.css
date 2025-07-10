@@ -1,0 +1,545 @@
+/**
+ * Story UI Styles for NRDSandbox Arrow Integration
+ * Complements the existing style.css with story-specific components
+ */
+
+/* ===================================================================
+   STORY PANEL STYLES
+   =================================================================== */
+
+.story-panel {
+    position: fixed;
+    top: 0;
+    left: -400px;
+    width: 380px;
+    height: 100vh;
+    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+    border-right: 2px solid #00d4ff;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    transition: left 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.story-panel.active {
+    left: 0;
+}
+
+.story-header {
+    padding: 20px;
+    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.story-header h3 {
+    margin: 0;
+    font-size: 1.2em;
+    font-weight: 600;
+}
+
+.story-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5em;
+    cursor: pointer;
+    padding: 5px 10px;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+}
+
+.story-close:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.story-content {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.story-text {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    color: #e0e0e0;
+    line-height: 1.6;
+    font-size: 0.95em;
+    min-height: 100px;
+}
+
+.story-choices {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.story-choice {
+    background: linear-gradient(135deg, #2d2d2d 0%, #404040 100%);
+    border: 1px solid #00d4ff;
+    border-radius: 6px;
+    padding: 12px 15px;
+    color: #e0e0e0;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.9em;
+    text-align: left;
+    position: relative;
+}
+
+.story-choice:hover {
+    background: linear-gradient(135deg, #404040 0%, #555555 100%);
+    box-shadow: 0 2px 8px rgba(0, 212, 255, 0.3);
+    transform: translateY(-1px);
+}
+
+.story-choice:active {
+    transform: translateY(0);
+}
+
+.story-choice:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.story-choice.story-end {
+    background: linear-gradient(135deg, #cc6600 0%, #ff8800 100%);
+    border-color: #ff8800;
+}
+
+.story-choice.story-end:hover {
+    background: linear-gradient(135deg, #ff8800 0%, #ffaa00 100%);
+}
+
+.choice-indicator {
+    position: absolute;
+    top: 5px;
+    right: 8px;
+    font-size: 0.8em;
+    color: #00d4ff;
+}
+
+.story-progress {
+    padding: 15px 20px;
+    background: rgba(0, 0, 0, 0.2);
+    border-top: 1px solid rgba(0, 212, 255, 0.3);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.story-progress-bar {
+    height: 4px;
+    background: #00d4ff;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+    flex: 1;
+}
+
+#storyProgressText {
+    font-size: 0.8em;
+    color: #999;
+    white-space: nowrap;
+}
+
+/* ===================================================================
+   CHOICE MODAL STYLES
+   =================================================================== */
+
+.choice-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.choice-modal.active {
+    display: flex;
+}
+
+.choice-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(5px);
+}
+
+.choice-container {
+    background: linear-gradient(135deg, #2d2d2d 0%, #404040 100%);
+    border: 2px solid #00d4ff;
+    border-radius: 12px;
+    padding: 20px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    position: relative;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    color: #e0e0e0;
+}
+
+.choice-header {
+    text-align: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.3);
+}
+
+.choice-header h4 {
+    margin: 0;
+    color: #00d4ff;
+    font-size: 1.1em;
+}
+
+.choice-content {
+    max-height: 300px;
+    overflow-y: auto;
+    margin-bottom: 20px;
+}
+
+.choice-buttons {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.choice-back, .choice-confirm {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: all 0.2s;
+}
+
+.choice-back {
+    background: #666;
+    color: white;
+}
+
+.choice-back:hover {
+    background: #777;
+}
+
+.choice-confirm {
+    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+    color: white;
+}
+
+.choice-confirm:hover {
+    background: linear-gradient(135deg, #0099cc 0%, #007aa3 100%);
+}
+
+/* ===================================================================
+   STORY NOTIFICATIONS
+   =================================================================== */
+
+.story-reward-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, #00cc66 0%, #00aa55 100%);
+    color: white;
+    padding: 15px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 1500;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: slideInRight 0.3s ease;
+}
+
+.story-stat-notification {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    background: linear-gradient(135deg, #ff6600 0%, #cc5500 100%);
+    color: white;
+    padding: 10px 15px;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 1500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: slideInRight 0.3s ease;
+    font-size: 0.9em;
+}
+
+.story-error {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(135deg, #cc0000 0%, #aa0000 100%);
+    color: white;
+    padding: 15px 25px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 2500;
+    font-size: 0.9em;
+    animation: fadeIn 0.3s ease;
+}
+
+.reward-icon, .stat-icon {
+    font-size: 1.2em;
+}
+
+.reward-text, .stat-text {
+    flex: 1;
+}
+
+/* ===================================================================
+   STORY INTEGRATION WITH MAIN INTERFACE
+   =================================================================== */
+
+body.story-active {
+    padding-left: 380px;
+}
+
+body.story-active .battlefield-container {
+    margin-left: 0;
+}
+
+body.story-active .narrative-guide-panel {
+    left: 400px;
+}
+
+/* ===================================================================
+   STORY SELECTION INTERFACE
+   =================================================================== */
+
+.story-selection-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(135deg, #2d2d2d 0%, #404040 100%);
+    border: 2px solid #00d4ff;
+    border-radius: 12px;
+    padding: 20px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    z-index: 1500;
+    color: #e0e0e0;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.story-selection-header {
+    text-align: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.3);
+}
+
+.story-selection-header h3 {
+    margin: 0;
+    color: #00d4ff;
+    font-size: 1.3em;
+}
+
+.story-list {
+    max-height: 400px;
+    overflow-y: auto;
+    margin-bottom: 20px;
+}
+
+.story-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.story-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: #00d4ff;
+    transform: translateY(-1px);
+}
+
+.story-item-title {
+    font-size: 1.1em;
+    font-weight: 600;
+    color: #00d4ff;
+    margin-bottom: 5px;
+}
+
+.story-item-description {
+    font-size: 0.9em;
+    color: #ccc;
+    margin-bottom: 8px;
+}
+
+.story-item-meta {
+    font-size: 0.8em;
+    color: #999;
+    display: flex;
+    justify-content: space-between;
+}
+
+.story-selection-buttons {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.story-cancel-btn, .story-import-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: all 0.2s;
+}
+
+.story-cancel-btn {
+    background: #666;
+    color: white;
+}
+
+.story-cancel-btn:hover {
+    background: #777;
+}
+
+.story-import-btn {
+    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+    color: white;
+}
+
+.story-import-btn:hover {
+    background: linear-gradient(135deg, #0099cc 0%, #007aa3 100%);
+}
+
+/* ===================================================================
+   ANIMATIONS
+   =================================================================== */
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* ===================================================================
+   RESPONSIVE DESIGN
+   =================================================================== */
+
+@media (max-width: 768px) {
+    .story-panel {
+        width: 100%;
+        left: -100%;
+    }
+    
+    .story-panel.active {
+        left: 0;
+    }
+    
+    body.story-active {
+        padding-left: 0;
+    }
+    
+    body.story-active .narrative-guide-panel {
+        left: 20px;
+    }
+    
+    .choice-container {
+        width: 95%;
+        padding: 15px;
+    }
+    
+    .story-selection-panel {
+        width: 95%;
+        padding: 15px;
+    }
+}
+
+/* ===================================================================
+   ACCESSIBILITY
+   =================================================================== */
+
+.story-choice:focus,
+.story-close:focus,
+.choice-back:focus,
+.choice-confirm:focus {
+    outline: 2px solid #00d4ff;
+    outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .story-panel {
+        background: #000;
+        border-color: #fff;
+    }
+    
+    .story-text {
+        background: #111;
+        border-color: #fff;
+        color: #fff;
+    }
+    
+    .story-choice {
+        background: #222;
+        border-color: #fff;
+        color: #fff;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .story-panel,
+    .story-choice,
+    .story-reward-notification,
+    .story-stat-notification {
+        transition: none;
+    }
+    
+    @keyframes slideInRight {
+        from, to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes fadeIn {
+        from, to {
+            opacity: 1;
+        }
+    }
+}
