@@ -26,7 +26,7 @@ fi
 # Deployment options
 echo "🚀 Deployment Options:"
 echo "1) Local development only (git commit/push)"
-echo "2) Deploy to production (newretrodawn.dev/nrdsandbox)"
+echo "2) Deploy to production (sandbox.newretrodawn.dev)"
 echo "3) Both (recommended)"
 echo ""
 read -p "Choose deployment type (1-3): " deploy_type
@@ -71,7 +71,7 @@ fi
 
 if [ "$DEPLOY_PROD" = true ]; then
     echo ""
-    blue "🌐 Production Deployment to newretrodawn.dev/nrdsandbox"
+    blue "🌐 Production Deployment to sandbox.newretrodawn.dev"
     
     # Check if rsync is available
     if ! command -v rsync &> /dev/null; then
@@ -80,8 +80,9 @@ if [ "$DEPLOY_PROD" = true ]; then
     fi
     
     # Use configured SSH credentials
-    echo "📋 DreamHost deployment using SSH: nrddev@newretrodawn.dev"
+    echo "📋 DreamHost deployment using SSH: nrddev@sandbox.newretrodawn.dev"
     ssh_user="nrddev"
+    ssh_host="sandbox.newretrodawn.dev"
     
     # Sync files to production (excluding development files)
     green "📤 Syncing files to production server..."
@@ -96,23 +97,23 @@ if [ "$DEPLOY_PROD" = true ]; then
         --exclude='.gitignore' \
         --exclude='*.tmp' \
         --exclude='.env' \
-        ./ "$ssh_user@newretrodawn.dev:~/nrdsandbox/" || { 
+        ./ "$ssh_user@$ssh_host:~/" || { 
         red "❌ Production deployment failed."; 
-        echo "💡 Make sure you have SSH access to newretrodawn.dev"
-        echo "💡 Try: ssh nrddev@newretrodawn.dev"
+        echo "💡 Make sure you have SSH access to $ssh_host"
+        echo "💡 Try: ssh $ssh_user@$ssh_host"
         exit 1; 
     }
     
     # Set proper permissions on production
     green "🔧 Setting file permissions on production..."
-    ssh "$ssh_user@newretrodawn.dev" "cd ~/nrdsandbox && chmod -R 755 . && chmod -R 755 data/ && chmod 644 data/*.json" || {
+    ssh "$ssh_user@$ssh_host" "chmod -R 755 . && chmod -R 755 data/ && chmod 644 data/*.json" || {
         yellow "⚠️  Could not set file permissions automatically."
-        echo "💡 Manually run: chmod -R 755 ~/nrdsandbox && chmod -R 755 ~/nrdsandbox/data/"
+        echo "💡 Manually run: chmod -R 755 ~/public_html && chmod -R 755 ~/public_html/data/"
     }
     
     green "✅ Production deployment complete!"
     echo ""
-    blue "🌐 Live site: https://newretrodawn.dev/nrdsandbox/"
+    blue "🌐 Live site: https://sandbox.newretrodawn.dev/"
 fi
 
 echo ""
@@ -122,7 +123,7 @@ green "🎉 All deployments completed successfully!"
 echo ""
 blue "📋 Next Steps:"
 if [ "$DEPLOY_PROD" = true ]; then
-    echo "• Visit: https://newretrodawn.dev/nrdsandbox/"
+    echo "• Visit: https://sandbox.newretrodawn.dev/"
     echo "• Test login: admin / password123"
     echo "• Check file permissions if needed"
 fi

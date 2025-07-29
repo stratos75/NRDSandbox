@@ -27,9 +27,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             break;
             
         case 'reset_hands':
-            $_SESSION['player_hand'] = [];
-            $_SESSION['enemy_hand'] = [];
-            $response = ['success' => true, 'message' => 'Player and enemy hands cleared'];
+            require_once '../database/CardManager.php';
+            $cardManager = new CardManager();
+            
+            // Re-deal player hand
+            try {
+                $databaseHand = $cardManager->dealBalancedStartingHand(5, true);
+                $_SESSION['player_hand'] = $cardManager->convertArrayToLegacyFormat($databaseHand);
+            } catch (Exception $e) {
+                $_SESSION['player_hand'] = [];
+            }
+            
+            // Re-deal enemy hand  
+            try {
+                $enemyHand = $cardManager->dealBalancedStartingHand(5, true);
+                $_SESSION['enemy_hand'] = $cardManager->convertArrayToLegacyFormat($enemyHand);
+            } catch (Exception $e) {
+                $_SESSION['enemy_hand'] = [];
+            }
+            
+            $response = ['success' => true, 'message' => 'Player and enemy hands re-dealt'];
             break;
             
         case 'clear_log':
@@ -38,6 +55,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             break;
             
         case 'reset_all':
+            require_once '../database/CardManager.php';
+            $cardManager = new CardManager();
+            
             // Reset mechs
             $_SESSION['playerMech'] = [
                 'HP' => 100, 'ATK' => 30, 'DEF' => 15, 'MAX_HP' => 100, 
@@ -49,15 +69,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 'companion' => 'AI-Core', 'name' => 'Enemy Mech',
                 'image' => $_SESSION['enemyMech']['image'] ?? null
             ];
-            // Reset hands
-            $_SESSION['player_hand'] = [];
-            $_SESSION['enemy_hand'] = [];
+            
+            // Re-deal hands instead of clearing them
+            try {
+                $databaseHand = $cardManager->dealBalancedStartingHand(5, true);
+                $_SESSION['player_hand'] = $cardManager->convertArrayToLegacyFormat($databaseHand);
+            } catch (Exception $e) {
+                $_SESSION['player_hand'] = [];
+            }
+            
+            try {
+                $enemyHand = $cardManager->dealBalancedStartingHand(5, true);
+                $_SESSION['enemy_hand'] = $cardManager->convertArrayToLegacyFormat($enemyHand);
+            } catch (Exception $e) {
+                $_SESSION['enemy_hand'] = [];
+            }
+            
             // Reset equipment
             $_SESSION['playerEquipment'] = ['weapon' => null, 'armor' => null, 'weapon_special' => null];
             $_SESSION['enemyEquipment'] = ['weapon' => null, 'armor' => null, 'weapon_special' => null];
             // Clear log
             $_SESSION['log'] = [];
-            $response = ['success' => true, 'message' => 'All game state reset to defaults'];
+            $response = ['success' => true, 'message' => 'All game state reset with new cards dealt'];
             break;
     }
     

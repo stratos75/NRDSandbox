@@ -49,7 +49,8 @@ $productionFiles = [
 // Directories to copy recursively
 $productionDirs = [
     'data/images',
-    'data/audio'
+    'data/audio',
+    'images'
 ];
 
 // Copy files
@@ -100,9 +101,9 @@ file_put_contents($prodDir . '/README_PRODUCTION.txt',
 "NRDSandbox Production Files
 ===========================
 
-1. Upload ALL files in this directory to: newretrodawn.dev/NRDSandbox/
+1. Upload ALL files in this directory to: sandbox.newretrodawn.dev/
 2. Ensure MySQL database 'nrdsb' exists with tables created
-3. Test: https://newretrodawn.dev/NRDSandbox/login.php
+3. Test: https://sandbox.newretrodawn.dev/login.php
 4. Login with: admin / password123
 
 Database credentials are in database/Database.php
@@ -110,7 +111,7 @@ Database credentials are in database/Database.php
 
 echo "\n🚀 Production files ready in: $prodDir\n";
 echo "📋 Next steps:\n";
-echo "1. Upload ALL files from PRODUCTION_READY/ to newretrodawn.dev/NRDSandbox/\n";
+echo "1. Upload ALL files from PRODUCTION_READY/ to sandbox.newretrodawn.dev/\n";
 echo "2. Test the login page\n";
 echo "3. Verify database connection\n";
 

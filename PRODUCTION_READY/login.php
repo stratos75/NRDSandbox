@@ -92,6 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </form>
         
         <div class="login-footer">
+          <p class="login-hint">Default: admin / password123</p>
           <p class="version-info">v1.0 • Tactical Combat Simulator</p>
         </div>
       </div>

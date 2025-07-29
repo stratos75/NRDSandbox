@@ -22,8 +22,8 @@ if ($isLocalhost) {
 } else {
     // Production settings (DreamHost)
     define('ENVIRONMENT', 'production');
-    define('BASE_URL', '/NRDSandbox');
-    define('BASE_PATH', '/NRDSandbox');
+    define('BASE_URL', '');
+    define('BASE_PATH', '');
     
     // Production error handling
     error_reporting(E_ERROR | E_WARNING | E_PARSE);

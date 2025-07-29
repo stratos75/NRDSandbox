@@ -1,0 +1,26 @@
+{
+    "id": "new_retro_dawn_intro_story_1752153900",
+    "title": "New Retro Dawn - Intro Story",
+    "description": "Story imported from Arrow HTML export",
+    "nodes": {
+        "start": {
+            "id": "start",
+            "type": "text",
+            "title": "Start",
+            "content": "This story was imported from an Arrow HTML export.",
+            "choices": [],
+            "conditions": [],
+            "actions": [],
+            "nrd_actions": [
+                {
+                    "type": "narrative_trigger",
+                    "event": "story_node",
+                    "text": "This story was imported from an Arrow HTML export."
+                }
+            ]
+        }
+    },
+    "variables": [],
+    "created_at": "2025-07-10 13:25:00",
+    "version": "1.0.0"
+}

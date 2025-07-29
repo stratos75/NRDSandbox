@@ -4,6 +4,7 @@ ini_set('display_errors', 1);
 ini_set('log_errors', 1);
 
 require 'auth.php';
+require_once 'database/CardManager.php';
 
 // Initialize turn-based system session variables
 if (!isset($_SESSION['currentPlayer'])) {
@@ -42,160 +43,71 @@ $gameRules = [
 ];
 
 // ===================================================================
-// IMPROVED CARD LIBRARY & HAND MANAGEMENT
+// DATABASE-DRIVEN CARD LIBRARY & HAND MANAGEMENT
 // ===================================================================
-// Initialize arrays and debug info
-$cardLibrary = [];
+// Initialize card manager and debug info
+$cardManager = new CardManager();
 $debugInfo = [];
 
-// Define the expected path
-$cardsJsonPath = 'data/cards.json';
-
-// Enhanced file existence and readability check
-$debugInfo[] = "Looking for cards file at: {$cardsJsonPath}";
-$debugInfo[] = "Current working directory: " . getcwd();
-$debugInfo[] = "Cards JSON exists: " . (file_exists($cardsJsonPath) ? 'YES' : 'NO');
-
-if (file_exists($cardsJsonPath)) {
-    // Check if file is readable
-    if (!is_readable($cardsJsonPath)) {
-        $debugInfo[] = "ERROR: File exists but is not readable. Check permissions.";
-    } else {
-        // Read file content
+// Load cards from database instead of JSON
+try {
+    $dbCards = $cardManager->getAllCards();
+    $cardLibrary = $cardManager->convertArrayToLegacyFormat($dbCards);
+    
+    $debugInfo[] = "SUCCESS: Loaded " . count($cardLibrary) . " cards from database";
+    
+    // Get rarity distribution for debugging
+    $rarityDistribution = $cardManager->getRarityDistribution();
+    $rarityStats = [];
+    foreach ($rarityDistribution as $rarity) {
+        $rarityStats[] = "{$rarity['rarity_name']}: {$rarity['card_count']} cards ({$rarity['rarity_weight']}% weight)";
+    }
+    $debugInfo[] = "Rarity distribution: " . implode(', ', $rarityStats);
+    
+} catch (Exception $e) {
+    $debugInfo[] = "ERROR: Database connection failed - " . $e->getMessage();
+    $debugInfo[] = "Falling back to JSON if available...";
+    
+    // Fallback to JSON system if database fails
+    $cardLibrary = [];
+    $cardsJsonPath = 'data/cards.json';
+    
+    if (file_exists($cardsJsonPath)) {
         $jsonContent = file_get_contents($cardsJsonPath);
-        
-        if ($jsonContent === false) {
-            $debugInfo[] = "ERROR: Failed to read file content";
-        } elseif (empty($jsonContent)) {
-            $debugInfo[] = "ERROR: File is empty";
-        } else {
-            $debugInfo[] = "File read successfully. Content length: " . strlen($jsonContent) . " characters";
-            
-            // Try to decode JSON
-            $cardData = json_decode($jsonContent, true);
-            
-            if ($cardData === null) {
-                $jsonError = json_last_error_msg();
-                $debugInfo[] = "JSON ERROR: {$jsonError}";
-                
-                // Show first part of content for debugging
-                $preview = substr($jsonContent, 0, 100);
-                $debugInfo[] = "File preview: " . htmlspecialchars($preview) . "...";
-            } else {
-                $debugInfo[] = "JSON decoded successfully";
-                
-                // Check if the expected structure exists
-                if (!isset($cardData['cards'])) {
-                    $debugInfo[] = "ERROR: JSON missing 'cards' key. Available keys: " . implode(', ', array_keys($cardData));
-                } elseif (!is_array($cardData['cards'])) {
-                    $debugInfo[] = "ERROR: 'cards' is not an array";
-                } else {
-                    $cardLibrary = $cardData['cards'];
-                    $debugInfo[] = "SUCCESS: Loaded " . count($cardLibrary) . " cards";
-                    
-                    // Validate card structure
-                    $validCards = 0;
-                    $invalidCards = 0;
-                    foreach ($cardLibrary as $index => $card) {
-                        $requiredFields = ['id', 'name', 'type', 'cost'];
-                        $hasAllFields = true;
-                        
-                        foreach ($requiredFields as $field) {
-                            if (!isset($card[$field])) {
-                                $hasAllFields = false;
-                                break;
-                            }
-                        }
-                        
-                        if ($hasAllFields) {
-                            $validCards++;
-                        } else {
-                            $invalidCards++;
-                            $debugInfo[] = "WARNING: Card at index {$index} missing required fields";
-                        }
-                    }
-                    
-                    $debugInfo[] = "Card validation: {$validCards} valid, {$invalidCards} invalid";
-                }
-            }
-        }
-    }
-} else {
-    $debugInfo[] = "ERROR: {$cardsJsonPath} file does not exist";
-    
-    // Try to create default file
-    $debugInfo[] = "Attempting to create default cards file...";
-    
-    if (!is_dir('data')) {
-        if (mkdir('data', 0755, true)) {
-            $debugInfo[] = "Created data/ directory";
-        } else {
-            $debugInfo[] = "ERROR: Failed to create data/ directory";
+        $cardData = json_decode($jsonContent, true);
+        if ($cardData && isset($cardData['cards'])) {
+            $cardLibrary = $cardData['cards'];
+            $debugInfo[] = "FALLBACK: Loaded " . count($cardLibrary) . " cards from JSON";
         }
     }
     
-    $defaultCards = [
-        'cards' => [
-            [
-                'id' => 'weapon_001',
-                'name' => 'Plasma Rifle',
-                'cost' => 2,
-                'type' => 'weapon',
-                'damage' => 15,
-                'description' => 'Standard issue energy weapon. Reliable and efficient.',
-                'rarity' => 'common',
-                'created_at' => date('Y-m-d H:i:s'),
-                'created_by' => 'system'
-            ],
-            [
-                'id' => 'armor_001',
-                'name' => 'Shield Array',
-                'cost' => 2,
-                'type' => 'armor',
-                'damage' => 10,
-                'description' => 'Energy barrier system. Provides solid defense.',
-                'rarity' => 'common',
-                'created_at' => date('Y-m-d H:i:s'),
-                'created_by' => 'system'
-            ],
-            [
-                'id' => 'spell_001',
-                'name' => 'Lightning Bolt',
-                'cost' => 3,
-                'type' => 'spell',
-                'damage' => 12,
-                'description' => 'Instant damage spell. Quick and effective.',
-                'rarity' => 'common',
-                'created_at' => date('Y-m-d H:i:s'),
-                'created_by' => 'system'
-            ]
-        ],
-        'meta' => [
-            'created' => date('Y-m-d H:i:s'),
-            'version' => '1.1',
-            'total_cards' => 3,
-            'last_updated' => date('Y-m-d H:i:s')
-        ]
-    ];
-    
-    $defaultJson = json_encode($defaultCards, JSON_PRETTY_PRINT);
-    
-    if (file_put_contents($cardsJsonPath, $defaultJson)) {
-        $debugInfo[] = "SUCCESS: Created default cards.json file";
-        $cardLibrary = $defaultCards['cards'];
-    } else {
-        $debugInfo[] = "ERROR: Failed to create default cards.json file";
+    // If no cards loaded from either database or JSON, initialize empty library
+    if (empty($cardLibrary)) {
+        $debugInfo[] = "WARNING: No cards available from any source";
     }
 }
 
 // ===================================================================
-// ENHANCED PLAYER HAND INITIALIZATION
+// DATABASE-DRIVEN PLAYER HAND INITIALIZATION
 // ===================================================================
-// Initialize player hand from session (separate from library)
+// Initialize player hand using rarity-weighted dealing
 if (!isset($_SESSION['player_hand'])) {
-    // Start with empty hand - cards will be drawn from deck
-    $_SESSION['player_hand'] = [];
-    $debugInfo[] = "Initialized empty player hand";
+    // Deal balanced starting hand for new players using database system
+    if (!empty($cardLibrary)) {
+        $startingHandSize = $gameRules['starting_hand_size'];
+        try {
+            $databaseHand = $cardManager->dealBalancedStartingHand($startingHandSize, true);
+            $_SESSION['player_hand'] = $cardManager->convertArrayToLegacyFormat($databaseHand);
+            $debugInfo[] = "Dealt rarity-weighted starting hand with " . count($_SESSION['player_hand']) . " cards";
+        } catch (Exception $e) {
+            // Fallback to old system if database dealing fails
+            $_SESSION['player_hand'] = dealBalancedStartingHand($cardLibrary, $startingHandSize);
+            $debugInfo[] = "Fallback: Dealt standard balanced hand with " . count($_SESSION['player_hand']) . " cards";
+        }
+    } else {
+        $_SESSION['player_hand'] = [];
+        $debugInfo[] = "Initialized empty player hand (no cards available)";
+    }
 } else {
     $debugInfo[] = "Loaded existing player hand with " . count($_SESSION['player_hand']) . " cards";
 }
@@ -238,22 +150,22 @@ $companionLibrary = [
 ];
 
 $defaultPlayerMech = [
-    'HP' => 75, 
-    'ATK' => 30, 
+    'HP' => 120, 
+    'ATK' => 25, 
     'DEF' => 15, 
-    'MAX_HP' => 75, 
+    'MAX_HP' => 120, 
     'companion' => 'Jack',
     'name' => 'Player Mech',
-    'image' => null
+    'image' => 'data/images/mechs/player_mech.png'
 ];
 $defaultEnemyMech = [
-    'HP' => 75, 
-    'ATK' => 25, 
-    'DEF' => 10, 
-    'MAX_HP' => 75, 
+    'HP' => 120, 
+    'ATK' => 20, 
+    'DEF' => 12, 
+    'MAX_HP' => 120, 
     'companion' => 'AI-Core',
     'name' => 'Enemy Mech',
-    'image' => null
+    'image' => 'data/images/mechs/enemy_mech.png'
 ];
 
 // Merge session data with defaults to ensure all keys exist
@@ -264,7 +176,7 @@ $enemyMech = array_merge($defaultEnemyMech, $_SESSION['enemyMech'] ?? []);
 // EQUIPMENT STATE TRACKING
 // ===================================================================
 $playerEquipment = $_SESSION['playerEquipment'] ?? ['weapon' => null, 'armor' => null, 'weapon_special' => null];
-$enemyEquipment = $_SESSION['enemyEquipment'] ?? ['weapon' => null, 'armor' => null];
+$enemyEquipment = $_SESSION['enemyEquipment'] ?? ['weapon' => null, 'armor' => null, 'weapon_special' => null];
 
 // Tutorial state tracking
 $tutorialState = $_SESSION['tutorialState'] ?? ['enemyManuallyEquipped' => false];
@@ -273,7 +185,8 @@ $tutorialState = $_SESSION['tutorialState'] ?? ['enemyManuallyEquipped' => false
 if ($enemyEquipment['weapon'] === null && $enemyEquipment['armor'] === null) {
     $enemyEquipment = [
         'weapon' => ['name' => 'Ion Cannon', 'atk' => 12, 'durability' => 100, 'type' => 'weapon'],
-        'armor' => ['name' => 'Reactive Plating', 'def' => 8, 'durability' => 100, 'type' => 'armor']
+        'armor' => ['name' => 'Reactive Plating', 'def' => 8, 'durability' => 100, 'type' => 'armor'],
+        'weapon_special' => null
     ];
     // This is default equipment, not manually equipped
     $tutorialState['enemyManuallyEquipped'] = false;
@@ -354,22 +267,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $playerEquipment = ['weapon' => null, 'armor' => null, 'weapon_special' => null];
         $enemyEquipment = [
             'weapon' => ['name' => 'Ion Cannon', 'atk' => 12, 'durability' => 100, 'type' => 'weapon'],
-            'armor' => ['name' => 'Reactive Plating', 'def' => 8, 'durability' => 100, 'type' => 'armor']
+            'armor' => ['name' => 'Reactive Plating', 'def' => 8, 'durability' => 100, 'type' => 'armor'],
+            'weapon_special' => null
         ];
         
         // Reset hands
         $_SESSION['player_hand'] = [];
         $playerHand = [];
         
-        // Rebuild starting hands
+        // Rebuild starting hands with balanced equipment distribution
         if (!empty($cardLibrary)) {
             $handSize = $gameRules['starting_hand_size'];
-            $shuffledCards = $cardLibrary;
-            shuffle($shuffledCards);
-            
-            for ($i = 0; $i < min($handSize, count($shuffledCards)); $i++) {
-                $playerHand[] = $shuffledCards[$i];
-            }
+            $playerHand = dealBalancedStartingHand($cardLibrary, $handSize);
             $_SESSION['player_hand'] = $playerHand;
         }
         
@@ -415,14 +324,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $cardsToDraw = min($requestedCards, $availableSlots, $cardsInLibrary);
         
         if ($cardsToDraw > 0) {
-            // Shuffle library to get random cards
-            $shuffledLibrary = $cardLibrary;
-            shuffle($shuffledLibrary);
-            
-            // Draw random cards from library to hand
-            $drawnCards = array_slice($shuffledLibrary, 0, $cardsToDraw);
-            $playerHand = array_merge($playerHand, $drawnCards);
-            $_SESSION['player_hand'] = $playerHand;
+            // Draw balanced cards using rarity-weighted system
+            try {
+                $drawnCards = $cardManager->drawBalancedCards($playerHand, $cardsToDraw);
+                $legacyDrawnCards = $cardManager->convertArrayToLegacyFormat($drawnCards);
+                $playerHand = array_merge($playerHand, $legacyDrawnCards);
+                $_SESSION['player_hand'] = $playerHand;
+            } catch (Exception $e) {
+                // Fallback to old system if database fails
+                $drawnCards = drawBalancedCards($cardLibrary, $playerHand, $cardsToDraw);
+                $playerHand = array_merge($playerHand, $drawnCards);
+                $_SESSION['player_hand'] = $playerHand;
+            }
             
             $gameLog[] = "[" . date('H:i:s') . "] Drew {$cardsToDraw} cards from deck!";
         } else {
@@ -592,6 +505,41 @@ function safeHtmlOutput($value, $default = 'Unknown') {
 }
 
 /**
+ * Generate optimized image sources with WebP support and PNG fallback
+ * @param string $imagePath Original image path (e.g., 'data/images/weapon_001.png')
+ * @param string $alt Alt text for the image
+ * @param string $cssClass CSS classes for the image
+ * @return string HTML picture element with WebP and PNG sources
+ */
+function getOptimizedImage($imagePath, $alt = '', $cssClass = '') {
+    // Convert path to optimized versions
+    $basePath = str_replace('data/images/', 'data/images/optimized/', $imagePath);
+    $webpPath = str_replace('.png', '.webp', $basePath);
+    $pngPath = str_replace('.png', '.png', $basePath);
+    
+    // Check if optimized versions exist, fallback to original
+    $webpExists = file_exists($webpPath);
+    $pngExists = file_exists($pngPath);
+    
+    if (!$webpExists && !$pngExists) {
+        // Fallback to original image
+        return "<img src=\"{$imagePath}\" alt=\"{$alt}\" class=\"{$cssClass}\">";
+    }
+    
+    $html = "<picture>";
+    
+    if ($webpExists) {
+        $html .= "<source srcset=\"{$webpPath}\" type=\"image/webp\">";
+    }
+    
+    $fallbackSrc = $pngExists ? $pngPath : $imagePath;
+    $html .= "<img src=\"{$fallbackSrc}\" alt=\"{$alt}\" class=\"{$cssClass}\">";
+    $html .= "</picture>";
+    
+    return $html;
+}
+
+/**
  * Safely load and validate cards from JSON file
  * @param string $path Path to the JSON file
  * @return array Array of cards or empty array on failure
@@ -655,9 +603,144 @@ function validateCard($card) {
 }
 
 // ===================================================================
+// BALANCED CARD DEALING SYSTEM
+// ===================================================================
+
+/**
+ * Deal a balanced starting hand with equipment distribution
+ * Ensures players get a mix of equipment types for synergy potential
+ * @param array $cardLibrary All available cards
+ * @param int $handSize Number of cards to deal
+ * @return array Array of dealt cards
+ */
+function dealBalancedStartingHand($cardLibrary, $handSize) {
+    $hand = [];
+    $usedCardIds = [];
+    
+    // Separate cards by type for balanced distribution
+    $weapons = [];
+    $armor = [];
+    $specials = [];
+    
+    foreach ($cardLibrary as $card) {
+        switch ($card['type']) {
+            case 'weapon':
+                $weapons[] = $card;
+                break;
+            case 'armor':
+                $armor[] = $card;
+                break;
+            case 'special attack':
+                $specials[] = $card;
+                break;
+        }
+    }
+    
+    // Shuffle each type for randomness
+    shuffle($weapons);
+    shuffle($armor);
+    shuffle($specials);
+    
+    // Try to ensure at least one of each equipment type if possible
+    $equipmentAdded = ['weapon' => false, 'armor' => false, 'special' => false];
+    
+    // Add one of each equipment type first (for synergy potential)
+    if (!empty($weapons) && $handSize > 0) {
+        $hand[] = $weapons[0];
+        $usedCardIds[] = $weapons[0]['id'];
+        $equipmentAdded['weapon'] = true;
+        $handSize--;
+    }
+    
+    if (!empty($armor) && $handSize > 0) {
+        $hand[] = $armor[0];
+        $usedCardIds[] = $armor[0]['id'];
+        $equipmentAdded['armor'] = true;
+        $handSize--;
+    }
+    
+    if (!empty($specials) && $handSize > 0) {
+        $hand[] = $specials[0];
+        $usedCardIds[] = $specials[0]['id'];
+        $equipmentAdded['special'] = true;
+        $handSize--;
+    }
+    
+    // Fill remaining slots with random cards (no duplicates)
+    $remainingCards = [];
+    foreach ($cardLibrary as $card) {
+        if (!in_array($card['id'], $usedCardIds)) {
+            $remainingCards[] = $card;
+        }
+    }
+    
+    shuffle($remainingCards);
+    
+    // Add remaining cards up to hand size
+    for ($i = 0; $i < min($handSize, count($remainingCards)); $i++) {
+        $hand[] = $remainingCards[$i];
+    }
+    
+    return $hand;
+}
+
+/**
+ * Draw balanced cards avoiding duplicates
+ * @param array $cardLibrary All available cards
+ * @param array $currentHand Player's current hand
+ * @param int $cardsToDraw Number of cards to draw
+ * @return array Array of drawn cards
+ */
+function drawBalancedCards($cardLibrary, $currentHand, $cardsToDraw) {
+    $drawnCards = [];
+    $currentCardIds = array_column($currentHand, 'id');
+    
+    // Get cards not already in hand
+    $availableCards = [];
+    foreach ($cardLibrary as $card) {
+        if (!in_array($card['id'], $currentCardIds)) {
+            $availableCards[] = $card;
+        }
+    }
+    
+    // If no available cards, fall back to allowing duplicates
+    if (empty($availableCards)) {
+        $availableCards = $cardLibrary;
+    }
+    
+    shuffle($availableCards);
+    
+    // Draw requested number of cards
+    for ($i = 0; $i < min($cardsToDraw, count($availableCards)); $i++) {
+        $drawnCards[] = $availableCards[$i];
+    }
+    
+    return $drawnCards;
+}
+
+// ===================================================================
 // EQUIPMENT DISPLAY HELPER
 // ===================================================================
 function renderEquipmentSlot($equipment, $slotType, $owner, $specialAttack = null) {
+    // Helper function to calculate synergy bonus
+    $calculateSynergy = function($playerEquipment) {
+        $weaponElement = $playerEquipment['weapon']['card_data']['element'] ?? null;
+        $armorElement = $playerEquipment['armor']['card_data']['element'] ?? null;
+        $specialElement = $playerEquipment['weapon_special']['card_data']['element'] ?? null;
+        
+        $elements = array_filter([$weaponElement, $armorElement, $specialElement]);
+        $uniqueElements = array_unique($elements);
+        
+        if (count($elements) >= 2 && count($uniqueElements) === 1) {
+            return [
+                'pieces' => count($elements),
+                'element' => $uniqueElements[0],
+                'bonus' => count($elements) >= 3 ? 15 : 8
+            ];
+        }
+        return null;
+    };
+    
     if ($equipment === null) {
         // Empty slot
         $slotLabel = ucfirst($slotType);
@@ -720,25 +803,58 @@ function renderEquipmentSlot($equipment, $slotType, $owner, $specialAttack = nul
             ";
         }
         
-        // Prepare background image styling
+        // Prepare background image styling with optimization
         $backgroundImage = '';
         $imageClass = '';
-        if (isset($equipment['card_data']['image']) && !empty($equipment['card_data']['image']) && file_exists($equipment['card_data']['image'])) {
-            $backgroundImage = "style=\"background-image: url('" . htmlspecialchars($equipment['card_data']['image']) . "');\"";
+        if (isset($equipment['card_data']['image']) && !empty($equipment['card_data']['image'])) {
+            // Clean up path and use optimized image path for background  
+            $originalPath = str_replace('\/', '/', $equipment['card_data']['image']); // Handle escaped slashes from JSON
+            $optimizedPath = str_replace('data/images/', 'data/images/optimized/', $originalPath);
+            $optimizedPath = str_replace('.png', '.webp', $optimizedPath);
+            
+            // Fallback chain: WebP -> Optimized PNG -> Original
+            if (file_exists($optimizedPath)) {
+                $imagePath = $optimizedPath;
+            } elseif (file_exists(str_replace('.webp', '.png', $optimizedPath))) {
+                $imagePath = str_replace('.webp', '.png', $optimizedPath);
+            } else {
+                $imagePath = $originalPath;
+            }
+            
+            $backgroundImage = "style=\"background-image: url('" . htmlspecialchars($imagePath) . "');\"";
             $imageClass = ' has-image';
+        }
+        
+        // Calculate synergy for player equipment
+        $synergyBelowHtml = '';
+        if ($owner === 'player') {
+            global $playerEquipment;
+            $synergy = $calculateSynergy($playerEquipment);
+            if ($synergy) {
+                $synergyClass = $synergy['pieces'] >= 3 ? 'synergy-mastery' : 'synergy-bonus';
+                $synergyText = $synergy['pieces'] >= 3 ? 'Elemental Mastery' : 'Elemental Synergy';
+                $synergyBelowHtml = "<div class='synergy-info {$synergyClass}'><span class='synergy-icon'>⚡</span> {$synergyText} +{$synergy['bonus']}% damage</div>";
+            }
         }
         
         return "
             <div class='equipment-area weapon-combo-area'>
-                {$specialAttackHtml}
-                <form method='post'>
-                    <button type='submit' name='equipment_click' value='{$owner} {$slotType}' class='equipment-card {$slotType}-card {$owner}-equipment equipped {$element}-element {$rarity}-rarity{$imageClass}' data-slot='{$slotType}' data-owner='{$owner}' {$backgroundImage}>
-                        <div class='card-type'>{$slotType}</div>
-                        <div class='card-name'>" . htmlspecialchars($equipment['name']) . "</div>
-                        <div class='card-stats'>{$statLabel}: {$statValue}</div>
-                        {$unequipButton}
-                    </button>
-                </form>
+                <div class='weapon-layout'>
+                    <div class='special-weapon-column'>
+                        {$specialAttackHtml}
+                    </div>
+                    <div class='main-weapon-column'>
+                        <form method='post'>
+                            <button type='submit' name='equipment_click' value='{$owner} {$slotType}' class='equipment-card {$slotType}-card {$owner}-equipment equipped {$element}-element {$rarity}-rarity{$imageClass}' data-slot='{$slotType}' data-owner='{$owner}' {$backgroundImage}>
+                                <div class='card-type'>{$slotType}</div>
+                                <div class='card-name'>" . htmlspecialchars($equipment['name']) . "</div>
+                                <div class='card-stats'>{$statLabel}: {$statValue}</div>
+                                {$unequipButton}
+                            </button>
+                        </form>
+                        {$synergyBelowHtml}
+                    </div>
+                </div>
             </div>
         ";
     }
@@ -821,7 +937,7 @@ function renderEquipmentSlot($equipment, $slotType, $owner, $specialAttack = nul
                 </div>
 
                 <!-- Enemy Weapon Card -->
-                <?= renderEquipmentSlot($enemyEquipment['weapon'], 'weapon', 'enemy') ?>
+                <?= renderEquipmentSlot($enemyEquipment['weapon'], 'weapon', 'enemy', $enemyEquipment['weapon_special']) ?>
 
                 <!-- Enemy Mech (Center) - ADDED IDs FOR AJAX -->
                 <div class="mech-area enemy-mech">
@@ -840,9 +956,9 @@ function renderEquipmentSlot($equipment, $slotType, $owner, $specialAttack = nul
                         
                         <div class="mech-faction-label">E</div>
                         
-                        <?php if (!empty($enemyMech['image']) && file_exists($enemyMech['image'])): ?>
+                        <?php if (!empty($enemyMech['image'])): ?>
                             <div class="mech-image-container">
-                                <img src="<?= htmlspecialchars($enemyMech['image']) ?>" alt="<?= htmlspecialchars($enemyMech['name'] ?? 'Enemy Mech') ?>" class="mech-image">
+                                <?= getOptimizedImage($enemyMech['image'], htmlspecialchars($enemyMech['name'] ?? 'Enemy Mech'), 'mech-image') ?>
                             </div>
                         <?php else: ?>
                             <div class="mech-body"></div>
@@ -942,9 +1058,9 @@ function renderEquipmentSlot($equipment, $slotType, $owner, $specialAttack = nul
                         
                         <div class="mech-faction-label">P</div>
                         
-                        <?php if (!empty($playerMech['image']) && file_exists($playerMech['image'])): ?>
+                        <?php if (!empty($playerMech['image'])): ?>
                             <div class="mech-image-container">
-                                <img src="<?= htmlspecialchars($playerMech['image']) ?>" alt="<?= htmlspecialchars($playerMech['name'] ?? 'Player Mech') ?>" class="mech-image">
+                                <?= getOptimizedImage($playerMech['image'], htmlspecialchars($playerMech['name'] ?? 'Player Mech'), 'mech-image') ?>
                             </div>
                         <?php else: ?>
                             <div class="mech-body"></div>
@@ -982,14 +1098,34 @@ function renderEquipmentSlot($equipment, $slotType, $owner, $specialAttack = nul
                     ?>
                         <div class="hand-card-container" style="--card-index: <?= $index ?>">
                             <?php 
-                            // Prepare background image and classes
-                            $hasImage = !empty($card['image']) && file_exists($card['image']);
+                            // Prepare optimized background image and classes
                             $backgroundStyle = '';
                             $imageClass = '';
                             
-                            if ($hasImage) {
-                                $backgroundStyle = 'style="background-image: url(\'' . htmlspecialchars($card['image']) . '\');"';
-                                $imageClass = ' has-image';
+                            if (!empty($card['image'])) {
+                                // Clean up path and use optimized image path for background
+                                $originalPath = str_replace('\/', '/', $card['image']); // Handle escaped slashes from JSON
+                                $optimizedPath = str_replace('data/images/', 'data/images/optimized/', $originalPath);
+                                $optimizedPath = str_replace('.png', '.webp', $optimizedPath);
+                                
+                                // Fallback chain: WebP -> Optimized PNG -> Original
+                                if (file_exists($optimizedPath)) {
+                                    $imagePath = $optimizedPath;
+                                    $hasImage = true;
+                                } elseif (file_exists(str_replace('.webp', '.png', $optimizedPath))) {
+                                    $imagePath = str_replace('.webp', '.png', $optimizedPath);
+                                    $hasImage = true;
+                                } elseif (file_exists($originalPath)) {
+                                    $imagePath = $originalPath;
+                                    $hasImage = true;
+                                } else {
+                                    $hasImage = false;
+                                }
+                                
+                                if ($hasImage) {
+                                    $backgroundStyle = 'style="background-image: url(\'' . htmlspecialchars($imagePath) . '\');"';
+                                    $imageClass = ' has-image';
+                                }
                             }
                             ?>
                             <button type="button" onclick="handleCardClick(<?= $index ?>, '<?= $card['type'] ?>')" class="hand-card face-up fan-card <?= $card['type'] ?>-card <?= ($card['element'] ?? 'fire') ?>-element <?= ($card['rarity'] ?? 'common') ?>-rarity<?= $imageClass ?>" data-card='<?= htmlspecialchars(json_encode($card), ENT_QUOTES, 'UTF-8') ?>' draggable="true" <?= $backgroundStyle ?>>
@@ -1667,8 +1803,7 @@ function equipCard(cardIndex, cardType) {
     })
     .then(response => response.text())
     .then(() => {
-        // Reload the page to see the equipped item
-        // TODO: In future, this could be made fully dynamic
+        // Reload the page to refresh equipment display
         window.location.reload();
     })
     .catch(error => {
@@ -1928,7 +2063,7 @@ const CardZoom = {
                     
                     <div class="zoom-art">
                         ${cardData.image && cardData.image.length > 0 ? 
-                            `<img src="${this.escapeHtml(cardData.image)}" alt="${this.escapeHtml(cardData.name)}" class="zoom-art-image" onerror="console.error('Failed to load image:', '${this.escapeHtml(cardData.image)}'); this.style.display='none'; this.parentNode.innerHTML='<div class=\\'zoom-art-placeholder\\'>${typeIcon}<br><small>Image not found</small></div>';">` :
+                            this.getOptimizedImageHTML(cardData.image, this.escapeHtml(cardData.name), 'zoom-art-image', typeIcon) :
                             `<div class="zoom-art-placeholder">${typeIcon}<br><small>Card Artwork</small></div>`
                         }
                     </div>
@@ -2027,6 +2162,28 @@ const CardZoom = {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    },
+
+    // Generate optimized image HTML for JavaScript usage
+    getOptimizedImageHTML(originalPath, alt, cssClass, fallbackIcon) {
+        // Clean up path - handle escaped slashes from JSON
+        const cleanPath = originalPath.replace(/\\\//g, '/');
+        
+        // Generate optimized paths
+        const optimizedWebP = cleanPath.replace('data/images/', 'data/images/optimized/').replace('.png', '.webp');
+        const optimizedPNG = cleanPath.replace('data/images/', 'data/images/optimized/');
+        
+        console.log('🖼️ Zoom image paths - Original:', cleanPath, 'WebP:', optimizedWebP, 'PNG:', optimizedPNG);
+        
+        return `
+            <picture>
+                <source srcset="${optimizedWebP}" type="image/webp">
+                <img src="${optimizedPNG}" 
+                     alt="${alt}" 
+                     class="${cssClass}"
+                     onerror="console.warn('Optimized image failed, trying original:', '${cleanPath}'); this.src='${cleanPath}'; this.onerror=function(){console.error('All image sources failed for:', '${cleanPath}'); this.parentNode.innerHTML='<div class=\\'zoom-art-placeholder\\'>${fallbackIcon}<br><small>Image not found</small></div>';}";">
+            </picture>
+        `;
     },
 
     capitalizeFirst(str) {
@@ -2450,8 +2607,10 @@ function toggleEnemyManager() {
     }
 }
 
-function assignEnemyEquipment(slotType, cardId) {
-    if (!cardId) {
+function assignEnemyEquipment(cardIndex, slotType) {
+    console.log(`🎯 Assigning enemy equipment - card ${cardIndex} to ${slotType}`);
+    
+    if (cardIndex === null || cardIndex === undefined) {
         // Clearing equipment
         clearEnemyEquipmentSlot(slotType);
         return;
@@ -2459,8 +2618,8 @@ function assignEnemyEquipment(slotType, cardId) {
     
     const formData = new FormData();
     formData.append('action', 'assign_enemy_equipment');
+    formData.append('card_index', cardIndex);
     formData.append('slot_type', slotType);
-    formData.append('card_id', cardId);
     
     fetch('combat-manager.php', { method: 'POST', body: formData })
         .then(response => response.json())
@@ -2855,38 +3014,6 @@ function handleEquipmentDrop(e) {
 // ===================================================================
 // ENEMY EQUIPMENT ASSIGNMENT FUNCTION
 // ===================================================================
-function assignEnemyEquipment(cardIndex, slotType) {
-    console.log(`🎯 Assigning enemy equipment - card ${cardIndex} to ${slotType}`);
-    
-    // Get player hand from session to find the card
-    const formData = new FormData();
-    formData.append('action', 'assign_enemy_equipment');
-    formData.append('card_index', cardIndex);
-    formData.append('slot_type', slotType);
-    
-    fetch('combat-manager.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log('🎯 Enemy equipment assignment response:', data);
-        if (data.success) {
-            showMessage(`✅ Assigned enemy equipment: ${data.message || 'Equipment assigned'}`);
-            // Update UI without page reload
-            if (data.data && data.data.enemyEquipment) {
-                // TODO: Update enemy equipment display dynamically
-                console.log('🎯 Enemy equipment updated:', data.data.enemyEquipment);
-            }
-        } else {
-            showMessage(`❌ Failed to assign enemy equipment: ${data.error || 'Unknown error'}`);
-        }
-    })
-    .catch(error => {
-        console.error('❌ Enemy equipment assignment error:', error);
-        showMessage('❌ Error assigning enemy equipment');
-    });
-}
 
 // Function to prevent dragging on specific elements
 function preventDrag(element) {
@@ -3186,9 +3313,23 @@ function renderPlayerHand(hand) {
             // Build the card HTML string dynamically based on ORIGINAL clean structure
             const cardElement = card.element || 'fire';
             const cardRarity = card.rarity || 'common';
+            // Use optimized images for better performance
             const hasImage = card.image && card.image.length > 0;
-            const backgroundStyle = hasImage ? `style="background-image: url('${card.image}');"` : '';
-            const imageClass = hasImage ? ' has-image' : '';
+            let backgroundStyle = '';
+            let imageClass = '';
+            
+            if (hasImage) {
+                // Clean up path and try optimized WebP first, then PNG, then original
+                const cleanPath = card.image.replace(/\\\//g, '/'); // Handle escaped slashes from JSON
+                const optimizedWebP = cleanPath.replace('data/images/', 'data/images/optimized/').replace('.png', '.webp');
+                const optimizedPNG = cleanPath.replace('data/images/', 'data/images/optimized/');
+                
+                // Note: In production, you might want to check if files exist
+                // For now, we'll use the optimized path with fallback handled by CSS
+                const imagePath = optimizedWebP;
+                backgroundStyle = `style="background-image: url('${imagePath}');"`;
+                imageClass = ' has-image';
+            }
             
             // Type icons mapping (same as original)
             const typeIcons = {
@@ -3212,7 +3353,10 @@ function renderPlayerHand(hand) {
             cardButton.setAttribute('data-card', JSON.stringify(card));
             cardButton.draggable = true;
             if (hasImage) {
-                cardButton.style.backgroundImage = `url('${card.image}')`;
+                // Use the optimized path we calculated earlier
+                const cleanPath = card.image.replace(/\\\//g, '/'); // Handle escaped slashes from JSON
+                const imagePath = cleanPath.replace('data/images/', 'data/images/optimized/').replace('.png', '.webp');
+                cardButton.style.backgroundImage = `url('${imagePath}')`;
             }
             
             // Add event listener instead of onclick attribute
